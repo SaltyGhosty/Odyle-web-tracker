@@ -448,7 +448,7 @@
 
   <section class="panel" id="tasks-panel" aria-labelledby="tasks-title">
     <h2 id="tasks-title">Lista de tareas</h2>
-    <p class="hint">Las diarias se reinician a las 09:00 (hora de verano de Europa central) y las semanales los miércoles.</p>
+    <p class="hint">Las diarias se vacían en el reinicio diario y las semanales en el reinicio del miércoles.</p>
     <ul class="preset-list" id="task-list"></ul>
     <form id="task-form" class="row" novalidate>
       <div class="field"><label for="task-name">Tarea</label><input id="task-name" maxlength="60" autocomplete="off" placeholder="Mazmorra de emergencia"></div>
@@ -496,6 +496,7 @@
       <label class="switch"><input type="radio" name="faction" value="asmodian" id="faction-asmodian"> Asmodiano</label>
     </div>
     <label class="switch"><input type="checkbox" id="lite-toggle"> Modo ligero (sin 3D, ahorra batería)</label>
+    <div class="field"><label for="lang-select">Idioma</label><select id="lang-select"></select></div>
   </section>
 
   <section class="panel" aria-labelledby="sound-title">
@@ -554,6 +555,8 @@
 </div>
 
 <script type="module">
+  import { startI18n, tr, LOCALE, LANG, LANGS, setLang } from './i18n.js';
+  startI18n();
   import { buildView, parseEnergyInput, parseMinutesInput, parseNameInput, parseClassInput } from './view.js';
   import { anchorFromCountdown, formatDuration, nextTickAt, TICK_MS, MAX } from './energy.js';
   import { CLASSES, classById } from './classes.js';
@@ -761,7 +764,7 @@
     if (!/^\d+$/.test(t) || Number(t) > 99_999_999) return { ok: false, error: 'El poder de combate es un número entero' };
     return { ok: true, value: Number(t) };
   }
-  const cpFmt = new Intl.NumberFormat('es');
+  const cpFmt = new Intl.NumberFormat(LOCALE);
   function cpLine(row) {
     const pts = state.cpHist.get(row.id) || [];
     const weekAgo = Date.now() - 7 * 86_400_000;
@@ -790,7 +793,7 @@
 
   // ---- Rendering ----
   const $ = id => document.getElementById(id);
-  const dateFmt = new Intl.DateTimeFormat('es', { weekday: 'short', day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
+  const dateFmt = new Intl.DateTimeFormat(LOCALE, { weekday: 'short', day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
   const SVG_NS = 'http://www.w3.org/2000/svg';
 
   function el(tag, props = {}, ...kids) {
@@ -1175,17 +1178,17 @@
     grad.addColorStop(0, css.getPropertyValue('--bg-2').trim()); grad.addColorStop(1, css.getPropertyValue('--bg').trim());
     g.fillStyle = grad; g.fillRect(0, 0, 1080, 1080);
     const gold = css.getPropertyValue('--gold-bright').trim(), fg = css.getPropertyValue('--fg').trim(), muted = css.getPropertyValue('--muted').trim();
-    g.fillStyle = gold; g.font = '700 72px Cinzel, Georgia, serif'; g.fillText('Mi semana en Aion 2', 80, 160);
+    g.fillStyle = gold; g.font = '700 72px Cinzel, Georgia, serif'; g.fillText(tr('Mi semana en Aion 2'), 80, 160);
     g.fillStyle = muted; g.font = '500 32px Figtree, sans-serif'; g.fillText($('subtitle').textContent, 80, 215);
     const lines = [[cpFmt.format(d.wk.spent), 'de OD gastada'], [String(d.wk.tasks), 'tareas hechas'],
       ['+' + cpFmt.format(d.cpGain), 'de poder de combate'], [String(d.streakNow), d.streakNow === 1 ? 'día de racha' : 'días de racha']];
     lines.forEach(([v, l], i) => {
       g.fillStyle = gold; g.font = '700 96px Figtree, sans-serif'; g.fillText(v, 80, 380 + i * 150);
       const w = g.measureText(v).width;
-      g.fillStyle = fg; g.font = '500 40px Figtree, sans-serif'; g.fillText(l, 100 + w, 380 + i * 150);
+      g.fillStyle = fg; g.font = '500 40px Figtree, sans-serif'; g.fillText(tr(l), 100 + w, 380 + i * 150);
     });
     const got = d.list.filter(a => a.done).length;
-    g.fillStyle = muted; g.font = '500 34px Figtree, sans-serif'; g.fillText(`🏅 ${got} de ${d.list.length} logros`, 80, 1000);
+    g.fillStyle = muted; g.font = '500 34px Figtree, sans-serif'; g.fillText(tr(`🏅 ${got} de ${d.list.length} logros`), 80, 1000);
     try {
       const downloads = await window.claude.use('downloads');
       if (!downloads) throw new Error('unavailable');
@@ -1229,8 +1232,8 @@
   }
 
   // Event timers: sorted by what happens next; running events first, in gold.
-  const timeFmt = new Intl.DateTimeFormat('es', { hour: '2-digit', minute: '2-digit' });
-  const dayFmt = new Intl.DateTimeFormat('es', { weekday: 'short', hour: '2-digit', minute: '2-digit' });
+  const timeFmt = new Intl.DateTimeFormat(LOCALE, { hour: '2-digit', minute: '2-digit' });
+  const dayFmt = new Intl.DateTimeFormat(LOCALE, { weekday: 'short', hour: '2-digit', minute: '2-digit' });
   const countdown = ms => ms < 86_400_000 ? formatClock(ms) : formatDuration(ms);
   // Favourite events: alert 5 minutes before they start (banner + sound + browser notification).
   const ALERT_BEFORE = 5 * 60_000;
@@ -1249,7 +1252,7 @@
         clearTimeout(alertTimer);
         alertTimer = setTimeout(() => conceal($('alert'), 'show'), Math.max(left, 60_000));
         sound.chime();
-        try { if (window.Notification && Notification.permission === 'granted') new Notification('Energía Odyle', { body: text }); } catch {}
+        try { if (window.Notification && Notification.permission === 'granted') new Notification(tr('Energía Odyle'), { body: tr(text) }); } catch {}
       }
     }
   }
@@ -1270,7 +1273,7 @@
     checkFavAlerts(items, now);
     const sameDay = ms => new Date(ms).toDateString() === new Date(now).toDateString();
     $('event-list').replaceChildren(...items.map(({ e, o, f }) => el('li', { class: `event-row ${o.active ? 'active' : ''} ${f ? 'favorite' : ''}`, 'data-event': e.id },
-      el('button', { type: 'button', class: 'fav', 'data-fav': e.id, 'aria-pressed': String(f), 'aria-label': `${f ? 'Quitar de' : 'Añadir a'} favoritos: ${e.name}`, disabled: !my || ui.readOnly }, f ? '★' : '☆'),
+      el('button', { type: 'button', class: 'fav', 'data-fav': e.id, 'aria-pressed': String(f), 'aria-label': f ? `Quitar de favoritos: ${e.name}` : `Añadir a favoritos: ${e.name}`, disabled: !my || ui.readOnly }, f ? '★' : '☆'),
       el('span', { class: 'ev-name' }, e.name),
       el('span', { class: 'ev-when' },
         o.active ? `En curso · termina en ${formatClock(o.endMs - now)}` : `Empieza en ${countdown(o.startMs - now)}`,
@@ -1453,6 +1456,8 @@
     else if (!e.shiftKey && document.activeElement === f.at(-1)) { e.preventDefault(); f[0].focus(); }
   });
   $('undo').addEventListener('click', undoLast);
+  for (const [code, label] of Object.entries(LANGS)) $('lang-select').append(el('option', { value: code, selected: code === LANG }, label));
+  $('lang-select').addEventListener('change', e => { setLang(e.target.value); location.reload(); });
   $('lite-toggle').checked = lite;
   $('lite-toggle').addEventListener('change', e => {
     lite = e.target.checked;

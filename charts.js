@@ -1,6 +1,7 @@
 // SVG charts for the tracker: 7-day energy forecast (lines) and spend history (bars).
 // Palette: validated categorical slots for the dark surface (dataviz reference palette),
 // assigned by character order so a character keeps its colour.
+import { LOCALE } from './i18n.js';
 export const CHART_COLORS = ['#3987e5', '#d95926', '#199e70', '#c98500', '#d55181', '#008300', '#9085e9', '#e66767'];
 
 const NS = 'http://www.w3.org/2000/svg';
@@ -12,8 +13,8 @@ const node = (tag, attrs = {}, text) => {
   if (text !== undefined) n.textContent = text;
   return n;
 };
-const weekday = new Intl.DateTimeFormat('es', { weekday: 'short' });
-const when = new Intl.DateTimeFormat('es', { weekday: 'short', hour: '2-digit', minute: '2-digit' });
+const weekday = new Intl.DateTimeFormat(LOCALE, { weekday: 'short' });
+const when = new Intl.DateTimeFormat(LOCALE, { weekday: 'short', hour: '2-digit', minute: '2-digit' });
 
 // series: [{name, color, points:[{t, energy}]}]; tooltip: an HTML element positioned over the svg.
 export function renderForecast(svg, series, nowMs, tooltip) {
@@ -98,8 +99,8 @@ export function renderHistory(svg, days) {
 }
 
 // Combat power over time: one line per character, x = time of each entry, y = combat power.
-const short = new Intl.NumberFormat('es', { notation: 'compact', maximumFractionDigits: 1 });
-const dayMonth = new Intl.DateTimeFormat('es', { day: 'numeric', month: 'short' });
+const short = new Intl.NumberFormat(LOCALE, { notation: 'compact', maximumFractionDigits: 1 });
+const dayMonth = new Intl.DateTimeFormat(LOCALE, { day: 'numeric', month: 'short' });
 export function renderCp(svg, series, nowMs) {
   svg.setAttribute('viewBox', `0 0 ${W} ${H}`);
   svg.replaceChildren();
@@ -124,7 +125,7 @@ export function renderCp(svg, series, nowMs) {
     svg.append(node('path', { d, class: 'series', stroke: s.color }));
     for (const p of s.points) {
       const c = node('circle', { cx: x(p.at), cy: y(p.cp), r: 4, fill: s.color, class: 'dot' });
-      c.append(node('title', {}, `${s.name}: ${p.cp.toLocaleString('es')} · ${dayMonth.format(new Date(p.at))}`));
+      c.append(node('title', {}, `${s.name}: ${p.cp.toLocaleString(LOCALE)} · ${dayMonth.format(new Date(p.at))}`));
       svg.append(c);
     }
   }
