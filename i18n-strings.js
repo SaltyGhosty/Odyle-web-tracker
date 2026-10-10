@@ -574,3 +574,7 @@ const NAV = {
   pt: { Personajes: 'Personagens', 'Estadísticas': 'Estatísticas', Ajustes: 'Configurações', Secciones: 'Seções', 'Cuando otros miembros de tu legión usen la página, aquí verás sus personajes y su disponibilidad.': 'Quando outros membros da sua legião usarem a página, você verá aqui os personagens e a disponibilidade deles.', 'Aún no hay personajes. Añade el primero con el formulario de arriba.': 'Ainda não há personagens. Adicione o primeiro com o formulário acima.' },
 };
 for (const l of Object.keys(NAV)) Object.assign(STRINGS[l], NAV[l]);
+
+Object.assign(STRINGS.en, { 'Cuando otros miembros de tu legión usen la página, aquí verás sus personajes.': 'When other members of your legion use the page, their characters will show up here.' });
+Object.assign(STRINGS.it, { 'Cuando otros miembros de tu legión usen la página, aquí verás sus personajes.': 'Quando altri membri della tua legione useranno la pagina, qui vedrai i loro personaggi.' });
+Object.assign(STRINGS.pt, { 'Cuando otros miembros de tu legión usen la página, aquí verás sus personajes.': 'Quando outros membros da sua legião usarem a página, você verá os personagens deles aqui.' });

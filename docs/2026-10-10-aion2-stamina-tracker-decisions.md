@@ -49,3 +49,7 @@ Implicaciones a tener en cuenta en todo lo que se construya:
 - Mantener el acceso a datos aislado en pocas funciones (`store.js` y las escrituras de `index.html`) para que cambiar de backend sea sustituir un adaptador, no reescribir la página.
 - Publicidad (p. ej. AdSense) y botón de PayPal requieren dominio propio, política de privacidad y aviso de cookies (UE/Italia: consentimiento previo).
 - Aion 2 es una marca de NCSOFT: sitio de fans sin logos ni arte oficial (los iconos y runas actuales son dibujos propios), con un aviso de "sitio no oficial".
+
+## Pendiente (11/10/2026)
+- Quitada "Mi disponibilidad" y el planificador de grupo (petición del usuario).
+- Próximo: **ver usuarios en línea** (quién de la legión tiene la página abierta ahora), con la capacidad `room` (presencia en tiempo real) mientras siga en claude.ai.
