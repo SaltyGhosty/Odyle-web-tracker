@@ -214,7 +214,7 @@
   /* ---- Desktop: top navigation bar with sections (mobile keeps the ☰ drawer) ---- */
   .topnav { display: none; }
   .legion-empty { display: none; }
-  @media (min-width: 700px) {
+  @media all { /* the nav bar is shown at every width (it scrolls sideways on narrow screens) */
     #menu-btn { display: none !important; }
     .topnav {
       display: flex; gap: 4px; position: sticky; top: 0; z-index: 6; margin: -8px -16px 0; padding: 8px 16px;
@@ -1399,7 +1399,7 @@
 
   // ---- Desktop layout: nav bar + sections. The same nodes are moved between the sections (desktop)
   // and their original places in the page and the ☰ drawer (mobile); nothing is duplicated. ----
-  const DESKTOP = matchMedia('(min-width: 700px)');
+  const DESKTOP = matchMedia('all') // sections + nav bar at every width; the ☰ drawer is no longer used;
   const TABS = [['personajes', 'Personajes'], ['eventos', 'Eventos'], ['estadisticas', 'Estadísticas'], ['legion', 'Legión'], ['ajustes', 'Ajustes'], ['novedades', 'Novedades']];
   const pageEl = document.querySelector('.page');
   const pageOrder = [...pageEl.children];
@@ -1622,6 +1622,7 @@
     const locked = ui.noDb || ui.readOnly;
     $('nodata').hidden = !ui.noDb;
     $('menu-btn').hidden = locked || !db || !ui.loaded;
+    $('add-form').hidden = locked || !db || !ui.loaded; // nothing to add to without data or permission
     if ($('menu-btn').hidden && ui.menuOpen) closeMenu();
     paintPresets();
     paintTaskList();

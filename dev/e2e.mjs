@@ -293,11 +293,11 @@ const visible = (page, sel) => page.locator(sel).first().isVisible();
 // ================= Phone =================
 {
   const page = await open(390, 844);
-  check('móvil: sin barra, con menú ☰', !(await visible(page, '#topnav')) && await visible(page, '#menu-btn'));
-  await page.click('#menu-btn');
-  check('móvil: el menú abre', await visible(page, '#drawer'));
-  await page.keyboard.press('Escape');
-  check('móvil: en línea y calendario en la página', await page.locator('#online-panel').isVisible() && await page.locator('#calendar-panel').isVisible());
+  check('móvil: barra de navegación visible, sin ☰', await visible(page, '#topnav') && !(await visible(page, '#menu-btn')));
+  check('móvil: la barra no ensancha la página', await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth));
+  await page.click('#topnav [data-tab=legion]');
+  check('móvil: en línea y calendario en Legión', await page.locator('#online-panel').isVisible() && await page.locator('#calendar-panel').isVisible());
+  await page.click('#topnav [data-tab=personajes]');
   await page.click('article[data-id=c1] button.spend'); await page.waitForTimeout(300);
   await page.waitForTimeout(400);
   const fab = await page.locator('#ai-fab').boundingBox(), toast = await page.locator('#toast').boundingBox();
