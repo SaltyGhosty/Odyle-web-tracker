@@ -359,6 +359,28 @@
   .lfg-list li > span { flex: 1; min-width: 0; overflow-wrap: anywhere; }
   .lfg-list small { display: block; color: var(--muted); }
 
+  /* ---- Legion calendar, ranking, wall ---- */
+  .cal-list, .wall-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; }
+  .cal-list li, .wall-list li { padding: 10px 0; border-top: 1px solid rgba(232, 184, 90, .12); display: flex; flex-wrap: wrap; align-items: center; gap: 6px 10px; }
+  .cal-list li:first-child, .wall-list li:first-child { border-top: none; }
+  .cal-list .c-main { flex: 1 1 200px; min-width: 0; }
+  .cal-list .c-main b { display: block; overflow-wrap: anywhere; }
+  .cal-list small, .wall-list small { color: var(--muted); font-size: .75rem; }
+  .cal-list li.now b { color: var(--gold-bright); }
+  .rsvp { display: flex; gap: 4px; }
+  .rsvp button { padding: 4px 10px; min-height: 30px; font-size: .8125rem; }
+  .rsvp button[aria-pressed="true"] { background: var(--gold); color: var(--on-gold); border-color: var(--gold); }
+  .rank-cols { display: grid; gap: 16px; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); }
+  .rank-cols h3 { margin: 0 0 6px; font-size: .875rem; color: var(--muted); font-weight: 600; }
+  .rank-cols ol { margin: 0; padding-left: 22px; display: flex; flex-direction: column; gap: 2px; font-size: .875rem; }
+  .rank-cols li.me { color: var(--gold-bright); font-weight: 600; }
+  .rank-cols li span { color: var(--muted); font-variant-numeric: tabular-nums; }
+  textarea.short { min-height: 64px; }
+  .wall-actions { justify-content: space-between; align-items: center; margin-top: 6px; }
+  .wall-list .w-text { flex: 1 1 100%; margin: 0; white-space: pre-wrap; overflow-wrap: anywhere; }
+  .wall-list .w-head { flex: 1; }
+  .wall-list button { padding: 2px 8px; min-height: 28px; font-size: .75rem; }
+
   /* ---- Custom timers ---- */
   .timer-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
   .timer-list:empty { display: none; }
@@ -476,6 +498,34 @@
   </section>
   <section class="legion" id="legion" aria-label="Legión"></section>
   <p class="hint legion-empty" id="legion-empty">Cuando otros miembros de tu legión usen la página, aquí verás sus personajes.</p>
+
+  <section class="panel" id="calendar-panel" aria-labelledby="calendar-title" hidden>
+    <h2 id="calendar-title">Calendario de la legión</h2>
+    <ul class="cal-list" id="cal-list"></ul>
+    <form id="cal-form" class="row" novalidate>
+      <div class="field"><label for="cal-title">Cita</label><input id="cal-title" maxlength="60" autocomplete="off" placeholder="Asedio con la legión"></div>
+      <div class="field"><label for="cal-at">Fecha y hora</label><input id="cal-at" type="datetime-local"></div>
+      <div class="field narrow"><label for="cal-dur">Minutos</label><input id="cal-dur" inputmode="numeric" value="60"></div>
+      <button type="submit" class="primary offset">Crear</button>
+      <p class="error" id="cal-error" role="alert" hidden></p>
+    </form>
+  </section>
+
+  <section class="panel" id="rank-panel" aria-labelledby="rank-title" hidden>
+    <h2 id="rank-title">Ranking de la legión</h2>
+    <div class="rank-cols" id="rank-cols"></div>
+  </section>
+
+  <section class="panel" id="wall-panel" aria-labelledby="wall-title" hidden>
+    <h2 id="wall-title">Muro</h2>
+    <form id="wall-form" novalidate>
+      <label for="wall-text">Escribe a la legión</label>
+      <textarea id="wall-text" maxlength="280" class="short"></textarea>
+      <div class="row wall-actions"><span class="note-count" id="wall-count">0/280</span><button type="submit" class="primary">Publicar</button></div>
+      <p class="error" id="wall-error" role="alert" hidden></p>
+    </form>
+    <ul class="wall-list" id="wall-list"></ul>
+  </section>
   <p class="empty" id="empty" hidden>Aún no hay personajes. Añádelo desde el menú ☰ o con el formulario de arriba.</p>
 
   <section class="panel guide" id="guide" aria-labelledby="guide-title" hidden>
@@ -679,7 +729,7 @@
   import { formatClock, detectGains, rollValue, becameFull, sceneOptions } from './motion.js';
 
   // Data comes only from db snapshots. Writes happen only after a user action.
-  const state = { characters: [], memberData: new Map(), stats: null, tasks: DEFAULT_TASKS, progress: new Map(), cpHist: new Map(), hiddenMembers: 0, others: new Map(), names: {}, schedule: null, presets: [], events: [], timers: [], prefs: { quietStart: '00:00', quietEnd: '08:00', favEvents: [], faction: 'elyos' } };
+  const state = { characters: [], memberData: new Map(), stats: null, tasks: DEFAULT_TASKS, progress: new Map(), cpHist: new Map(), hiddenMembers: 0, others: new Map(), names: {}, schedule: null, presets: [], events: [], timers: [], calendar: [], wall: [], prefs: { quietStart: '00:00', quietEnd: '08:00', favEvents: [], faction: 'elyos' } };
   // Interface-only state: which card is editing/confirming, validation messages.
   // noDb: no db in this view. readOnly: viewer cannot write (or a write was refused).
   const ui = { pop: null, notesId: null, tasksOpen: new Set(), menuOpen: false, editingId: null, extraId: null, confirmId: null, errors: {}, selectedId: null, noDb: false, readOnly: false, loaded: false };
@@ -687,6 +737,7 @@
   let db = null;
   let user = null;
   let my = null; // paths(myUid): this viewer's own part of the db
+  let myUid = null;
 
   // ---- Motion setup: the 3D scene loads in the background; flat orbs until it is ready ----
   const reduceMotion = matchMedia('(prefers-reduced-motion: reduce)').matches;
@@ -813,6 +864,7 @@
     if (ok && cpChanged) {
       const pts = [...(state.cpHist.get(row.id) || []), { at: Date.now(), cp }].slice(-200);
       await save(() => db.doc(my.cp + '/' + row.id).set({ points: pts }));
+      await publishRank();
     }
     return ok;
   }
@@ -863,7 +915,7 @@
   async function bumpStats(delta) {
     if (!my || ui.readOnly || state.stats === null) return; // not loaded yet: never overwrite real stats
     state.stats = bumped(state.stats, todayKey(), delta);
-    await save(() => db.doc(my.stats).set(state.stats));
+    if (await save(() => db.doc(my.stats).set(state.stats))) await publishRank();
   }
   const saveNotes = (id, text) => save(() => db.doc(my.characters + '/' + id).update({ notes: String(text).slice(0, 500) }), id);
   function parseCp(s) {
@@ -896,7 +948,7 @@
       delete ui.errors[row.id];
       return { energy: d.energy, event: { kind: 'spend', amount: preset.cost, presetId: preset.id }, label: `Gastaste ${preset.cost} en ${r.name}` };
     });
-    if (ok) bumpStats({ spent: preset.cost, spends: 1 });
+    if (ok) await bumpStats({ spent: preset.cost, spends: 1 });
     return ok;
   }
   const addExtra = (row, value) => changeEnergy(row.id, r => {
@@ -1301,7 +1353,7 @@
     personajes: () => ['guide', 'summary', 'add-form', 'empty', 'mine-title', 'cards'].map(id => $(id)),
     eventos: () => [$('events'), $('timers-panel')],
     estadisticas: () => ['week-panel', 'sim-panel', 'forecast-panel', 'cp-panel', 'history-panel'].map(id => $(id)),
-    legion: () => [$('online-panel'), $('legion'), $('legion-empty')],
+    legion: () => ['online-panel', 'calendar-panel', 'rank-panel', 'wall-panel', 'legion', 'legion-empty'].map(id => $(id)),
     ajustes: () => drawerPanels.filter(n => n.id !== 'add-form' && !isNews(n)),
     novedades: () => drawerPanels.filter(isNews),
   };
@@ -1486,6 +1538,7 @@
   function paintClock() {
     paintEvents(Date.now());
     paintTimers(Date.now());
+    paintCalendar(Date.now());
     const anchor = state.schedule && Number.isFinite(state.schedule.anchorMs) ? state.schedule.anchorMs : null;
     const left = anchor === null ? null : nextTickAt(anchor, Date.now()) - Date.now();
     for (const p of document.querySelectorAll('.tick-left')) {
@@ -1536,6 +1589,8 @@
     paintGuide(view.rows);
     paintWeek(view.rows);
     paintSim(view.rows);
+    paintWall();
+    paintRank();
     paintCharts(view.rows);
 
     // Other members: read-only groups with their own orbs; ids are prefixed with the member id.
@@ -1853,6 +1908,116 @@
     });
   }
 
+  // ---- Legion calendar: appointments with Voy/Quizá/No; alert 15 minutes before ----
+  const CAL_ALERT = 15 * 60_000;
+  const calAlerted = new Set();
+  let paintedCal = '';
+  function paintCalendar(now) {
+    $('calendar-panel').hidden = !db || ui.noDb;
+    if ($('calendar-panel').hidden) return;
+    $('cal-form').hidden = !my || ui.readOnly;
+    const upcoming = state.calendar.filter(c => c.at + c.durationMin * 60_000 > now).sort((a, b) => a.at - b.at).slice(0, 20);
+    for (const c of upcoming) { // alert for appointments I haven't declined
+      const left = c.at - now, key = c.id + ':' + c.at;
+      if (left > 0 && left <= CAL_ALERT && !calAlerted.has(key) && (c.rsvp?.[myUid] ?? 'none') !== 'no') {
+        calAlerted.add(key);
+        showAlert(`📅 ${c.title} empieza a las ${timeFmt.format(new Date(c.at))}`);
+      }
+    }
+    const key = JSON.stringify(upcoming) + ui.readOnly + Math.floor(now / 60_000) + JSON.stringify(state.names);
+    if (key === paintedCal) return; // repaint at most once a minute or on change (keeps focus)
+    paintedCal = key;
+    const voteBtn = (c, v, label) => el('button', { type: 'button', 'aria-pressed': String(c.rsvp?.[myUid] === v), disabled: !my || ui.readOnly,
+      onclick: () => save(() => db.doc('calendar/' + c.id).update({ rsvp: { [myUid]: v } })) }, label);
+    $('cal-list').replaceChildren(...(upcoming.length ? upcoming.map(c => {
+      const votes = Object.values(c.rsvp || {});
+      const n = v => votes.filter(x => x === v).length;
+      const live = c.at <= now;
+      return el('li', { class: live ? 'now' : '' },
+        el('div', { class: 'c-main' }, el('b', {}, c.title),
+          el('small', {}, `${dateFmt.format(new Date(c.at))} · ${c.durationMin} min · ${live ? 'en curso' : 'en ' + formatDuration(c.at - now)} · por ${c.uid === myUid ? 'ti' : nameOf(c.uid)}`),
+          el('small', {}, ` · Voy ${n('yes')} · Quizá ${n('maybe')} · No ${n('no')}`)),
+        el('div', { class: 'rsvp' }, voteBtn(c, 'yes', 'Voy'), voteBtn(c, 'maybe', 'Quizá'), voteBtn(c, 'no', 'No'),
+          c.uid === myUid && !ui.readOnly ? el('button', { type: 'button', 'aria-label': `Borrar ${c.title}`, onclick: () => save(() => db.doc('calendar/' + c.id).delete()) }, '✕') : null));
+    }) : [el('li', { class: 'muted hint' }, 'No hay citas próximas. Crea la primera.')]));
+  }
+  $('cal-form').addEventListener('submit', async e => {
+    e.preventDefault();
+    if (!my || ui.readOnly) return;
+    const title = clean($('cal-title').value, 60);
+    const at = new Date($('cal-at').value).getTime();
+    const dur = Number($('cal-dur').value);
+    if (!title) return showError('cal-error', 'Escribe un título');
+    if (!Number.isFinite(at) || at < Date.now() - 60_000) return showError('cal-error', 'Elige una fecha futura');
+    if (!Number.isInteger(dur) || dur < 5 || dur > 600) return showError('cal-error', 'Duración entre 5 y 600 minutos');
+    showError('cal-error', '');
+    const ref = db.collection('calendar').doc();
+    if (!await save(() => ref.set({ uid: myUid, title, at, durationMin: dur, rsvp: { [myUid]: 'yes' } }))) return;
+    $('cal-title').value = ''; $('cal-at').value = '';
+  });
+
+  // ---- Wall: short messages to the legion; authors delete their own ----
+  let paintedWall = '';
+  function paintWall() {
+    $('wall-panel').hidden = !db || ui.noDb;
+    if ($('wall-panel').hidden) return;
+    $('wall-form').hidden = !my || ui.readOnly;
+    const key = JSON.stringify(state.wall) + ui.readOnly + JSON.stringify(state.names);
+    if (key === paintedWall) return;
+    paintedWall = key;
+    $('wall-list').replaceChildren(...(state.wall.length ? state.wall.map(m => el('li', {},
+      el('span', { class: 'w-head' }, el('b', {}, m.uid === myUid ? 'Tú' : nameOf(m.uid)), ' ', el('small', {}, dateFmt.format(new Date(m.at)))),
+      m.uid === myUid && !ui.readOnly ? el('button', { type: 'button', 'aria-label': 'Borrar mensaje', onclick: () => save(() => db.doc('wall/' + m.id).delete()) }, 'Borrar') : null,
+      el('p', { class: 'w-text' }, m.text))) : [el('li', { class: 'muted hint' }, 'Aún no hay mensajes.')]));
+  }
+  $('wall-text').addEventListener('input', e => { $('wall-count').textContent = `${e.target.value.length}/280`; });
+  let lastWallAt = 0;
+  $('wall-form').addEventListener('submit', async e => {
+    e.preventDefault();
+    if (!my || ui.readOnly) return;
+    const text = String($('wall-text').value).replace(/[\u0000-\u0009\u000b-\u001f\u007f]/g, ' ').trim().slice(0, 280);
+    if (!text) return showError('wall-error', 'Escribe un mensaje');
+    if (Date.now() - lastWallAt < 10_000) return showError('wall-error', 'Espera unos segundos entre mensajes');
+    showError('wall-error', '');
+    lastWallAt = Date.now();
+    const ref = db.collection('wall').doc();
+    if (!await save(() => ref.set({ uid: myUid, at: Date.now(), text }))) return;
+    $('wall-text').value = ''; $('wall-count').textContent = '0/280';
+  });
+
+  // ---- Ranking: each member publishes their own numbers to members/{uid}.rank ----
+  function rankData() {
+    const stats = { ...EMPTY_STATS, ...(state.stats || {}) };
+    const cpMax = Math.max(0, ...state.characters.map(c => Number.isFinite(c.cp) ? c.cp : 0));
+    return { weekSpent: weekTotals(stats.daysLog, todayKey()).spent, cpMax, achievements: unlocked(stats, cpMax).filter(a => a.done).length, updatedAt: Date.now() };
+  }
+  async function publishRank() {
+    if (!my || ui.readOnly || state.stats === null) return;
+    await write(() => db.doc(my.member).update({ rank: rankData() })).catch(() => {});
+  }
+  let paintedRank = '';
+  function paintRank() {
+    const now = Date.now();
+    const rows = [];
+    for (const [uid, d] of state.memberData) {
+      const r = uid === myUid && my ? rankData() : d.rank;
+      if (!r || !Number.isFinite(r.updatedAt)) continue;
+      rows.push({ uid, weekSpent: now - r.updatedAt < 7 * 86_400_000 ? Number(r.weekSpent) || 0 : 0, cpMax: Number(r.cpMax) || 0, achievements: Number(r.achievements) || 0 });
+    }
+    $('rank-panel').hidden = !db || ui.noDb || rows.length < 2;
+    if ($('rank-panel').hidden) return;
+    const key = JSON.stringify(rows.map(r => [r.uid, r.weekSpent, r.cpMax, r.achievements])) + JSON.stringify(state.names);
+    if (key === paintedRank) return;
+    paintedRank = key;
+    const col = (title, field, fmt) => el('div', {}, el('h3', {}, title),
+      el('ol', {}, ...[...rows].sort((a, b) => b[field] - a[field]).slice(0, 10).map(r =>
+        el('li', { class: r.uid === myUid ? 'me' : '' }, `${r.uid === myUid ? 'Tú' : nameOf(r.uid)} `, el('span', {}, fmt(r[field]))))));
+    $('rank-cols').replaceChildren(
+      col('OD gastada (7 días)', 'weekSpent', v => cpFmt.format(v)),
+      col('Poder de combate', 'cpMax', v => cpFmt.format(v)),
+      col('Logros', 'achievements', v => String(v)));
+  }
+
   // ---- Online now (room presence) and "Busco grupo" (room events). Nothing here is stored. ----
   let room = null;
   let peers = [];
@@ -1995,7 +2160,6 @@
     db = await window.claude.use('db');
     user = await window.claude.use('user');
   } catch { db = null; }
-  let myUid = null;
   try { myUid = user ? await user.id() : null; } catch { myUid = null; }
   if (!db) {
     ui.noDb = true; ui.loaded = true;
@@ -2081,6 +2245,18 @@
       state.timers = items.filter(t => t && typeof t.id === 'string' && typeof t.name === 'string' && Number.isFinite(t.endsAt));
       render();
     }, onError);
+    db.collection('calendar').where('at', '>', Date.now() - 86_400_000).orderBy('at').limit(100).onSnapshot(async snap => {
+      state.calendar = snap.docs.map(d => ({ id: d.id, ...d.data() })).filter(c => typeof c.title === 'string' && Number.isFinite(c.at) && Number.isFinite(c.durationMin))
+        .map(c => ({ ...c, title: c.title.slice(0, 60), rsvp: c.rsvp && typeof c.rsvp === 'object' ? c.rsvp : {} }));
+      await resolveNames(state.calendar.map(c => c.uid));
+      paintCalendar(Date.now());
+    }, () => {});
+    db.collection('wall').orderBy('at', 'desc').limit(50).onSnapshot(async snap => {
+      state.wall = snap.docs.map(d => ({ id: d.id, ...d.data() })).filter(m => typeof m.text === 'string' && Number.isFinite(m.at))
+        .map(m => ({ ...m, text: m.text.slice(0, 280) }));
+      await resolveNames(state.wall.map(m => m.uid));
+      paintWall();
+    }, () => {});
     db.doc('settings/schedule').onSnapshot(snap => {
       state.schedule = snap.exists ? snap.data() : null;
       render();
