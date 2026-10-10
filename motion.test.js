@@ -29,3 +29,11 @@ test('rollValue', () => {
   assert.equal(rollValue(0, 100, 0.5), 88);
   assert.equal(rollValue(0, 100, 2), 100);
 });
+
+test('detectGains: cambio de hora de recarga no cuenta', () => {
+  const p2 = new Map([['a', { energy: 225, recordedAt: 1, anchorMs: 100 }]]);
+  assert.deepEqual(detectGains(p2, [{ id: 'a', energy: 240, recordedAt: 1, anchorMs: 200 }]), []);
+  const p3 = new Map([['a', { energy: 225, recordedAt: 1, anchorMs: null }]]);
+  assert.deepEqual(detectGains(p3, [{ id: 'a', energy: 255, recordedAt: 1, anchorMs: 100 }]), []);
+  assert.deepEqual(detectGains(p2, [{ id: 'a', energy: 240, recordedAt: 1, anchorMs: 100 }]), [{ id: 'a', gain: 15 }]);
+});

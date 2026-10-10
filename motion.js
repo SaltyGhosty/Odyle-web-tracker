@@ -10,13 +10,14 @@ export function formatClock(ms) {
 }
 
 // A gain is a rise in computed energy for a known character whose stored value
-// (recordedAt) did not change — i.e. a recharge, not a manual edit. Ticks missed
+// (recordedAt) and recharge schedule (anchorMs) did not change — i.e. a recharge, not a
+// manual edit or a schedule change. Ticks missed
 // while the page was hidden collapse into one event.
 export function detectGains(prev, rows) {
   const gains = [];
   for (const r of rows) {
     const p = prev.get(r.id);
-    if (p && p.recordedAt === r.recordedAt && r.energy > p.energy) {
+    if (p && p.recordedAt === r.recordedAt && p.anchorMs === r.anchorMs && r.energy > p.energy) {
       gains.push({ id: r.id, gain: r.energy - p.energy });
     }
   }

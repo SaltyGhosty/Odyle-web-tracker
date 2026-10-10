@@ -104,8 +104,8 @@
   .grid { display: grid; gap: 20px; grid-template-columns: minmax(0, 1fr); }
   @media (min-width: 860px) { .grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
   .card { display: grid; grid-template-columns: 1fr; justify-items: center; gap: 0; position: relative; }
-  .orb-slot { width: 150px; height: 150px; position: relative; margin-bottom: -22px; z-index: 2; }
-  .card .panel { width: 100%; padding-top: 30px; }
+  .orb-slot { width: 150px; height: 150px; position: relative; margin-bottom: 8px; z-index: 2; }
+  .card .panel { width: 100%; }
   @media (min-width: 520px) {
     .card { grid-template-columns: 150px minmax(0, 1fr); align-items: center; justify-items: stretch; }
     .orb-slot { margin: 0 -26px 0 0; }
@@ -244,17 +244,24 @@
   let db = null;
   let user = null;
 
-  // ---- Motion setup: 3D scene unless reduced motion or no WebGL ----
+  // ---- Motion setup: the 3D scene loads in the background; flat orbs until it is ready ----
   const reduceMotion = matchMedia('(prefers-reduced-motion: reduce)').matches;
   let scene = null;
-  if (!reduceMotion) {
+  let animate = false;
+  document.body.classList.add('flat');
+  async function initScene() {
+    if (reduceMotion) return;
     try {
       const { createScene } = await import('./orb.js');
       scene = createScene(document.getElementById('scene'), { particles: innerWidth >= 720 ? 500 : 200 });
     } catch { scene = null; }
+    if (!scene) return;
+    animate = true;
+    document.body.classList.remove('flat');
+    scene.start();
+    enableTilt();
+    render();
   }
-  if (scene) scene.start(); else document.body.classList.add('flat');
-  const animate = !!scene;
 
   // ---- Actions (the only functions that write data), one write at a time ----
   let queue = Promise.resolve();
@@ -445,7 +452,11 @@
   }
 
   let lastEnergy = new Map();
+  let lastAnchor;
   function paint(view) {
+    const anchor = state.schedule && Number.isFinite(state.schedule.anchorMs) ? state.schedule.anchorMs : null;
+    // A schedule change (incl. first load) moves computed energy without a recharge: re-baseline, no roll.
+    if (anchor !== lastAnchor) { shown.clear(); rolls.clear(); }
     paintClock();
     const locked = ui.noDb || ui.readOnly;
     $('nodata').hidden = !ui.noDb;
@@ -478,15 +489,18 @@
 
     // Recharge gains (not manual edits): floating "+N" and an orb ripple.
     const recorded = new Map(state.characters.map(c => [c.id, c.recordedAt]));
-    const now = view.rows.map(r => ({ id: r.id, energy: r.energy, recordedAt: recorded.get(r.id) }));
-    if (animate) {
+    const now = view.rows.map(r => ({ id: r.id, energy: r.energy, recordedAt: recorded.get(r.id), anchorMs: anchor }));
+    // While hidden, keep the old baseline so returning shows one "+N" with the total.
+    const keepBaseline = document.hidden && anchor === lastAnchor;
+    if (animate && !keepBaseline) {
       for (const g of detectGains(lastEnergy, now)) {
         const card = cards.querySelector(`article[data-id="${CSS.escape(g.id)}"]`);
         if (card) card.append(el('span', { class: 'gain', 'aria-hidden': 'true' }, `+${g.gain}`));
         scene.ripple(g.id);
       }
     }
-    lastEnergy = new Map(now.map(r => [r.id, r]));
+    if (!keepBaseline) lastEnergy = new Map(now.map(r => [r.id, r]));
+    lastAnchor = anchor;
 
     if (focusId && document.activeElement !== $(focusId)) {
       const again = $(focusId);
@@ -532,7 +546,8 @@
     render();
   });
   // Gentle tilt on hover (fine pointers only); delegated because cards are re-created.
-  if (animate && matchMedia('(pointer: fine)').matches) {
+  function enableTilt() {
+    if (!matchMedia('(pointer: fine)').matches) return;
     $('cards').addEventListener('pointermove', e => {
       const panel = e.target.closest('.card .panel');
       if (!panel) return;
@@ -547,6 +562,7 @@
   }
 
   render();
+  initScene();
   // Timers only repaint from memory; they never write.
   let nextRepaintAt = Infinity;
   setInterval(() => {

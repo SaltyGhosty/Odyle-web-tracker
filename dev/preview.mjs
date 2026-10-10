@@ -10,13 +10,15 @@ const THREE_SRC = readFileSync(new URL('../node_modules/three/build/three.module
 // In-memory stand-in for window.claude (db + user), injected before the page loads.
 const STUB = () => {
   const docs = new Map(); const subs = new Set(); let n = 0;
+  const seed = window.__SEED;
+  if (seed) { for (const [id, d] of Object.entries(seed.characters)) docs.set('characters/' + id, d); docs.set('settings/schedule', seed.schedule); }
   const notify = () => subs.forEach(f => f());
   const snapDoc = (path) => ({ id: path.split('/').pop(), exists: docs.has(path), data: () => docs.get(path) });
   const doc = path => ({
     update: async d => { docs.set(path, { ...docs.get(path), ...d }); notify(); },
     set: async d => { docs.set(path, { ...d }); notify(); },
     delete: async () => { docs.delete(path); notify(); },
-    onSnapshot(next) { const f = () => next(snapDoc(path)); subs.add(f); setTimeout(f); return () => subs.delete(f); },
+    onSnapshot(next) { const f = () => next(snapDoc(path)); subs.add(f); setTimeout(f, seed ? 400 : 0); return () => subs.delete(f); },
   });
   const collection = name => ({
     doc: () => doc(name + '/c' + (++n)),
@@ -41,7 +43,21 @@ for (const [label, width, height] of [['mobile', 390, 844], ['desktop', 1280, 80
     page.on('console', m => { if (m.type() === 'error') errors.push(`${label}/${scheme}: ${m.text()}`); });
     page.on('pageerror', e => errors.push(`${label}/${scheme}: ${e.message}`));
     if (!process.env.NO_STUB) await page.addInitScript(STUB);
+    if (scheme === 'dark' && label === 'mobile') {
+      // Three.js arrives late: the add form must already work (no page reload).
+      await page.unroute(THREE_URL);
+      await page.route(THREE_URL, async r => { await new Promise(res => setTimeout(res, 2500)); r.fulfill({ contentType: 'text/javascript', body: THREE_SRC }); });
+    }
     await page.goto(BASE);
+    if (scheme === 'dark' && label === 'mobile') {
+      await page.evaluate(() => { window.__alive = true; });
+      await page.waitForSelector('#add-form:not([hidden])');
+      await page.fill('#add-name', 'Temprano'); await page.click('#add-form button[type=submit]');
+      await page.waitForTimeout(300);
+      check('add form works before Three.js loads', await page.evaluate(() => window.__alive === true) && await page.locator('article.card').count() === 1);
+      await page.waitForTimeout(2600);
+      await page.goto(BASE); await page.waitForTimeout(2800); // fresh stub state for the rest of the run
+    }
     const shot = n => page.screenshot({ path: `dev/screens/${label}-${scheme}-${n}.png`, fullPage: true });
     await shot('1-empty');
     // validation errors
@@ -66,6 +82,11 @@ for (const [label, width, height] of [['mobile', 390, 844], ['desktop', 1280, 80
     const slots = await page.locator('.orb-slot').count();
     check(`${label}/${scheme} one orb slot per card`, slots === await page.locator('article.card').count() && slots === 3);
     // a near-full and a full card get their classes
+    if (label === 'mobile') {
+      const orb = await page.locator('article[data-id=c2] .orb-slot').boundingBox();
+      const pan = await page.locator('article[data-id=c2] .panel').boundingBox();
+      check(`mobile/${scheme} panel does not cover the orb`, orb.y + orb.height <= pan.y + 1);
+    }
     check(`${label}/${scheme} full card marked`, await page.locator('article[data-id=c3].full').count() === 1);
     if (scheme === 'dark') {
       // after scrolling, the orb is still drawn inside its slot
@@ -91,6 +112,30 @@ for (const [label, width, height] of [['mobile', 390, 844], ['desktop', 1280, 80
     console.log(label, scheme, 'horizontal overflow:', overflow); check(`${label}/${scheme} no horizontal overflow`, !overflow);
     await ctx.close();
   }
+}
+// Seeded data: stored 7 h ago, schedule snapshot arrives after characters.
+{
+  const ctx = await browser.newContext({ viewport: { width: 1280, height: 800 }, colorScheme: 'dark' });
+  const page = await ctx.newPage();
+  await page.route(THREE_URL, r => r.fulfill({ contentType: 'text/javascript', body: THREE_SRC }));
+  page.on('pageerror', e => errors.push(`seeded: ${e.message}`));
+  await page.addInitScript(() => {
+    const now = Date.now();
+    window.__SEED = { characters: { s1: { name: 'Semilla', classId: 'gladiador', energy: 100, recordedAt: now - 7 * 3600_000, order: 1 } },
+      schedule: { anchorMs: now + 4000 } };
+  });
+  await page.addInitScript(STUB);
+  await page.goto(BASE);
+  await page.waitForTimeout(1800);
+  check('seeded: no false +N on load', await page.locator('.gain').count() === 0);
+  check('seeded: class icon and name shown', await page.locator('.cls-icon').count() === 1 && (await page.locator('.cls-name').textContent()) === 'Gladiador');
+  await page.evaluate(() => { Object.defineProperty(document, 'hidden', { configurable: true, get: () => true }); });
+  await page.waitForTimeout(4000);
+  await page.evaluate(() => { Object.defineProperty(document, 'hidden', { configurable: true, get: () => false }); document.dispatchEvent(new Event('visibilitychange')); });
+  await page.waitForTimeout(200);
+  check('seeded: +15 shown after returning from background', (await page.locator('.gain').allTextContents()).join() === '+15');
+  await page.screenshot({ path: 'dev/screens/seeded.png' });
+  await ctx.close();
 }
 await browser.close();
 const real = errors.filter(e => !/fonts\.g|ERR_TUNNEL|ERR_CONNECTION|net::/.test(e));
