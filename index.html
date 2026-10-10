@@ -214,14 +214,15 @@
   /* ---- Desktop: top navigation bar with sections (mobile keeps the ☰ drawer) ---- */
   .topnav { display: none; }
   .legion-empty { display: none; }
-  @media (min-width: 900px) {
+  @media (min-width: 700px) {
     #menu-btn { display: none !important; }
     .topnav {
       display: flex; gap: 4px; position: sticky; top: 0; z-index: 6; margin: -8px -16px 0; padding: 8px 16px;
+      overflow-x: auto; scrollbar-width: none; /* narrow windows: the tabs scroll sideways instead of wrapping */
       background: color-mix(in srgb, var(--bg) 80%, transparent); -webkit-backdrop-filter: blur(12px); backdrop-filter: blur(12px);
       border-bottom: 1px solid var(--line);
     }
-    .topnav button { border: none; background: none; border-radius: 8px; padding: 10px 14px; color: var(--muted); font-weight: 600; position: relative; }
+    .topnav button { flex: none; white-space: nowrap; border: none; background: none; border-radius: 8px; padding: 10px 14px; color: var(--muted); font-weight: 600; position: relative; }
     .topnav button:hover { color: var(--fg); background: rgba(255, 255, 255, .04); }
     .topnav button[aria-current="page"] { color: var(--gold-bright); }
     .topnav button[aria-current="page"]::after { content: ""; position: absolute; left: 14px; right: 14px; bottom: 2px; height: 2px; border-radius: 2px; background: var(--gold); box-shadow: 0 0 8px var(--gold); }
@@ -427,7 +428,7 @@
   .keys { display: grid; grid-template-columns: auto 1fr; gap: 8px 14px; margin: 0; align-items: baseline; }
   .keys dt { white-space: nowrap; } .keys dd { margin: 0; color: var(--muted); font-size: .875rem; }
   .keys-hint { display: none; }
-  @media (pointer: fine) and (min-width: 900px) { .keys-hint { display: block; } }
+  @media (pointer: fine) and (min-width: 700px) { .keys-hint { display: block; } }
 
   /* ---- Compact mode: small orb beside a short panel, no charts or extra panels ---- */
   body.compact .grid { gap: 10px; }
@@ -1395,7 +1396,7 @@
 
   // ---- Desktop layout: nav bar + sections. The same nodes are moved between the sections (desktop)
   // and their original places in the page and the ☰ drawer (mobile); nothing is duplicated. ----
-  const DESKTOP = matchMedia('(min-width: 900px)');
+  const DESKTOP = matchMedia('(min-width: 700px)');
   const TABS = [['personajes', 'Personajes'], ['eventos', 'Eventos'], ['estadisticas', 'Estadísticas'], ['legion', 'Legión'], ['ajustes', 'Ajustes'], ['novedades', 'Novedades']];
   const pageEl = document.querySelector('.page');
   const pageOrder = [...pageEl.children];
