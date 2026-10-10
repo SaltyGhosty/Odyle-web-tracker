@@ -9,9 +9,9 @@
 ## Restricciones globales
 - Lo de planes anteriores. Sin enlaces externos.
 - Datos nuevos: `calendar/{id}` `{uid, title, at, durationMin, rsvp:{uid:'yes'|'maybe'|'no'}}` y `wall/{id}` `{uid, at, text}` (reglas por defecto de la raíz: leen todos, escriben Contributor+); en `members/{uid}`: `rank:{weekSpent, cpMax, achievements, updatedAt}` y `cpGoal`; temporizadores propios en `members/{uid}/settings/timers` `{items:[{id,name,endsAt}]}`.
-- Tiempo real con `room`: presencia `{uid, char, at}` y temas `lfg` / `lfgReply` abiertos a Contributor.
+- Tiempo real con `room`: presencia `{uid, char, at}` y temas `lfg` / `lfg-reply` abiertos a Contributor.
 - Asistente: `sample` (memoryless) con el historial del chat + un resumen JSON de los datos del usuario en cada petición; respuestas en el idioma activo.
-- Capacidades al publicar: las actuales + `room:{topics:{lfg:'interact', lfgReply:'interact'}}` + `sample:{}`.
+- Capacidades al publicar: las actuales + `room:{topics:{lfg:'interact', lfg-reply:'interact'}}` + `sample:{}`.
 - Presupuesto de suscripciones: fijas de la página 13 → máximo 51 miembros más.
 
 ### Tarea 1: Planificar energía
@@ -27,7 +27,7 @@
 
 ### Tarea 3: En línea y "Busco grupo"
 - Presencia: lista "En línea" (cabecera/Legión) con nombres de quien tiene la página abierta.
-- "Busco grupo": botón → elige actividad (eventos del juego + texto libre) → `emit('lfg')`; quien está conectado ve un aviso con "Voy"; las respuestas llegan como `lfgReply` y se cuentan.
+- "Busco grupo": botón → elige actividad (eventos del juego + texto libre) → `emit('lfg')`; quien está conectado ve un aviso con "Voy"; las respuestas llegan como `lfg-reply` y se cuentan.
 
 ### Tarea 4: Legión
 - Calendario: crear cita (título, fecha y hora, duración); lista de próximas citas con Voy/Quizá/No y recuento; aviso 15 min antes (como los favoritos).

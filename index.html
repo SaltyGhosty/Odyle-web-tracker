@@ -2140,7 +2140,7 @@
   async function replyLfg(o) {
     if (!room || o.replied) return;
     o.replied = true; paintOnline();
-    try { await room.emit('lfgReply', { id: o.id }); } catch { o.replied = false; paintOnline(); showNotice('No se pudo responder'); }
+    try { await room.emit('lfg-reply', { id: o.id }); } catch { o.replied = false; paintOnline(); showNotice('No se pudo responder'); }
   }
   $('lfg-form').addEventListener('submit', async e => {
     e.preventDefault();
@@ -2187,7 +2187,7 @@
       paintOnline();
       showAlert(`${nameOf(msg.by)} busca grupo: ${act}`, ui.readOnly ? null : () => replyLfg(o), 'Voy');
     });
-    room.on('lfgReply', async msg => {
+    room.on('lfg-reply', async msg => {
       const id = clean(msg.data?.id, 24);
       if (!myLfg || id !== myLfg.id || msg.isMe) return;
       myLfg.replies.add(msg.by || msg.peer);
