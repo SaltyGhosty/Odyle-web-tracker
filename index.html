@@ -160,6 +160,15 @@
     font-weight: 500; font-size: 1rem; background: var(--glass);
   }
 
+  /* ---- News, feedback, data ---- */
+  .news { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px; font-size: .875rem; }
+  .news time { color: var(--gold-bright); font-weight: 600; margin-right: 6px; }
+  .file-btn { display: inline-flex; align-items: center; border: 1px solid var(--line); border-radius: 10px; padding: 9px 16px; min-height: 40px;
+    font-weight: 600; font-size: .875rem; cursor: pointer; color: var(--fg); }
+  .file-btn input { position: absolute; opacity: 0; width: 1px; height: 1px; }
+  .file-btn:focus-within { outline: 2px solid var(--sky); outline-offset: 2px; }
+  #feedback-form { display: flex; flex-direction: column; gap: 8px; }
+
   /* ---- Group planner ---- */
   .avail-grid { display: grid; grid-template-columns: auto auto 1fr 1fr; gap: 6px 8px; align-items: center; font-size: .875rem; }
   .avail-grid input[type=time] { min-height: 34px; padding: 4px 8px; }
@@ -494,6 +503,33 @@
     <label class="switch"><input type="checkbox" id="sound-toggle"> Tintineo con cada recarga y al empezar un evento; fanfarria al llenarse</label>
     <button type="button" id="notify-btn" hidden>Activar avisos del navegador</button>
     <p class="hint" id="notify-state"></p>
+  </section>
+
+  <section class="panel" aria-labelledby="data-title">
+    <h2 id="data-title">Tus datos</h2>
+    <p class="hint">Guarda una copia de tus personajes y ajustes, o recupérala.</p>
+    <div class="row">
+      <button type="button" id="export-btn">Exportar</button>
+      <label class="file-btn"><input type="file" id="import-file" accept="application/json,.json"> Importar…</label>
+    </div>
+    <p class="hint" id="import-state" role="status"></p>
+    <button type="button" id="import-confirm" class="danger" hidden>Sí, reemplazar mis datos</button>
+  </section>
+
+  <section class="panel" aria-labelledby="feedback-title">
+    <h2 id="feedback-title">Sugerencias</h2>
+    <form id="feedback-form" novalidate>
+      <label for="feedback-text">¿Qué mejorarías o qué te gustaría ver?</label>
+      <textarea id="feedback-text" maxlength="1000"></textarea>
+      <button type="submit" class="primary">Enviar</button>
+      <p class="hint" id="feedback-state" role="status"></p>
+    </form>
+    <div id="feedback-inbox" hidden><h3 class="sub">Recibidas</h3><ul class="preset-list" id="feedback-list"></ul></div>
+  </section>
+
+  <section class="panel" aria-labelledby="news-title">
+    <h2 id="news-title">Novedades</h2>
+    <ul class="news" id="news"></ul>
   </section>
 
   <form class="panel" id="adjust-form" novalidate>
@@ -969,6 +1005,79 @@
     $('history-panel').hidden = !my || rows.length === 0;
     if (!$('history-panel').hidden) renderHistory($('history'), dailySpent(state.events, now, new Date().getTimezoneOffset()));
   }
+
+  // ---- News (fixed list), feedback, export/import ----
+  const NEWS = [
+    ['10/10', 'Tema asmodiano, modo ligero, lista de tareas diaria y semanal, logros, informe semanal, planificador de grupo y exportar tus datos.'],
+    ['10/10', 'Poder de combate con gráfico, notas por personaje y avisos de tus eventos favoritos.'],
+    ['10/10', 'Menú ☰, botones de gasto, deshacer, temporizadores de eventos, resumen y gráficos de previsión.'],
+    ['10/10', 'Anillo de runas, plumas y columna de luz al llenarse.'],
+    ['10/10', 'Primera versión: energía Odyle de varios personajes con orbes 3D.'],
+  ];
+  $('news').replaceChildren(...NEWS.map(([d, t]) => el('li', {}, el('time', {}, d), t)));
+
+  $('feedback-form').addEventListener('submit', async e => {
+    e.preventDefault();
+    const text = $('feedback-text').value.trim().slice(0, 1000);
+    if (!text) { $('feedback-state').textContent = 'Escribe algo antes de enviar.'; return; }
+    if (!db) return;
+    const ok = await save(() => db.collection('feedback').doc().set({ uid: myUid || null, at: Date.now(), text }));
+    if (ok) { $('feedback-text').value = ''; $('feedback-state').textContent = '¡Gracias! Tu sugerencia se ha enviado.'; }
+  });
+  async function loadInbox() {
+    if (!db || !user || !(await user.isOwner().catch(() => false))) return;
+    try {
+      const docs = (await db.collection('feedback').get()).docs.map(d => d.data()).filter(f => typeof f.text === 'string').sort((a, b) => b.at - a.at).slice(0, 50);
+      $('feedback-inbox').hidden = docs.length === 0;
+      $('feedback-list').replaceChildren(...docs.map(f => el('li', {}, el('span', {}, `${dateFmt.format(new Date(f.at))} · ${f.text}`))));
+    } catch {}
+  }
+  $('menu-btn').addEventListener('click', () => { if (ui.menuOpen) loadInbox(); });
+
+  function exportData() {
+    return {
+      app: 'energia-odyle', version: 1, exportedAt: new Date().toISOString(),
+      characters: state.characters, presets: state.presets, prefs: state.prefs, tasks: state.tasks,
+      progress: Object.fromEntries(state.progress), cp: Object.fromEntries(state.cpHist), stats: state.stats,
+      availability: myUid ? state.memberData.get(myUid)?.availability || null : null,
+    };
+  }
+  $('export-btn').addEventListener('click', async () => {
+    try {
+      const downloads = await window.claude.use('downloads');
+      if (!downloads) throw new Error('unavailable');
+      await downloads.save({ filename: 'energia-odyle-datos.json', data: JSON.stringify(exportData(), null, 2) });
+    } catch (e) { if (!e || e.code !== 'declined') showNotice('No se pudo exportar aquí'); }
+  });
+  let pendingImport = null;
+  $('import-file').addEventListener('change', async e => {
+    const f = e.target.files?.[0]; e.target.value = '';
+    if (!f) return;
+    try {
+      const d = JSON.parse(await f.text());
+      if (d.app !== 'energia-odyle' || !Array.isArray(d.characters)) throw new Error('bad');
+      pendingImport = d;
+      $('import-state').textContent = `Copia del ${String(d.exportedAt).slice(0, 10)} con ${d.characters.length} personajes. Reemplazará tus datos actuales.`;
+      $('import-confirm').hidden = false;
+    } catch { pendingImport = null; $('import-confirm').hidden = true; $('import-state').textContent = 'Ese archivo no es una copia válida de esta página.'; }
+  });
+  $('import-confirm').addEventListener('click', async () => {
+    const d = pendingImport; if (!d || !my) return;
+    pendingImport = null; $('import-confirm').hidden = true; $('import-state').textContent = 'Importando…';
+    const okChar = c => c && typeof c.id === 'string' && typeof c.name === 'string' && Number.isFinite(c.energy) && Number.isFinite(c.recordedAt);
+    try {
+      for (const c of state.characters) if (!d.characters.some(x => x.id === c.id)) await write(() => db.doc(my.characters + '/' + c.id).delete());
+      for (const c of d.characters.filter(okChar)) { const { id, ...rest } = c; await write(() => db.doc(my.characters + '/' + id).set(rest)); }
+      if (Array.isArray(d.presets)) await write(() => db.doc(my.presets).set({ items: d.presets }));
+      if (d.prefs && typeof d.prefs === 'object') await write(() => db.doc(my.prefs).set(d.prefs));
+      if (Array.isArray(d.tasks)) await write(() => db.doc(my.tasks).set({ items: d.tasks }));
+      if (d.stats && typeof d.stats === 'object') await write(() => db.doc(my.stats).set(d.stats));
+      for (const [id, doc] of Object.entries(d.progress || {})) if (doc && typeof doc === 'object') await write(() => db.doc(my.progress + '/' + id).set(doc));
+      for (const [id, pts] of Object.entries(d.cp || {})) if (Array.isArray(pts)) await write(() => db.doc(my.cp + '/' + id).set({ points: pts.slice(-200) }));
+      if (d.availability) await write(() => db.doc(my.member).update({ availability: d.availability }));
+      $('import-state').textContent = 'Datos importados.';
+    } catch { $('import-state').textContent = 'La importación se detuvo a medias; vuelve a intentarlo.'; }
+  });
 
   // ---- Group planner: each member's weekly availability (their local time) ----
   const DAY_NAMES = ['Dom', 'Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb'];
