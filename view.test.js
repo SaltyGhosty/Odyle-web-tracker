@@ -1,6 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { buildView, parseEnergyInput, parseMinutesInput, parseNameInput } from './view.js';
+import { buildView, parseEnergyInput, parseMinutesInput, parseNameInput, parseClassInput, NEAR_FULL } from './view.js';
+import { NEUTRAL_COLOR } from './classes.js';
 import { formatDuration } from './energy.js';
 
 const R = Date.UTC(2026, 9, 10, 12, 0);
@@ -44,4 +45,25 @@ test('ignora documentos mal formados y un horario sin anchorMs', () => {
   assert.deepEqual(buildView(bad, {anchorMs:A}, R).rows.map(r => r.id), ['ok']);
   const v = buildView(bad, {}, R);
   assert.equal(v.nextTickInMs, null);
+});
+
+const one = (c, sched = {anchorMs:A}) => buildView([{id:'a', name:'x', energy:100, recordedAt:R, order:1, ...c}], sched, R).rows[0];
+test('fila con clase tiene su color', () => {
+  const r = one({classId:'asesino'});
+  assert.equal(r.classId, 'asesino'); assert.equal(r.color, '#b79cff');
+});
+test('fila sin clase o desconocida usa color neutro', () => {
+  assert.equal(one({}).classId, null); assert.equal(one({}).color, NEUTRAL_COLOR);
+  assert.equal(one({classId:'xx'}).classId, null);
+});
+test('nearFull desde 810 hasta antes de lleno', () => {
+  assert.equal(NEAR_FULL, 810);
+  assert.equal(one({energy:810}).nearFull, true);
+  assert.equal(one({energy:809}).nearFull, false);
+  assert.equal(one({energy:840}).nearFull, false);
+});
+test('parseClassInput', () => {
+  assert.deepEqual(parseClassInput(''), {ok:true, value:null});
+  assert.deepEqual(parseClassInput('gladiador'), {ok:true, value:'gladiador'});
+  assert.equal(parseClassInput('mago').ok, false);
 });

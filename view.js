@@ -1,4 +1,8 @@
 import { MAX, currentEnergy, fullAt, nextTickAt, formatDuration } from './energy.js';
+import { NEUTRAL_COLOR, classById } from './classes.js';
+
+// Within two recharges (2 x 15) of the cap.
+export const NEAR_FULL = 810;
 
 const NOT_SCHEDULED_TEXT = 'Falta la hora de recarga';
 const FULL_TEXT = 'Lleno';
@@ -19,9 +23,13 @@ export function buildView(characters, schedule, nowMs) {
     if (isFull) fullInText = FULL_TEXT;
     else if (anchorMs === null) fullInText = NOT_SCHEDULED_TEXT;
     else fullInText = formatDuration(fullAtMs - nowMs);
+    const cls = classById(c.classId);
     return {
       id: c.id,
       name: c.name,
+      classId: cls ? cls.id : null,
+      color: cls ? cls.color : NEUTRAL_COLOR,
+      nearFull: !isFull && energy >= NEAR_FULL,
       energy,
       max: MAX,
       percent: Math.min(100, Math.floor(energy / MAX * 100)),
@@ -54,4 +62,11 @@ export function parseNameInput(s) {
   const len = [...t].length;
   if (len < 1 || len > 24) return { ok: false, error: 'Escribe un nombre de 1 a 24 caracteres' };
   return { ok: true, value: t };
+}
+
+export function parseClassInput(s) {
+  const t = s.trim();
+  if (t === '') return { ok: true, value: null };
+  if (classById(t)) return { ok: true, value: t };
+  return { ok: false, error: 'Elige una clase de la lista' };
 }
