@@ -155,6 +155,35 @@
     font-weight: 500; font-size: 1rem; background: var(--glass);
   }
 
+  /* ---- Hamburger drawer, spend buttons, undo toast ---- */
+  .menu-btn { font-size: 1.3rem; line-height: 1; padding: 8px 14px; }
+  .scrim { position: fixed; inset: 0; z-index: 9; background: rgba(2, 4, 10, .55); }
+  .drawer {
+    position: fixed; z-index: 10; top: 0; right: 0; bottom: 0; width: min(360px, 90vw); overflow-y: auto;
+    background: var(--glass-strong); border-left: 1px solid var(--line);
+    -webkit-backdrop-filter: blur(14px); backdrop-filter: blur(14px);
+    padding: 16px; display: flex; flex-direction: column; gap: 14px;
+  }
+  .drawer .panel { background: rgba(5, 9, 20, .45); }
+  .drawer .field { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+  .drawer .row .field { flex: 1 1 120px; }
+  .drawer .row .field.narrow { flex: 0 1 80px; }
+  .drawer-head { display: flex; align-items: center; justify-content: space-between; }
+  .preset-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
+  .preset-list li { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+  .preset-list li span { overflow-wrap: anywhere; }
+  .preset-list .muted { color: var(--muted); font-size: .875rem; }
+  .spend-row { display: flex; flex-wrap: wrap; gap: 6px; }
+  button.spend { border-color: var(--sky); color: var(--sky); padding: 6px 12px; min-height: 34px; font-size: .8125rem; }
+  button.extra { padding: 6px 12px; min-height: 34px; font-size: .8125rem; }
+  .toast {
+    position: fixed; z-index: 11; left: 50%; bottom: 20px; transform: translateX(-50%);
+    display: flex; align-items: center; gap: 12px; max-width: calc(100vw - 32px);
+    background: var(--glass-strong); border: 1px solid var(--gold); border-radius: 12px; padding: 10px 12px 10px 16px;
+    box-shadow: 0 8px 30px rgba(0, 0, 0, .5);
+  }
+  .toast span { overflow-wrap: anywhere; }
+
   /* ---- Motion (only when allowed) ---- */
   @media (prefers-reduced-motion: no-preference) {
     .card.enter { animation: rise .6s cubic-bezier(.2, .7, .2, 1) both; animation-delay: calc(var(--i) * 90ms); }
@@ -197,42 +226,62 @@
         <p class="clock-time" id="next-tick"></p>
       </div>
     </div>
-    <button type="button" id="adjust-toggle">Ajustar recarga</button>
     <button type="button" id="motion-btn" hidden>Activar movimiento</button>
+    <button type="button" id="menu-btn" class="menu-btn" aria-label="Menú" aria-expanded="false" aria-controls="drawer" hidden>☰</button>
   </header>
-  <form class="panel" id="adjust-form" hidden novalidate>
-    <h2>Ajustar recarga</h2>
-    <div class="row">
-      <div class="field">
-        <label for="adjust-minutes">Minutos que faltan para la próxima recarga</label>
-        <input id="adjust-minutes" inputmode="numeric" autocomplete="off" placeholder="1 a 180">
-        <p class="error" id="adjust-error" role="alert" hidden></p>
-      </div>
-      <button type="submit" class="primary offset">Guardar</button>
-      <button type="button" id="adjust-cancel" class="offset">Cancelar</button>
-    </div>
-  </form>
 
   <p class="empty" id="nodata" hidden>No se pueden cargar los datos aquí</p>
   <p class="error" id="notice" role="alert" hidden></p>
   <section class="grid" id="cards" aria-label="Personajes"></section>
-  <p class="empty" id="empty" hidden>Aún no hay personajes. Añade el primero.</p>
+  <p class="empty" id="empty" hidden>Aún no hay personajes. Añádelo desde el menú ☰.</p>
+</div>
+
+<div id="scrim" class="scrim" hidden></div>
+<aside id="drawer" class="drawer" role="dialog" aria-modal="true" aria-labelledby="drawer-title" hidden>
+  <div class="drawer-head">
+    <h2 id="drawer-title">Menú</h2>
+    <button type="button" id="drawer-close" aria-label="Cerrar menú">✕</button>
+  </div>
 
   <form class="panel" id="add-form" novalidate>
     <h2>Añadir personaje</h2>
-    <div class="row">
-      <div class="field">
-        <label for="add-name">Nombre</label>
-        <input id="add-name" maxlength="60" autocomplete="off" placeholder="Máximo 24 caracteres">
-        <p class="error" id="add-error" role="alert" hidden></p>
-      </div>
-      <div class="field">
-        <label for="add-class">Clase</label>
-        <select id="add-class"></select>
-      </div>
-      <button type="submit" class="primary offset">Añadir</button>
+    <div class="field">
+      <label for="add-name">Nombre</label>
+      <input id="add-name" maxlength="60" autocomplete="off" placeholder="Máximo 24 caracteres">
+      <p class="error" id="add-error" role="alert" hidden></p>
     </div>
+    <div class="field">
+      <label for="add-class">Clase</label>
+      <select id="add-class"></select>
+    </div>
+    <button type="submit" class="primary">Añadir</button>
   </form>
+
+  <section class="panel" id="presets-panel" aria-labelledby="presets-title">
+    <h2 id="presets-title">Botones de gasto</h2>
+    <ul class="preset-list" id="preset-list"></ul>
+    <form id="preset-form" class="row" novalidate>
+      <div class="field"><label for="preset-name">Nombre</label><input id="preset-name" maxlength="40" autocomplete="off" placeholder="Mazmorra"></div>
+      <div class="field narrow"><label for="preset-cost">Coste</label><input id="preset-cost" inputmode="numeric" autocomplete="off" placeholder="40"></div>
+      <button type="submit" class="primary offset">Añadir</button>
+      <p class="error" id="preset-error" role="alert" hidden></p>
+    </form>
+  </section>
+
+  <form class="panel" id="adjust-form" novalidate>
+    <h2>Ajustar recarga</h2>
+    <div class="field">
+      <label for="adjust-minutes">Minutos que faltan para la próxima recarga</label>
+      <input id="adjust-minutes" inputmode="numeric" autocomplete="off" placeholder="1 a 180">
+      <p class="error" id="adjust-error" role="alert" hidden></p>
+    </div>
+    <button type="submit" class="primary">Guardar</button>
+  </form>
+</aside>
+
+<div id="toast" class="toast" role="status" hidden>
+  <span id="toast-text"></span>
+  <button type="button" id="undo">Deshacer</button>
 </div>
 
 <script type="module">
@@ -240,13 +289,14 @@
   import { anchorFromCountdown, formatDuration, nextTickAt, TICK_MS, MAX } from './energy.js';
   import { CLASSES, classById } from './classes.js';
   import { paths, planMigration } from './store.js';
+  import { applyDelta, parsePreset, parseExtraInput } from './spend.js';
   import { formatClock, detectGains, rollValue, becameFull, sceneOptions } from './motion.js';
 
   // Data comes only from db snapshots. Writes happen only after a user action.
-  const state = { characters: [], schedule: null };
+  const state = { characters: [], schedule: null, presets: [] };
   // Interface-only state: which card is editing/confirming, validation messages.
   // noDb: no db in this view. readOnly: viewer cannot write (or a write was refused).
-  const ui = { adjustOpen: false, editingId: null, confirmId: null, errors: {}, noDb: false, readOnly: false, loaded: false };
+  const ui = { menuOpen: false, editingId: null, extraId: null, confirmId: null, errors: {}, noDb: false, readOnly: false, loaded: false };
 
   let db = null;
   let user = null;
@@ -309,8 +359,47 @@
     };
     return save(() => ref.set(data));
   };
-  const updateCharacter = (id, value, classId) =>
-    save(() => db.doc(my.characters + '/' + id).update({ energy: value, recordedAt: Date.now(), classId }), id);
+  // Every energy change writes the character and one event (the spend log), and can be undone for 8 s.
+  let undo = null;
+  let undoTimer = 0;
+  async function changeEnergy(row, energy, event, extra = {}) {
+    const before = state.characters.find(c => c.id === row.id);
+    if (!before) return false;
+    const prev = { energy: before.energy, recordedAt: before.recordedAt, classId: before.classId ?? null };
+    const at = Date.now();
+    if (!await save(() => db.doc(my.characters + '/' + row.id).update({ energy, recordedAt: at, ...extra }), row.id)) return false;
+    const evRef = db.collection(my.events).doc();
+    await save(() => evRef.set({ at, characterId: row.id, presetId: null, ...event }));
+    showUndo({ charId: row.id, prev, eventId: evRef.id }, event.label);
+    return true;
+  }
+  function showUndo(entry, text) {
+    undo = entry;
+    $('toast-text').textContent = text;
+    $('toast').hidden = false;
+    clearTimeout(undoTimer);
+    undoTimer = setTimeout(() => { undo = null; $('toast').hidden = true; }, 8000);
+  }
+  async function undoLast() {
+    const u = undo;
+    if (!u) return;
+    undo = null; clearTimeout(undoTimer); $('toast').hidden = true;
+    await save(() => db.doc(my.characters + '/' + u.charId).update(u.prev), u.charId);
+    await save(() => db.doc(my.events + '/' + u.eventId).delete());
+  }
+  const updateCharacter = (row, value, classId) =>
+    changeEnergy(row, value, { kind: 'set', amount: value - row.energy, label: `${row.name}: energía puesta en ${value}` }, { classId });
+  function spend(row, preset) {
+    const r = applyDelta(row.energy, -preset.cost);
+    if (!r.ok) { ui.errors[row.id] = r.error; render(); return; }
+    delete ui.errors[row.id];
+    changeEnergy(row, r.energy, { kind: 'spend', amount: preset.cost, presetId: preset.id, label: `Gastaste ${preset.cost} en ${row.name}` });
+  }
+  async function addExtra(row, value) {
+    const r = applyDelta(row.energy, value);
+    return r.ok && changeEnergy(row, r.energy, { kind: 'extra', amount: value, label: `+${value} de energía extra en ${row.name}` });
+  }
+  const savePresets = items => save(() => db.doc(my.presets).set({ items }));
   const resyncTick = minutes => save(() => db.doc('settings/schedule').set({ anchorMs: anchorFromCountdown(Date.now(), minutes) }));
   const removeCharacter = id => save(() => db.doc(my.characters + '/' + id).delete(), id);
 
@@ -422,7 +511,7 @@
         if (!r.ok) { ui.errors[row.id] = r.error; return render(); }
         const c = parseClassInput($(classId).value);
         if (!c.ok) { ui.errors[row.id] = c.error; return render(); }
-        if (!await updateCharacter(row.id, r.value, c.value)) return;
+        if (!await updateCharacter(row, r.value, c.value)) return;
         ui.editingId = null; delete ui.errors[row.id]; render();
       } });
       const field = el('div', { class: 'field' },
@@ -437,15 +526,37 @@
         el('button', { type: 'button',
           onclick: () => { ui.editingId = null; delete ui.errors[row.id]; render(); } }, 'Cancelar')));
       panel.append(form);
+    } else if (ui.extraId === row.id) {
+      const inputId = `extra-${row.id}`;
+      const form = el('form', { novalidate: true, onsubmit: async e => {
+        e.preventDefault();
+        const r = parseExtraInput($(inputId).value);
+        if (!r.ok) { ui.errors[row.id] = r.error; return render(); }
+        if (!await addExtra(row, r.value)) return;
+        ui.extraId = null; delete ui.errors[row.id]; render();
+      } });
+      const field = el('div', { class: 'field' },
+        el('label', { for: inputId }, 'Energía extra (pociones, objetos)'),
+        el('input', { id: inputId, inputmode: 'numeric', autocomplete: 'off', placeholder: '1 a 9999',
+          'aria-invalid': err ? 'true' : 'false', 'aria-describedby': err ? `err-${row.id}` : null }));
+      if (err) field.append(errorLine(`err-${row.id}`, err));
+      form.append(field, el('div', { class: 'row' },
+        el('button', { type: 'submit', class: 'primary' }, 'Añadir'),
+        el('button', { type: 'button', onclick: () => { ui.extraId = null; delete ui.errors[row.id]; render(); } }, 'Cancelar')));
+      panel.append(form);
     } else if (confirming) {
       panel.append(el('p', { class: 'confirm-text' }, `¿Quitar a ${row.name}?`));
       panel.append(el('div', { class: 'row' },
         el('button', { type: 'button', class: 'danger', onclick: async () => { if (!await removeCharacter(row.id)) return; ui.confirmId = null; render(); } }, 'Sí, quitar'),
         el('button', { type: 'button', onclick: () => { ui.confirmId = null; render(); } }, 'Cancelar')));
     } else {
+      if (err) panel.append(errorLine(`err-${row.id}`, err));
+      panel.append(el('div', { class: 'spend-row' },
+        ...state.presets.map(p => el('button', { type: 'button', class: 'spend', onclick: () => spend(row, p) }, `${p.name} −${p.cost}`)),
+        el('button', { type: 'button', class: 'extra', onclick: () => { ui.extraId = row.id; ui.editingId = ui.confirmId = null; delete ui.errors[row.id]; render(); $('extra-' + row.id)?.focus(); } }, '+ Extra')));
       panel.append(el('div', { class: 'row' },
-        el('button', { type: 'button', class: 'primary', onclick: () => { ui.editingId = row.id; ui.confirmId = null; render(); $('energy-' + row.id)?.select(); } }, 'Actualizar'),
-        el('button', { type: 'button', onclick: () => { ui.confirmId = row.id; ui.editingId = null; render(); } }, 'Quitar')));
+        el('button', { type: 'button', class: 'primary', onclick: () => { ui.editingId = row.id; ui.confirmId = ui.extraId = null; delete ui.errors[row.id]; render(); $('energy-' + row.id)?.select(); } }, 'Actualizar'),
+        el('button', { type: 'button', class: 'remove', onclick: () => { ui.confirmId = row.id; ui.editingId = ui.extraId = null; render(); } }, 'Quitar')));
     }
     card.append(panel);
     return card;
@@ -480,11 +591,10 @@
     paintClock();
     const locked = ui.noDb || ui.readOnly;
     $('nodata').hidden = !ui.noDb;
-    $('adjust-toggle').hidden = locked || !db;
-    $('add-form').hidden = locked || !ui.loaded;
+    $('menu-btn').hidden = locked || !db || !ui.loaded;
+    if ($('menu-btn').hidden && ui.menuOpen) closeMenu();
+    paintPresets();
     $('clock').hidden = ui.noDb;
-    $('adjust-form').hidden = locked || !ui.adjustOpen;
-    $('adjust-toggle').setAttribute('aria-expanded', String(ui.adjustOpen));
 
     // Keep focus and caret across repaints (timers repaint too).
     const active = document.activeElement;
@@ -535,13 +645,48 @@
 
   // ---- Events ----
   $('add-class').replaceWith(classSelect('add-class', null));
-  $('adjust-toggle').addEventListener('click', () => {
-    ui.adjustOpen = !ui.adjustOpen;
-    showError('adjust-error', '');
-    render();
-    if (ui.adjustOpen) $('adjust-minutes').focus();
+  // Hamburger drawer: Esc / scrim / ✕ close it; focus moves in and back to ☰; Tab stays inside.
+  function openMenu() {
+    ui.menuOpen = true;
+    $('drawer').hidden = false; $('scrim').hidden = false;
+    $('menu-btn').setAttribute('aria-expanded', 'true');
+    $('add-name').focus();
+  }
+  function closeMenu() {
+    ui.menuOpen = false;
+    $('drawer').hidden = true; $('scrim').hidden = true;
+    $('menu-btn').setAttribute('aria-expanded', 'false');
+    if (!$('menu-btn').hidden) $('menu-btn').focus();
+  }
+  $('menu-btn').addEventListener('click', () => ui.menuOpen ? closeMenu() : openMenu());
+  $('drawer-close').addEventListener('click', closeMenu);
+  $('scrim').addEventListener('click', closeMenu);
+  document.addEventListener('keydown', e => {
+    if (!ui.menuOpen) return;
+    if (e.key === 'Escape') { e.preventDefault(); closeMenu(); return; }
+    if (e.key !== 'Tab') return;
+    const f = [...$('drawer').querySelectorAll('button, input, select')].filter(x => !x.disabled && x.offsetParent !== null);
+    if (!f.length) return;
+    if (e.shiftKey && document.activeElement === f[0]) { e.preventDefault(); f.at(-1).focus(); }
+    else if (!e.shiftKey && document.activeElement === f.at(-1)) { e.preventDefault(); f[0].focus(); }
   });
-  $('adjust-cancel').addEventListener('click', () => { ui.adjustOpen = false; showError('adjust-error', ''); render(); });
+  $('undo').addEventListener('click', undoLast);
+
+  function paintPresets() {
+    const list = $('preset-list');
+    list.replaceChildren(...(state.presets.length ? state.presets.map(p => el('li', {},
+      el('span', {}, `${p.name} · ${p.cost}`),
+      el('button', { type: 'button', 'aria-label': `Quitar ${p.name}`, onclick: () => savePresets(state.presets.filter(x => x.id !== p.id)) }, '✕')))
+      : [el('li', { class: 'muted' }, 'Aún no hay botones. Crea uno, p. ej. "Mazmorra" con coste 40.')]));
+  }
+  $('preset-form').addEventListener('submit', async e => {
+    e.preventDefault();
+    const r = parsePreset($('preset-name').value, $('preset-cost').value);
+    if (!r.ok) return showError('preset-error', r.error);
+    showError('preset-error', '');
+    if (!await savePresets([...state.presets, { id: 'p' + Date.now().toString(36), ...r.value }])) return;
+    $('preset-name').value = ''; $('preset-cost').value = '';
+  });
   $('adjust-form').addEventListener('submit', async e => {
     e.preventDefault();
     const r = parseMinutesInput($('adjust-minutes').value);
@@ -550,7 +695,6 @@
     showError('adjust-error', '');
     if (!await resyncTick(r.value)) return;
     $('adjust-minutes').value = '';
-    ui.adjustOpen = false;
     render();
   });
   $('add-form').addEventListener('submit', async e => {
@@ -634,6 +778,11 @@
       render();
     }, onError);
     else { ui.loaded = true; render(); }
+    if (my) db.doc(my.presets).onSnapshot(snap => {
+      const items = snap.exists && Array.isArray(snap.data().items) ? snap.data().items : [];
+      state.presets = items.filter(p => p && typeof p.name === 'string' && Number.isFinite(p.cost));
+      render();
+    }, onError);
     db.doc('settings/schedule').onSnapshot(snap => {
       state.schedule = snap.exists ? snap.data() : null;
       render();

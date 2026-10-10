@@ -65,39 +65,53 @@ for (const [label, width, height] of [['mobile', 390, 844], ['desktop', 1280, 80
       await page.route(THREE_URL, async r => { await new Promise(res => setTimeout(res, 2500)); r.fulfill({ contentType: 'text/javascript', body: THREE_SRC }); });
     }
     await page.goto(BASE);
+    const openMenu = async () => { if (!(await page.locator('#drawer').isVisible())) await page.click('#menu-btn'); await page.waitForTimeout(100); };
+    const closeMenu = async () => { if (await page.locator('#drawer').isVisible()) await page.keyboard.press('Escape'); await page.waitForTimeout(100); };
     if (scheme === 'dark' && label === 'mobile') {
       await page.evaluate(() => { window.__alive = true; });
+      await page.waitForSelector('#menu-btn:not([hidden])');
+      await openMenu();
       await page.waitForSelector('#add-form:not([hidden])');
       await page.fill('#add-name', 'Temprano'); await page.click('#add-form button[type=submit]');
       await page.waitForTimeout(300);
       check('add form works before Three.js loads', await page.evaluate(() => window.__alive === true) && await page.locator('article.card').count() === 1);
+      await closeMenu();
       await page.waitForTimeout(2600);
       await page.goto(BASE); await page.waitForTimeout(2800); // fresh stub state for the rest of the run
     }
     const shot = n => page.screenshot({ path: `dev/screens/${label}-${scheme}-${n}.png`, fullPage: true });
     await shot('1-empty');
     if (label === 'desktop' && scheme === 'dark') {
+      await page.waitForTimeout(500);
+      check('add form is not on the main page', !(await page.locator('#add-form').isVisible()));
+      await page.click('#menu-btn');
+      check('menu opens with focus in the name field', await page.locator('#drawer').isVisible() && await page.evaluate(() => document.activeElement?.id === 'add-name'));
+      await page.keyboard.press('Escape');
+      check('Esc closes the menu and focus returns to ☰', !(await page.locator('#drawer').isVisible()) && await page.evaluate(() => document.activeElement?.id === 'menu-btn'));
+      await openMenu();
       await page.fill('#add-name', 'Sin horario'); await page.click('#add-form button[type=submit]');
       await page.waitForTimeout(200);
+      await closeMenu();
       check('no schedule: rune timer says so', (await page.evaluate(() => document.querySelector('article.card .tick-left')?.textContent ?? '')) === 'Falta la hora de recarga');
-      await page.click('article.card button:not(.primary)'); await page.click('article.card button.danger');
+      await page.click('article.card button.remove'); await page.click('article.card button.danger');
       await page.goto(BASE); await page.waitForTimeout(600);
     }
     // validation errors
+    await openMenu();
     await page.click('#add-form button[type=submit]');
     await shot('2-name-error');
     for (const n of ['Personaje 1', 'Personaje 2', 'Personaje 3']) {
       await page.fill('#add-name', n); await page.click('#add-form button[type=submit]');
     }
-    await page.click('#adjust-toggle'); await page.fill('#adjust-minutes', '102');
+    await page.fill('#adjust-minutes', '102');
     await page.click('#adjust-form button[type=submit]');
+    await closeMenu();
     const vals = { c1: '612', c2: '345', c3: '840' };
     for (const id of ['c1', 'c2', 'c3']) {
       await page.click(`article[data-id=${id}] button.primary`);
       await page.fill(`#energy-${id}`, vals[id]);
       await page.press(`#energy-${id}`, 'Enter');
     }
-    await page.selectOption('#add-class', 'asesino').catch(() => {});
     await page.waitForTimeout(900);
     await shot('3-cards');
     const tl = id => page.evaluate(i => document.querySelector(`article[data-id=${i}] .tick-left`)?.textContent ?? '', id);
@@ -125,10 +139,39 @@ for (const [label, width, height] of [['mobile', 390, 844], ['desktop', 1280, 80
       check(`${label} orb follows its slot after scroll`, r + g + b > 300);
       await page.evaluate(() => window.scrollTo(0, 0));
     }
+    if (label === 'desktop' && scheme === 'dark') {
+      const num = id => page.locator(`article[data-id=${id}] .num`).textContent();
+      const events = () => page.evaluate(() => [...window.__docs.keys()].filter(k => k.startsWith('members/u_me/events/')).length);
+      await openMenu();
+      await page.fill('#preset-name', 'Mazmorra'); await page.fill('#preset-cost', '40');
+      await page.click('#preset-form button[type=submit]');
+      await page.waitForTimeout(200);
+      await closeMenu();
+      const ev0 = await events(); // the earlier 'Actualizar' edits already logged 'set' events
+      await page.click('article[data-id=c1] button.spend');
+      await page.waitForTimeout(1000);
+      check('spend: Mazmorra −40 → 572 and one more event', (await num('c1')) === '572' && (await events()) === ev0 + 1);
+      check('spend: undo toast shown', await page.locator('#toast').isVisible());
+      await page.click('#undo');
+      await page.waitForTimeout(1000);
+      check('undo: back to 612 and the event removed', (await num('c1')) === '612' && (await events()) === ev0);
+      await page.click('article[data-id=c2] button.extra');
+      await page.fill('#extra-c2', '100'); await page.press('#extra-c2', 'Enter');
+      await page.waitForTimeout(1000);
+      check('extra: +100 → 445', (await num('c2')) === '445');
+      await page.click('article[data-id=c1] button.primary');
+      await page.fill('#energy-c1', '30'); await page.press('#energy-c1', 'Enter');
+      await page.waitForTimeout(800);
+      await page.click('article[data-id=c1] button.spend');
+      await page.waitForTimeout(200);
+      check('spend: not enough energy is refused', (await page.locator('article[data-id=c1]').textContent()).includes('No hay energía suficiente') && (await num('c1')) === '30');
+      await page.waitForTimeout(8500);
+      check('undo toast disappears after 8 s', !(await page.locator('#toast').isVisible()));
+    }
     await page.click('article[data-id=c2] button.primary');
     await page.fill('#energy-c2', '12x'); await page.press('#energy-c2', 'Enter');
     await shot('4-edit-error');
-    await page.click('article[data-id=c1] button:not(.primary)');
+    await page.click('article[data-id=c1] button.remove');
     await shot('5-confirm');
     await page.click('article[data-id=c1] button.danger');
     await page.waitForTimeout(300);
