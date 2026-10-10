@@ -125,3 +125,11 @@
 ### Tarea 11: Revisión final, publicación y copia
 - [ ] Revisor nuevo (modelo más capaz) sobre las tareas 8–10 + una pasada de arreglos con tests.
 - [ ] Publicar fase C, copiar a `Prova\aion2-tracker` y este plan a `Prova\docs`.
+
+### Tarea 12: Animaciones de menús y paneles (pedido del usuario, 10/10)
+- Panel "Eventos" (`<details>`): al abrir/cerrar, la altura y la opacidad se animan (~250 ms, ease-out) en vez de saltar; la flecha ▾ gira.
+- Menú ☰: el panel entra deslizándose desde la derecha y la capa oscura con fundido; al cerrar, sale igual antes de ocultarse.
+- Aviso "Deshacer": entra desde abajo con fundido y sale igual.
+- Formularios en línea de las tarjetas (Actualizar, + Extra, Quitar): aparecen con un fundido corto.
+- Con "reducir movimiento" todo cambia al instante.
+- [ ] Preview que falla: tras pulsar el resumen de Eventos, a los 100 ms la altura del panel está entre la cerrada y la abierta; al pulsar ✕ en el menú, el panel sigue visible ~100 ms y después queda oculto; con `reducedMotion: 'reduce'` el cambio es inmediato. FAIL → implementar → PASS; commit `feat: menu and panel animations`.
