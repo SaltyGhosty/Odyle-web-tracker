@@ -140,6 +140,9 @@ for (const [label, width, height] of [['mobile', 390, 844], ['desktop', 1280, 80
       await page.evaluate(() => window.scrollTo(0, 0));
     }
     if (label === 'desktop' && scheme === 'dark') {
+      check('events: 8 rows', await page.locator('.event-row').count() === 8);
+    }
+    if (label === 'desktop' && scheme === 'dark') {
       const num = id => page.locator(`article[data-id=${id}] .num`).textContent();
       const events = () => page.evaluate(() => [...window.__docs.keys()].filter(k => k.startsWith('members/u_me/events/')).length);
       await openMenu();
@@ -234,6 +237,22 @@ for (const [label, width, height] of [['mobile', 390, 844], ['desktop', 1280, 80
   if (await btn.isVisible()) await btn.tap();
   await page.waitForTimeout(300);
   check('ios: denied → button disabled and says so', await btn.isDisabled() && (await btn.textContent()) === 'Movimiento no disponible');
+  await ctx.close();
+}
+// Event timers with the browser clock fixed at 18:05 UTC: Shugo is running.
+{
+  const ctx = await browser.newContext({ viewport: { width: 1280, height: 800 }, colorScheme: 'dark' });
+  const page = await ctx.newPage();
+  await page.clock.setFixedTime(new Date(Date.UTC(2026, 9, 10, 18, 5)));
+  await page.route(THREE_URL, r => r.fulfill({ contentType: 'text/javascript', body: THREE_SRC }));
+  page.on('pageerror', e => errors.push(`events: ${e.message}`));
+  await page.addInitScript(STUB);
+  await page.goto(BASE);
+  await page.waitForTimeout(1500);
+  const shugo = await page.locator('.event-row[data-event=shugo]').textContent().catch(() => '');
+  check('events: Shugo shows "En curso" at 18:05 UTC', shugo.includes('En curso'));
+  const daily = await page.locator('.event-row[data-event=daily]').textContent().catch(() => '');
+  check('events: daily reset counts down', daily.includes('Empieza en'));
   await ctx.close();
 }
 // Migration: old shared 'characters' move into members/u_me/characters, once, intact.

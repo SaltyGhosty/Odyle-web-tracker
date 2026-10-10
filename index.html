@@ -155,6 +155,22 @@
     font-weight: 500; font-size: 1rem; background: var(--glass);
   }
 
+  /* ---- Event timers ---- */
+  .events summary { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 12px; cursor: pointer; list-style: none; }
+  .events summary::-webkit-details-marker { display: none; }
+  .events summary::after { content: "▾"; margin-left: auto; color: var(--muted); }
+  .events[open] summary::after { content: "▴"; }
+  .events-next { color: var(--sky); font-size: .875rem; font-variant-numeric: tabular-nums; }
+  .event-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 2px; }
+  @media (min-width: 860px) { .event-list { grid-template-columns: repeat(2, minmax(0, 1fr)); column-gap: 24px; } }
+  .event-row { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 0 12px; padding: 8px 0; border-top: 1px solid rgba(232, 184, 90, .12); }
+  .event-row .ev-name { font-weight: 600; }
+  .event-row .ev-note { color: var(--muted); font-size: .75rem; grid-column: 1; }
+  .event-row .ev-when { text-align: right; font-variant-numeric: tabular-nums; font-size: .875rem; color: var(--sky); grid-row: 1 / span 2; grid-column: 2; align-self: center; }
+  .event-row .ev-when small { display: block; color: var(--muted); font-size: .75rem; }
+  .event-row.active .ev-name, .event-row.active .ev-when { color: var(--gold-bright); }
+  .event-row.active { background: linear-gradient(90deg, rgba(232, 184, 90, .1), transparent); }
+
   /* ---- Hamburger drawer, spend buttons, undo toast ---- */
   .menu-btn { font-size: 1.3rem; line-height: 1; padding: 8px 14px; }
   .scrim { position: fixed; inset: 0; z-index: 9; background: rgba(2, 4, 10, .55); }
@@ -230,6 +246,11 @@
     <button type="button" id="menu-btn" class="menu-btn" aria-label="Menú" aria-expanded="false" aria-controls="drawer" hidden>☰</button>
   </header>
 
+  <details class="panel events" id="events">
+    <summary><h2>Eventos</h2><span class="events-next" id="events-next"></span></summary>
+    <ul class="event-list" id="event-list"></ul>
+  </details>
+
   <p class="empty" id="nodata" hidden>No se pueden cargar los datos aquí</p>
   <p class="error" id="notice" role="alert" hidden></p>
   <section class="grid" id="cards" aria-label="Personajes"></section>
@@ -290,6 +311,7 @@
   import { CLASSES, classById } from './classes.js';
   import { paths, planMigration } from './store.js';
   import { applyDelta, parsePreset, parseExtraInput } from './spend.js';
+  import { EVENTS, nextOccurrence } from './events.js';
   import { formatClock, detectGains, rollValue, becameFull, sceneOptions } from './motion.js';
 
   // Data comes only from db snapshots. Writes happen only after a user action.
@@ -563,9 +585,28 @@
   }
 
   // Header clock: text + ring every second, no data work.
+  // Event timers: sorted by what happens next; running events first, in gold.
+  const timeFmt = new Intl.DateTimeFormat('es', { hour: '2-digit', minute: '2-digit' });
+  const dayFmt = new Intl.DateTimeFormat('es', { weekday: 'short', hour: '2-digit', minute: '2-digit' });
+  const countdown = ms => ms < 86_400_000 ? formatClock(ms) : formatDuration(ms);
+  function paintEvents(now) {
+    const items = EVENTS.map(e => ({ e, o: nextOccurrence(e, now) }))
+      .sort((a, b) => (b.o.active - a.o.active) || (a.o.active ? a.o.endMs - b.o.endMs : a.o.startMs - b.o.startMs));
+    const sameDay = ms => new Date(ms).toDateString() === new Date(now).toDateString();
+    $('event-list').replaceChildren(...items.map(({ e, o }) => el('li', { class: `event-row ${o.active ? 'active' : ''}`, 'data-event': e.id },
+      el('span', { class: 'ev-name' }, e.name),
+      el('span', { class: 'ev-when' },
+        o.active ? `En curso · termina en ${formatClock(o.endMs - now)}` : `Empieza en ${countdown(o.startMs - now)}`,
+        el('small', {}, (sameDay(o.startMs) ? timeFmt : dayFmt).format(new Date(o.startMs)))),
+      el('span', { class: 'ev-note' }, e.note))));
+    const first = items[0];
+    $('events-next').textContent = first.o.active ? `${first.e.name}: en curso` : `Próximo: ${first.e.name} en ${countdown(first.o.startMs - now)}`;
+  }
+
   // Also the per-card rune timers ("+15 en hh:mm:ss") and the rune ring progress.
   let orbList = [];
   function paintClock() {
+    paintEvents(Date.now());
     const anchor = state.schedule && Number.isFinite(state.schedule.anchorMs) ? state.schedule.anchorMs : null;
     const left = anchor === null ? null : nextTickAt(anchor, Date.now()) - Date.now();
     for (const p of document.querySelectorAll('.tick-left')) {
@@ -645,6 +686,7 @@
 
   // ---- Events ----
   $('add-class').replaceWith(classSelect('add-class', null));
+  if (matchMedia('(min-width: 860px)').matches) $('events').open = true;
   // Hamburger drawer: Esc / scrim / ✕ close it; focus moves in and back to ☰; Tab stays inside.
   function openMenu() {
     ui.menuOpen = true;
