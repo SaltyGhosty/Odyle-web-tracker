@@ -2,109 +2,199 @@
 <title>Energía Odyle</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Figtree:wght@400;500;600&family=Rajdhani:wght@600;700&display=swap">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Cinzel:wght@600;700&family=Figtree:wght@400;500;600&display=swap">
 <style>
-  /* Layout: one centered column (max 960px); character cards in a 2-column grid from 720px up, single column on phones. */
+  /* Elyos / Abyss theme. Dark by design in both color schemes: the 3D canvas sits behind
+     everything, cards are dark glass. Orbs are drawn by the canvas inside each .orb-slot,
+     so slots have no background of their own. */
   :root {
-    --bg: #edf0f5;
-    --surface: #ffffff;
-    --fg: #162033;
-    --muted: #566176;
-    --line: #d3dae6;
-    --accent: #0b7f86;
-    --accent-fg: #ffffff;
-    --track: #dde3ed;
-    --danger: #b3321f;
-    --font-display: "Rajdhani", "Arial Narrow", system-ui, sans-serif;
+    --bg: #050914;
+    --bg-2: #0c1630;
+    --glass: rgba(14, 20, 38, .62);
+    --glass-strong: rgba(14, 20, 38, .82);
+    --fg: #f3ecdc;
+    --muted: #a9b3c8;
+    --line: rgba(232, 184, 90, .28);
+    --gold: #e8b85a;
+    --gold-bright: #ffd98a;
+    --sky: #7cc8ff;
+    --on-gold: #1a1205;
+    --danger: #ff8f7a;
+    --font-display: "Cinzel", "Trajan Pro", Georgia, serif;
     --font-body: "Figtree", system-ui, -apple-system, "Segoe UI", sans-serif;
-  }
-  @media (prefers-color-scheme: dark) {
-    :root:not([data-theme="light"]) {
-      --bg: #0e1520; --surface: #172131; --fg: #e8eef7; --muted: #97a4ba; --line: #2a374c;
-      --accent: #4cd3cc; --accent-fg: #06201f; --track: #223049; --danger: #ff8a78;
-      color-scheme: dark;
-    }
-  }
-  :root[data-theme="dark"] {
-    --bg: #0e1520; --surface: #172131; --fg: #e8eef7; --muted: #97a4ba; --line: #2a374c;
-    --accent: #4cd3cc; --accent-fg: #06201f; --track: #223049; --danger: #ff8a78;
     color-scheme: dark;
   }
+  @media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) { color-scheme: dark; } }
+  :root[data-theme="dark"] { color-scheme: dark; }
 
   * { box-sizing: border-box; }
   [hidden] { display: none !important; }
+  html { background: var(--bg); }
   body {
-    background: var(--bg);
+    margin: 0;
+    min-height: 100vh;
+    background: radial-gradient(120% 80% at 50% -10%, var(--bg-2) 0%, var(--bg) 60%) fixed;
     color: var(--fg);
     font-family: var(--font-body);
     font-size: 15px;
-    line-height: 1.4;
-    padding-inline: 16px;
-    padding-block: 24px 48px;
+    line-height: 1.45;
   }
-  .page { max-width: 960px; margin-inline: auto; display: flex; flex-direction: column; gap: 24px; }
+  #scene { position: fixed; inset: 0; width: 100%; height: 100%; z-index: 0; pointer-events: none; display: block; }
+  .page {
+    position: relative; z-index: 1;
+    max-width: 960px; margin-inline: auto;
+    padding: 28px 16px 56px;
+    display: flex; flex-direction: column; gap: 24px;
+  }
 
-  header { display: flex; flex-wrap: wrap; align-items: flex-start; justify-content: space-between; gap: 16px; }
-  .title { min-width: 0; }
-  h1 { font-family: var(--font-display); font-weight: 700; font-size: 2.25rem; line-height: 1.05; margin: 0; text-wrap: balance; }
-  h2 { font-family: var(--font-display); font-weight: 600; font-size: 1.375rem; line-height: 1.15; margin: 0; }
-  .next { margin: 2px 0 0; color: var(--accent); font-weight: 500; font-size: 1rem; font-variant-numeric: tabular-nums; }
-  .next.missing { color: var(--muted); }
+  /* ---- Header with live countdown ---- */
+  header { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 16px 24px; }
+  h1 {
+    font-family: var(--font-display); font-weight: 700; font-size: clamp(1.9rem, 6vw, 2.6rem); line-height: 1.05; margin: 0;
+    letter-spacing: .04em; color: var(--gold-bright);
+    text-shadow: 0 0 18px rgba(232, 184, 90, .45);
+  }
+  .subtitle { margin: 4px 0 0; color: var(--muted); font-size: .875rem; letter-spacing: .08em; text-transform: uppercase; }
+  .clock { display: flex; align-items: center; gap: 12px; }
+  .ring { width: 56px; height: 56px; flex: none; transform: rotate(-90deg); }
+  .ring circle { fill: none; stroke-width: 4; }
+  .ring .track { stroke: rgba(124, 200, 255, .15); }
+  .ring .arc { stroke: var(--sky); stroke-linecap: round; filter: drop-shadow(0 0 4px rgba(124, 200, 255, .7)); }
+  .clock-label { margin: 0; color: var(--muted); font-size: .75rem; letter-spacing: .08em; text-transform: uppercase; }
+  .clock-time { margin: 0; font-size: 1.5rem; font-weight: 600; color: var(--sky); font-variant-numeric: tabular-nums; letter-spacing: .03em; }
+  .clock.missing .clock-time { font-size: 1rem; color: var(--muted); }
+  .clock.missing .ring { display: none; }
 
-  button, input { font: inherit; color: inherit; }
+  /* ---- Controls ---- */
+  button, input, select { font: inherit; color: inherit; }
   button {
-    cursor: pointer; border-radius: 8px; padding: 9px 14px; font-weight: 600; font-size: .875rem;
-    border: 1px solid var(--line); background: transparent; min-height: 40px;
+    position: relative; overflow: hidden;
+    cursor: pointer; border-radius: 10px; padding: 9px 16px; font-weight: 600; font-size: .875rem;
+    border: 1px solid var(--line); background: rgba(255, 255, 255, .03); min-height: 40px;
+    transition: border-color .2s, background-color .2s, transform .15s;
   }
-  button.primary { background: var(--accent); color: var(--accent-fg); border-color: var(--accent); }
+  button:hover { border-color: var(--gold); }
+  button:active { transform: translateY(1px); }
+  button.primary {
+    background: linear-gradient(180deg, var(--gold-bright), var(--gold)); color: var(--on-gold); border-color: var(--gold);
+    box-shadow: 0 0 14px rgba(232, 184, 90, .25);
+  }
   button.danger { color: var(--danger); border-color: var(--danger); }
-  button:focus-visible, input:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
-  input {
-    background: var(--bg); border: 1px solid var(--line); border-radius: 8px;
+  button:focus-visible, input:focus-visible, select:focus-visible { outline: 2px solid var(--sky); outline-offset: 2px; }
+  input, select {
+    background: rgba(5, 9, 20, .7); border: 1px solid var(--line); border-radius: 10px;
     padding: 9px 12px; min-height: 40px; min-width: 0; width: 100%;
   }
-  input[aria-invalid="true"] { border-color: var(--danger); }
+  select option { background: #0c1630; color: var(--fg); }
+  input[aria-invalid="true"], select[aria-invalid="true"] { border-color: var(--danger); }
+  label { font-size: .8125rem; font-weight: 500; color: var(--muted); }
+  .error { margin: 0; color: var(--danger); font-size: .8125rem; font-weight: 500; }
 
-  .panel { background: var(--surface); border: 1px solid var(--line); border-radius: 14px; padding: 16px; display: flex; flex-direction: column; gap: 12px; }
-  .grid { display: grid; gap: 16px; grid-template-columns: minmax(0, 1fr); align-items: start; }
-  @media (min-width: 720px) { .grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+  .panel {
+    background: var(--glass); border: 1px solid var(--line); border-radius: 16px; padding: 16px;
+    display: flex; flex-direction: column; gap: 12px;
+    -webkit-backdrop-filter: blur(10px); backdrop-filter: blur(10px);
+  }
+  h2 { font-family: var(--font-display); font-weight: 600; font-size: 1.2rem; line-height: 1.2; margin: 0; letter-spacing: .03em; }
+  .row { display: flex; flex-wrap: wrap; gap: 8px; align-items: flex-start; }
+  .row .field { flex: 1 1 150px; min-width: 0; display: flex; flex-direction: column; gap: 4px; }
+  .row .offset { margin-top: 22px; }
 
-  .card-top { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; }
+  /* ---- Character cards: orb (canvas-drawn) + glass panel ---- */
+  .grid { display: grid; gap: 20px; grid-template-columns: minmax(0, 1fr); }
+  @media (min-width: 860px) { .grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+  .card { display: grid; grid-template-columns: 1fr; justify-items: center; gap: 0; position: relative; }
+  .orb-slot { width: 150px; height: 150px; position: relative; margin-bottom: -22px; z-index: 2; }
+  .card .panel { width: 100%; padding-top: 30px; }
+  @media (min-width: 520px) {
+    .card { grid-template-columns: 150px minmax(0, 1fr); align-items: center; justify-items: stretch; }
+    .orb-slot { margin: 0 -26px 0 0; }
+    .card .panel { padding: 16px 16px 16px 40px; }
+  }
+  .card-head { display: flex; align-items: center; gap: 10px; min-width: 0; }
+  .cls-icon { width: 26px; height: 26px; flex: none; fill: none; stroke: var(--c); stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round;
+    filter: drop-shadow(0 0 4px var(--c)); }
   .name { min-width: 0; overflow-wrap: anywhere; }
-  .energy { font-family: var(--font-display); font-weight: 700; font-size: 1.5rem; color: var(--accent); white-space: nowrap; font-variant-numeric: tabular-nums; }
-  .energy small { font-family: var(--font-body); font-weight: 400; font-size: .875rem; color: var(--muted); }
-  .bar { height: 8px; border-radius: 4px; background: var(--track); overflow: hidden; }
-  .bar > span { display: block; height: 100%; background: var(--accent); border-radius: 4px; }
+  .cls-name { margin: 0; color: var(--c); font-size: .75rem; letter-spacing: .1em; text-transform: uppercase; }
+  .energy { display: flex; align-items: baseline; gap: 6px; font-variant-numeric: tabular-nums; }
+  .energy .num { font-size: 2.1rem; font-weight: 600; line-height: 1; color: var(--gold-bright); text-shadow: 0 0 12px rgba(232, 184, 90, .35); }
+  .energy small { color: var(--muted); font-size: .9rem; }
+  .badge { margin-left: auto; align-self: center; font-size: .7rem; font-weight: 600; letter-spacing: .12em; text-transform: uppercase;
+    color: var(--on-gold); background: var(--gold-bright); border-radius: 999px; padding: 3px 10px; }
   .full-in { margin: 0; font-weight: 600; font-variant-numeric: tabular-nums; }
   .full-at { margin: 0; color: var(--muted); font-size: .8125rem; }
   .info { display: flex; flex-direction: column; gap: 2px; }
-
-  .row { display: flex; flex-wrap: wrap; gap: 8px; align-items: flex-start; }
-  .row.edit { flex-wrap: nowrap; }
-  .row.edit .field { flex-basis: 80px; }
-  .row .offset { margin-top: 20px; }
-  .row .field { flex: 1 1 160px; min-width: 0; display: flex; flex-direction: column; gap: 4px; }
-  label { font-size: .8125rem; font-weight: 500; color: var(--muted); }
-  .error { margin: 0; color: var(--danger); font-size: .8125rem; font-weight: 500; }
   .confirm-text { margin: 0; color: var(--danger); font-size: .875rem; font-weight: 500; }
+  .card.full .panel { border-color: var(--gold-bright); box-shadow: 0 0 24px rgba(255, 217, 138, .28), inset 0 0 18px rgba(255, 217, 138, .08); }
+  .card.near .panel { border-color: var(--gold); }
 
-  .adjust { margin: 0; }
-  .empty {
-    border: 1px dashed var(--line); border-radius: 14px; padding: 24px 16px; text-align: center;
-    color: var(--fg); font-weight: 500; font-size: 1rem;
+  /* Flat orb: used when there is no WebGL or the system asks for reduced motion. */
+  .orb-flat { display: none; position: absolute; inset: 14px; border-radius: 50%;
+    border: 2px solid var(--gold);
+    background:
+      radial-gradient(circle at 35% 30%, rgba(255,255,255,.35), transparent 30%),
+      linear-gradient(to top, color-mix(in srgb, var(--c) 70%, var(--gold)) var(--fill), rgba(12, 22, 48, .85) var(--fill));
+    box-shadow: 0 0 18px rgba(232, 184, 90, .35), inset 0 0 14px rgba(0, 0, 0, .5); }
+  body.flat .orb-flat { display: block; }
+  body.flat #scene { display: none; }
+
+  .gain {
+    position: absolute; z-index: 3; left: 75px; top: 20px; transform: translateX(-50%);
+    font-weight: 700; font-size: 1.4rem; color: var(--gold-bright); pointer-events: none;
+    text-shadow: 0 0 10px rgba(255, 217, 138, .9);
   }
-  @media (prefers-reduced-motion: no-preference) { .bar > span { transition: width .3s ease; } }
+  @media (max-width: 519px) { .gain { left: 50%; } }
+
+  .empty {
+    border: 1px dashed var(--line); border-radius: 16px; padding: 24px 16px; text-align: center; margin: 0;
+    font-weight: 500; font-size: 1rem; background: var(--glass);
+  }
+
+  /* ---- Motion (only when allowed) ---- */
+  @media (prefers-reduced-motion: no-preference) {
+    .card.enter { animation: rise .6s cubic-bezier(.2, .7, .2, 1) both; animation-delay: calc(var(--i) * 90ms); }
+    @keyframes rise { from { opacity: 0; transform: translateY(14px); } to { opacity: 1; transform: none; } }
+    .card .panel { transition: transform .25s ease, box-shadow .25s ease, border-color .25s; transform: perspective(900px) rotateX(var(--rx, 0deg)) rotateY(var(--ry, 0deg)); }
+    .card.near .panel { animation: pulse 1.6s ease-in-out infinite; }
+    @keyframes pulse {
+      0%, 100% { box-shadow: 0 0 0 rgba(232, 184, 90, 0); }
+      50% { box-shadow: 0 0 22px rgba(232, 184, 90, .45); border-color: var(--gold-bright); }
+    }
+    .gain { animation: float 1.6s ease-out forwards; }
+    @keyframes float {
+      0% { opacity: 0; transform: translate(-50%, 10px) scale(.8); }
+      20% { opacity: 1; transform: translate(-50%, 0) scale(1.1); }
+      100% { opacity: 0; transform: translate(-50%, -40px) scale(1); }
+    }
+    button.primary::after {
+      content: ""; position: absolute; inset: 0; transform: translateX(-120%);
+      background: linear-gradient(100deg, transparent 30%, rgba(255, 255, 255, .55) 50%, transparent 70%);
+    }
+    button.primary:hover::after { transition: transform .7s ease; transform: translateX(120%); }
+    .ring .arc { transition: stroke-dashoffset 1s linear; }
+  }
 </style>
 
+<canvas id="scene" aria-hidden="true"></canvas>
 <div class="page">
   <header>
-    <div class="title">
+    <div>
       <h1>Energía Odyle</h1>
-      <p class="next" id="next-tick"></p>
+      <p class="subtitle">Daevas de Elyos</p>
+    </div>
+    <div class="clock" id="clock">
+      <svg class="ring" viewBox="0 0 60 60" aria-hidden="true">
+        <circle class="track" cx="30" cy="30" r="26"></circle>
+        <circle class="arc" id="ring-arc" cx="30" cy="30" r="26" stroke-dasharray="163.36" stroke-dashoffset="0"></circle>
+      </svg>
+      <div>
+        <p class="clock-label">Próxima recarga</p>
+        <p class="clock-time" id="next-tick"></p>
+      </div>
     </div>
     <button type="button" id="adjust-toggle">Ajustar recarga</button>
   </header>
-  <form class="panel adjust" id="adjust-form" hidden novalidate>
+  <form class="panel" id="adjust-form" hidden novalidate>
     <h2>Ajustar recarga</h2>
     <div class="row">
       <div class="field">
@@ -130,14 +220,20 @@
         <input id="add-name" maxlength="60" autocomplete="off" placeholder="Máximo 24 caracteres">
         <p class="error" id="add-error" role="alert" hidden></p>
       </div>
+      <div class="field">
+        <label for="add-class">Clase</label>
+        <select id="add-class"></select>
+      </div>
       <button type="submit" class="primary offset">Añadir</button>
     </div>
   </form>
 </div>
 
 <script type="module">
-  import { buildView, parseEnergyInput, parseMinutesInput, parseNameInput } from './view.js';
-  import { anchorFromCountdown, formatDuration } from './energy.js';
+  import { buildView, parseEnergyInput, parseMinutesInput, parseNameInput, parseClassInput } from './view.js';
+  import { anchorFromCountdown, formatDuration, nextTickAt, TICK_MS } from './energy.js';
+  import { CLASSES, classById } from './classes.js';
+  import { formatClock, detectGains, rollValue } from './motion.js';
 
   // Data comes only from db snapshots. Writes happen only after a user action.
   const state = { characters: [], schedule: null };
@@ -147,6 +243,18 @@
 
   let db = null;
   let user = null;
+
+  // ---- Motion setup: 3D scene unless reduced motion or no WebGL ----
+  const reduceMotion = matchMedia('(prefers-reduced-motion: reduce)').matches;
+  let scene = null;
+  if (!reduceMotion) {
+    try {
+      const { createScene } = await import('./orb.js');
+      scene = createScene(document.getElementById('scene'), { particles: innerWidth >= 720 ? 500 : 200 });
+    } catch { scene = null; }
+  }
+  if (scene) scene.start(); else document.body.classList.add('flat');
+  const animate = !!scene;
 
   // ---- Actions (the only functions that write data), one write at a time ----
   let queue = Promise.resolve();
@@ -176,22 +284,24 @@
     }
   }
   // The ref is minted once so a retried set cannot create a duplicate.
-  const addCharacter = name => {
+  const addCharacter = (name, classId) => {
     if (!db) { showNotice('No se pudo guardar'); return Promise.resolve(false); }
     const ref = db.collection('characters').doc();
     const data = {
-      name, energy: 0, recordedAt: Date.now(),
+      name, classId, energy: 0, recordedAt: Date.now(),
       order: Math.max(0, ...state.characters.map(c => Number(c.order) || 0)) + 1,
     };
     return save(() => ref.set(data));
   };
-  const updateEnergy = (id, value) => save(() => db.doc('characters/' + id).update({ energy: value, recordedAt: Date.now() }), id);
+  const updateCharacter = (id, value, classId) =>
+    save(() => db.doc('characters/' + id).update({ energy: value, recordedAt: Date.now(), classId }), id);
   const resyncTick = minutes => save(() => db.doc('settings/schedule').set({ anchorMs: anchorFromCountdown(Date.now(), minutes) }));
   const removeCharacter = id => save(() => db.doc('characters/' + id).delete(), id);
 
   // ---- Rendering ----
   const $ = id => document.getElementById(id);
   const dateFmt = new Intl.DateTimeFormat('es', { weekday: 'short', day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
+  const SVG_NS = 'http://www.w3.org/2000/svg';
 
   function el(tag, props = {}, ...kids) {
     const node = document.createElement(tag);
@@ -204,6 +314,19 @@
     for (const kid of kids) if (kid != null) node.append(kid);
     return node;
   }
+  function classIcon(cls) {
+    const svg = document.createElementNS(SVG_NS, 'svg');
+    svg.setAttribute('viewBox', '0 0 24 24'); svg.setAttribute('class', 'cls-icon'); svg.setAttribute('aria-hidden', 'true');
+    const path = document.createElementNS(SVG_NS, 'path'); path.setAttribute('d', cls.icon);
+    svg.append(path);
+    return svg;
+  }
+  function classSelect(id, selected) {
+    const sel = el('select', { id });
+    sel.append(el('option', { value: '' }, 'Sin clase'));
+    for (const c of CLASSES) sel.append(el('option', { value: c.id, selected: c.id === selected }, c.name));
+    return sel;
+  }
   function showError(id, msg) {
     const p = $(id);
     p.textContent = msg || '';
@@ -214,33 +337,74 @@
     return el('p', { class: 'error', id, role: 'alert' }, msg);
   }
 
-  function cardNode(row) {
+  // Number roll: what each card currently shows, and running rolls.
+  const shown = new Map();
+  const rolls = new Map();
+  let rollRaf = 0;
+  function stepRolls(now) {
+    for (const [id, r] of rolls) {
+      const t = (now - r.start) / 600;
+      const v = rollValue(r.from, r.to, t);
+      shown.set(id, v);
+      const node = document.querySelector(`[data-num="${CSS.escape(id)}"]`);
+      if (node) node.textContent = String(v);
+      if (t >= 1) rolls.delete(id);
+    }
+    rollRaf = rolls.size ? requestAnimationFrame(stepRolls) : 0;
+  }
+  function startRoll(id, from, to) {
+    rolls.set(id, { from, to, start: performance.now() });
+    if (!rollRaf) rollRaf = requestAnimationFrame(stepRolls);
+  }
+
+  const seen = new Set();
+
+  function cardNode(row, index) {
     const editing = ui.editingId === row.id;
     const confirming = ui.confirmId === row.id;
     const err = ui.errors[row.id];
-    const card = el('article', { class: 'panel', 'data-id': row.id });
+    const cls = classById(row.classId);
+    const mood = row.isFull ? 'full' : row.nearFull ? 'near' : '';
+    const fresh = !seen.has(row.id);
+    seen.add(row.id);
+    const card = el('article', { class: `card ${mood} ${fresh && animate ? 'enter' : ''}`, 'data-id': row.id,
+      style: `--c:${row.color};--i:${index}` });
 
-    card.append(el('div', { class: 'card-top' },
-      el('h2', { class: 'name' }, row.name),
-      el('div', { class: 'energy' }, String(row.energy), el('small', {}, ` / ${row.max}`))));
-    card.append(el('div', { class: 'bar', role: 'progressbar', 'aria-valuemin': '0', 'aria-valuemax': '100',
-      'aria-valuenow': String(row.percent), 'aria-label': `Energía de ${row.name}` },
-      el('span', { style: `width:${row.percent}%` })));
+    card.append(el('div', { class: 'orb-slot', 'data-orb': row.id, role: 'img', 'aria-label': `${row.percent}% de energía` },
+      el('div', { class: 'orb-flat', style: `--fill:${row.percent}%` })));
+
+    const panel = el('div', { class: 'panel' });
+    const head = el('div', { class: 'card-head' });
+    if (cls) head.append(classIcon(cls));
+    head.append(el('div', {}, el('h2', { class: 'name' }, row.name), cls ? el('p', { class: 'cls-name' }, cls.name) : null));
+    panel.append(head);
+
+    const prevShown = shown.get(row.id);
+    const rolling = animate && prevShown !== undefined && prevShown !== row.energy;
+    const display = rolling ? (rolls.has(row.id) ? shown.get(row.id) : prevShown) : row.energy;
+    if (rolling) startRoll(row.id, display, row.energy); else { rolls.delete(row.id); shown.set(row.id, row.energy); }
+    panel.append(el('div', { class: 'energy' },
+      el('span', { class: 'num', 'data-num': row.id }, String(display)),
+      el('small', {}, `/ ${row.max}`),
+      row.isFull ? el('span', { class: 'badge' }, 'Lleno') : null));
+
     const info = el('div', { class: 'info' });
-    info.append(el('p', { class: 'full-in' }, row.isFull ? row.fullInText : (row.fullAtMs === null ? row.fullInText : `Lleno en ${row.fullInText}`)));
+    info.append(el('p', { class: 'full-in' }, row.isFull ? 'Energía al máximo' : (row.fullAtMs === null ? row.fullInText : `Lleno en ${row.fullInText}`)));
     if (row.fullAtMs !== null) info.append(el('p', { class: 'full-at' }, dateFmt.format(new Date(row.fullAtMs))));
-    else if (row.isFull) info.append(el('p', { class: 'full-at' }, 'Energía al máximo'));
-    card.append(info);
+    panel.append(info);
 
     if (ui.readOnly || ui.noDb) {
       // read-only or stale: no edit controls
     } else if (editing) {
       const inputId = `energy-${row.id}`;
+      const classId = `class-${row.id}`;
       const form = el('form', { novalidate: true, onsubmit: async e => {
         e.preventDefault();
         const r = parseEnergyInput($(inputId).value);
         if (!r.ok) { ui.errors[row.id] = r.error; return render(); }
-        if (!await updateEnergy(row.id, r.value)) return;
+        const c = parseClassInput($(classId).value);
+        if (!c.ok) { ui.errors[row.id] = c.error; return render(); }
+        if (!await updateCharacter(row.id, r.value, c.value)) return;
         ui.editingId = null; delete ui.errors[row.id]; render();
       } });
       const field = el('div', { class: 'field' },
@@ -248,52 +412,81 @@
         el('input', { id: inputId, inputmode: 'numeric', autocomplete: 'off', value: String(row.energy),
           'aria-invalid': err ? 'true' : 'false', 'aria-describedby': err ? `err-${row.id}` : null }));
       if (err) field.append(errorLine(`err-${row.id}`, err));
-      form.append(el('div', { class: 'row edit' }, field,
-        el('button', { type: 'submit', class: 'primary offset' }, 'Guardar'),
-        el('button', { type: 'button', class: 'offset',
+      form.append(el('div', { class: 'row' }, field,
+        el('div', { class: 'field' }, el('label', { for: classId }, 'Clase'), classSelect(classId, row.classId))));
+      form.append(el('div', { class: 'row' },
+        el('button', { type: 'submit', class: 'primary' }, 'Guardar'),
+        el('button', { type: 'button',
           onclick: () => { ui.editingId = null; delete ui.errors[row.id]; render(); } }, 'Cancelar')));
-      card.append(form);
+      panel.append(form);
     } else if (confirming) {
-      card.append(el('p', { class: 'confirm-text' }, `¿Quitar a ${row.name}?`));
-      card.append(el('div', { class: 'row' },
+      panel.append(el('p', { class: 'confirm-text' }, `¿Quitar a ${row.name}?`));
+      panel.append(el('div', { class: 'row' },
         el('button', { type: 'button', class: 'danger', onclick: async () => { if (!await removeCharacter(row.id)) return; ui.confirmId = null; render(); } }, 'Sí, quitar'),
         el('button', { type: 'button', onclick: () => { ui.confirmId = null; render(); } }, 'Cancelar')));
     } else {
-      card.append(el('div', { class: 'row' },
+      panel.append(el('div', { class: 'row' },
         el('button', { type: 'button', class: 'primary', onclick: () => { ui.editingId = row.id; ui.confirmId = null; render(); $('energy-' + row.id)?.select(); } }, 'Actualizar'),
         el('button', { type: 'button', onclick: () => { ui.confirmId = row.id; ui.editingId = null; render(); } }, 'Quitar')));
     }
+    card.append(panel);
     return card;
   }
 
-  function paint(view) {
-    const next = $('next-tick');
-    next.classList.toggle('missing', view.nextTickInMs === null);
-    next.textContent = view.nextTickInMs === null
-      ? 'Falta la hora de recarga'
-      : `Próxima recarga en ${formatDuration(view.nextTickInMs)}`;
+  // Header clock: text + ring every second, no data work.
+  function paintClock() {
+    const anchor = state.schedule && Number.isFinite(state.schedule.anchorMs) ? state.schedule.anchorMs : null;
+    $('clock').classList.toggle('missing', anchor === null);
+    if (anchor === null) { $('next-tick').textContent = 'Falta la hora de recarga'; return; }
+    const left = nextTickAt(anchor, Date.now()) - Date.now();
+    $('next-tick').textContent = formatClock(left);
+    $('next-tick').setAttribute('aria-label', `en ${formatDuration(left)}`);
+    $('ring-arc').setAttribute('stroke-dashoffset', String(163.36 * (1 - left / TICK_MS)));
+  }
 
+  let lastEnergy = new Map();
+  function paint(view) {
+    paintClock();
     const locked = ui.noDb || ui.readOnly;
     $('nodata').hidden = !ui.noDb;
     $('adjust-toggle').hidden = locked || !db;
     $('add-form').hidden = locked || !ui.loaded;
-    $('next-tick').hidden = ui.noDb;
+    $('clock').hidden = ui.noDb;
     $('adjust-form').hidden = locked || !ui.adjustOpen;
     $('adjust-toggle').setAttribute('aria-expanded', String(ui.adjustOpen));
 
-    // Keep focus and caret across repaints (the 30 s timer repaints too).
+    // Keep focus and caret across repaints (timers repaint too).
     const active = document.activeElement;
     const focusId = active && active.id ? active.id : null;
     const caret = focusId && 'selectionStart' in active ? [active.selectionStart, active.selectionEnd] : null;
 
     const cards = $('cards');
     const draft = new Map();
-    for (const input of cards.querySelectorAll('input')) draft.set(input.id, input.value);
+    for (const input of cards.querySelectorAll('input, select')) draft.set(input.id, input.value);
     cards.replaceChildren(...view.rows.map(cardNode));
-    for (const input of cards.querySelectorAll('input')) if (draft.has(input.id)) input.value = draft.get(input.id);
+    for (const input of cards.querySelectorAll('input, select')) if (draft.has(input.id)) input.value = draft.get(input.id);
     $('empty').hidden = ui.noDb || view.rows.length > 0 || !ui.loaded;
     $('empty').textContent = ui.readOnly ? 'Aún no hay personajes.' : 'Aún no hay personajes. Añade el primero.';
     cards.hidden = view.rows.length === 0;
+
+    if (scene) {
+      scene.setOrbs(view.rows.map(r => ({
+        id: r.id, el: cards.querySelector(`[data-orb="${CSS.escape(r.id)}"]`),
+        percent: r.percent, color: r.color, state: r.isFull ? 'full' : r.nearFull ? 'near' : 'normal',
+      })));
+    }
+
+    // Recharge gains (not manual edits): floating "+N" and an orb ripple.
+    const recorded = new Map(state.characters.map(c => [c.id, c.recordedAt]));
+    const now = view.rows.map(r => ({ id: r.id, energy: r.energy, recordedAt: recorded.get(r.id) }));
+    if (animate) {
+      for (const g of detectGains(lastEnergy, now)) {
+        const card = cards.querySelector(`article[data-id="${CSS.escape(g.id)}"]`);
+        if (card) card.append(el('span', { class: 'gain', 'aria-hidden': 'true' }, `+${g.gain}`));
+        scene.ripple(g.id);
+      }
+    }
+    lastEnergy = new Map(now.map(r => [r.id, r]));
 
     if (focusId && document.activeElement !== $(focusId)) {
       const again = $(focusId);
@@ -306,6 +499,7 @@
   }
 
   // ---- Events ----
+  $('add-class').replaceWith(classSelect('add-class', null));
   $('adjust-toggle').addEventListener('click', () => {
     ui.adjustOpen = !ui.adjustOpen;
     showError('adjust-error', '');
@@ -329,14 +523,40 @@
     const r = parseNameInput($('add-name').value);
     $('add-name').setAttribute('aria-invalid', String(!r.ok));
     if (!r.ok) return showError('add-error', r.error);
+    const c = parseClassInput($('add-class').value);
+    if (!c.ok) return showError('add-error', c.error);
     showError('add-error', '');
-    if (!await addCharacter(r.value)) return;
+    if (!await addCharacter(r.value, c.value)) return;
     $('add-name').value = '';
+    $('add-class').value = '';
     render();
   });
+  // Gentle tilt on hover (fine pointers only); delegated because cards are re-created.
+  if (animate && matchMedia('(pointer: fine)').matches) {
+    $('cards').addEventListener('pointermove', e => {
+      const panel = e.target.closest('.card .panel');
+      if (!panel) return;
+      const r = panel.getBoundingClientRect();
+      panel.style.setProperty('--ry', `${((e.clientX - r.left) / r.width - .5) * 5}deg`);
+      panel.style.setProperty('--rx', `${-((e.clientY - r.top) / r.height - .5) * 5}deg`);
+    });
+    $('cards').addEventListener('pointerout', e => {
+      const panel = e.target.closest('.card .panel');
+      if (panel && !panel.contains(e.relatedTarget)) { panel.style.removeProperty('--rx'); panel.style.removeProperty('--ry'); }
+    });
+  }
 
   render();
-  // Only repaints from memory; writes nothing.
+  // Timers only repaint from memory; they never write.
+  let nextRepaintAt = Infinity;
+  setInterval(() => {
+    paintClock();
+    const anchor = state.schedule?.anchorMs;
+    if (Number.isFinite(anchor)) {
+      const due = nextTickAt(anchor, Date.now() - 1000);
+      if (Date.now() >= due && due !== nextRepaintAt) { nextRepaintAt = due; render(); }
+    }
+  }, 1000);
   setInterval(render, 30_000);
   document.addEventListener('visibilitychange', () => { if (!document.hidden) render(); });
 

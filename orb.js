@@ -55,7 +55,7 @@ const LIQUID_FS = `
     float fres = pow(1.0 - abs(dot(normalize(vNormal), normalize(vView))), 2.0);
     col += base * fres * 0.6;
     col *= 0.8 + uGlow * 0.25;
-    gl_FragColor = vec4(col, 0.92);
+    gl_FragColor = vec4(col, 1.0);
   }`;
 const SHELL_FS = `
   uniform vec3 uGold; uniform float uGlow;
@@ -121,7 +121,7 @@ export function createScene(canvas, { particles = 300 } = {}) {
   };
   const liquid = new THREE.Mesh(new THREE.SphereGeometry(0.9, 64, 48), new THREE.ShaderMaterial({
     vertexShader: LIQUID_VS, fragmentShader: LIQUID_FS, uniforms: liquidU,
-    transparent: true, side: THREE.DoubleSide,
+    side: THREE.DoubleSide,
   }));
   const shellU = { uGold: { value: GOLD }, uGlow: { value: 0 } };
   const shell = new THREE.Mesh(new THREE.SphereGeometry(1.0, 64, 48), new THREE.ShaderMaterial({
