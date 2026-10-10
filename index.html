@@ -1,0 +1,303 @@
+<meta charset="utf-8">
+<title>Energía Odyle</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Figtree:wght@400;500;600&family=Rajdhani:wght@600;700&display=swap">
+<style>
+  /* Layout: one centered column (max 960px); character cards in a 2-column grid from 720px up, single column on phones. */
+  :root {
+    --bg: #edf0f5;
+    --surface: #ffffff;
+    --fg: #162033;
+    --muted: #566176;
+    --line: #d3dae6;
+    --accent: #0b7f86;
+    --accent-fg: #ffffff;
+    --track: #dde3ed;
+    --danger: #b3321f;
+    --font-display: "Rajdhani", "Arial Narrow", system-ui, sans-serif;
+    --font-body: "Figtree", system-ui, -apple-system, "Segoe UI", sans-serif;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg: #0e1520; --surface: #172131; --fg: #e8eef7; --muted: #97a4ba; --line: #2a374c;
+      --accent: #4cd3cc; --accent-fg: #06201f; --track: #223049; --danger: #ff8a78;
+      color-scheme: dark;
+    }
+  }
+  :root[data-theme="dark"] {
+    --bg: #0e1520; --surface: #172131; --fg: #e8eef7; --muted: #97a4ba; --line: #2a374c;
+    --accent: #4cd3cc; --accent-fg: #06201f; --track: #223049; --danger: #ff8a78;
+    color-scheme: dark;
+  }
+
+  * { box-sizing: border-box; }
+  [hidden] { display: none !important; }
+  body {
+    background: var(--bg);
+    color: var(--fg);
+    font-family: var(--font-body);
+    font-size: 15px;
+    line-height: 1.4;
+    padding-inline: 16px;
+    padding-block: 24px 48px;
+  }
+  .page { max-width: 960px; margin-inline: auto; display: flex; flex-direction: column; gap: 24px; }
+
+  header { display: flex; flex-wrap: wrap; align-items: flex-start; justify-content: space-between; gap: 16px; }
+  .title { min-width: 0; }
+  h1 { font-family: var(--font-display); font-weight: 700; font-size: 2.25rem; line-height: 1.05; margin: 0; text-wrap: balance; }
+  h2 { font-family: var(--font-display); font-weight: 600; font-size: 1.375rem; line-height: 1.15; margin: 0; }
+  .next { margin: 2px 0 0; color: var(--accent); font-weight: 500; font-size: 1rem; font-variant-numeric: tabular-nums; }
+  .next.missing { color: var(--muted); }
+
+  button, input { font: inherit; color: inherit; }
+  button {
+    cursor: pointer; border-radius: 8px; padding: 9px 14px; font-weight: 600; font-size: .875rem;
+    border: 1px solid var(--line); background: transparent; min-height: 40px;
+  }
+  button.primary { background: var(--accent); color: var(--accent-fg); border-color: var(--accent); }
+  button.danger { color: var(--danger); border-color: var(--danger); }
+  button:focus-visible, input:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+  input {
+    background: var(--bg); border: 1px solid var(--line); border-radius: 8px;
+    padding: 9px 12px; min-height: 40px; min-width: 0; width: 100%;
+  }
+  input[aria-invalid="true"] { border-color: var(--danger); }
+
+  .panel { background: var(--surface); border: 1px solid var(--line); border-radius: 14px; padding: 16px; display: flex; flex-direction: column; gap: 12px; }
+  .grid { display: grid; gap: 16px; grid-template-columns: minmax(0, 1fr); align-items: start; }
+  @media (min-width: 720px) { .grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+
+  .card-top { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; }
+  .name { min-width: 0; overflow-wrap: anywhere; }
+  .energy { font-family: var(--font-display); font-weight: 700; font-size: 1.5rem; color: var(--accent); white-space: nowrap; font-variant-numeric: tabular-nums; }
+  .energy small { font-family: var(--font-body); font-weight: 400; font-size: .875rem; color: var(--muted); }
+  .bar { height: 8px; border-radius: 4px; background: var(--track); overflow: hidden; }
+  .bar > span { display: block; height: 100%; background: var(--accent); border-radius: 4px; }
+  .full-in { margin: 0; font-weight: 600; font-variant-numeric: tabular-nums; }
+  .full-at { margin: 0; color: var(--muted); font-size: .8125rem; }
+  .info { display: flex; flex-direction: column; gap: 2px; }
+
+  .row { display: flex; flex-wrap: wrap; gap: 8px; align-items: flex-start; }
+  .row.edit { flex-wrap: nowrap; }
+  .row.edit .field { flex-basis: 80px; }
+  .row .offset { margin-top: 20px; }
+  .row .field { flex: 1 1 160px; min-width: 0; display: flex; flex-direction: column; gap: 4px; }
+  label { font-size: .8125rem; font-weight: 500; color: var(--muted); }
+  .error { margin: 0; color: var(--danger); font-size: .8125rem; font-weight: 500; }
+  .confirm-text { margin: 0; color: var(--danger); font-size: .875rem; font-weight: 500; }
+
+  .adjust { margin: 0; }
+  .empty {
+    border: 1px dashed var(--line); border-radius: 14px; padding: 24px 16px; text-align: center;
+    color: var(--fg); font-weight: 500; font-size: 1rem;
+  }
+  @media (prefers-reduced-motion: no-preference) { .bar > span { transition: width .3s ease; } }
+</style>
+
+<div class="page">
+  <header>
+    <div class="title">
+      <h1>Energía Odyle</h1>
+      <p class="next" id="next-tick"></p>
+    </div>
+    <button type="button" id="adjust-toggle">Ajustar recarga</button>
+  </header>
+  <form class="panel adjust" id="adjust-form" hidden novalidate>
+    <h2>Ajustar recarga</h2>
+    <div class="row">
+      <div class="field">
+        <label for="adjust-minutes">Minutos que faltan para la próxima recarga</label>
+        <input id="adjust-minutes" inputmode="numeric" autocomplete="off" placeholder="1 a 180">
+        <p class="error" id="adjust-error" role="alert" hidden></p>
+      </div>
+      <button type="submit" class="primary offset">Guardar</button>
+      <button type="button" id="adjust-cancel" class="offset">Cancelar</button>
+    </div>
+  </form>
+
+  <section class="grid" id="cards" aria-label="Personajes"></section>
+  <p class="empty" id="empty" hidden>Aún no hay personajes. Añade el primero.</p>
+
+  <form class="panel" id="add-form" novalidate>
+    <h2>Añadir personaje</h2>
+    <div class="row">
+      <div class="field">
+        <label for="add-name">Nombre</label>
+        <input id="add-name" maxlength="60" autocomplete="off" placeholder="Máximo 24 caracteres">
+        <p class="error" id="add-error" role="alert" hidden></p>
+      </div>
+      <button type="submit" class="primary offset">Añadir</button>
+    </div>
+  </form>
+</div>
+
+<script type="module">
+  import { buildView, parseEnergyInput, parseMinutesInput, parseNameInput } from './view.js';
+  import { anchorFromCountdown, formatDuration } from './energy.js';
+
+  // In-memory data. Task 4 replaces the loading/saving with db reads and writes.
+  const state = { characters: [], schedule: null };
+  // Interface-only state: which card is editing/confirming, validation messages.
+  const ui = { adjustOpen: false, editingId: null, confirmId: null, errors: {} };
+
+  let nextOrder = 1;
+  let nextId = 1;
+
+  // ---- Actions (the only functions that change data) ----
+  function addCharacter(name) {
+    state.characters.push({ id: 'c' + nextId++, name, energy: 0, recordedAt: Date.now(), order: nextOrder++ });
+  }
+  function updateEnergy(id, value) {
+    const c = state.characters.find(x => x.id === id);
+    if (c) { c.energy = value; c.recordedAt = Date.now(); }
+  }
+  function resyncTick(minutes) {
+    state.schedule = { anchorMs: anchorFromCountdown(Date.now(), minutes) };
+  }
+  function removeCharacter(id) {
+    state.characters = state.characters.filter(x => x.id !== id);
+  }
+
+  // ---- Rendering ----
+  const $ = id => document.getElementById(id);
+  const dateFmt = new Intl.DateTimeFormat('es', { weekday: 'short', day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
+
+  function el(tag, props = {}, ...kids) {
+    const node = document.createElement(tag);
+    for (const [k, v] of Object.entries(props)) {
+      if (k === 'class') node.className = v;
+      else if (k.startsWith('on')) node.addEventListener(k.slice(2), v);
+      else if (v === true) node.setAttribute(k, '');
+      else if (v !== false && v != null) node.setAttribute(k, v);
+    }
+    for (const kid of kids) if (kid != null) node.append(kid);
+    return node;
+  }
+  function showError(id, msg) {
+    const p = $(id);
+    p.textContent = msg || '';
+    p.hidden = !msg;
+  }
+  function errorLine(id, msg) {
+    return el('p', { class: 'error', id, role: 'alert' }, msg);
+  }
+
+  function cardNode(row) {
+    const editing = ui.editingId === row.id;
+    const confirming = ui.confirmId === row.id;
+    const err = ui.errors[row.id];
+    const card = el('article', { class: 'panel', 'data-id': row.id });
+
+    card.append(el('div', { class: 'card-top' },
+      el('h2', { class: 'name' }, row.name),
+      el('div', { class: 'energy' }, String(row.energy), el('small', {}, ` / ${row.max}`))));
+    card.append(el('div', { class: 'bar', role: 'progressbar', 'aria-valuemin': '0', 'aria-valuemax': '100',
+      'aria-valuenow': String(row.percent), 'aria-label': `Energía de ${row.name}` },
+      el('span', { style: `width:${row.percent}%` })));
+    const info = el('div', { class: 'info' });
+    info.append(el('p', { class: 'full-in' }, row.isFull ? row.fullInText : (row.fullAtMs === null ? row.fullInText : `Lleno en ${row.fullInText}`)));
+    if (row.fullAtMs !== null) info.append(el('p', { class: 'full-at' }, dateFmt.format(new Date(row.fullAtMs))));
+    else if (row.isFull) info.append(el('p', { class: 'full-at' }, 'Energía al máximo'));
+    card.append(info);
+
+    if (editing) {
+      const inputId = `energy-${row.id}`;
+      const form = el('form', { novalidate: true, onsubmit: e => {
+        e.preventDefault();
+        const r = parseEnergyInput($(inputId).value);
+        if (!r.ok) { ui.errors[row.id] = r.error; return render(); }
+        updateEnergy(row.id, r.value);
+        ui.editingId = null; delete ui.errors[row.id]; render();
+      } });
+      const field = el('div', { class: 'field' },
+        el('label', { for: inputId }, 'Energía actual'),
+        el('input', { id: inputId, inputmode: 'numeric', autocomplete: 'off', value: String(row.energy),
+          'aria-invalid': err ? 'true' : 'false', 'aria-describedby': err ? `err-${row.id}` : null }));
+      if (err) field.append(errorLine(`err-${row.id}`, err));
+      form.append(el('div', { class: 'row edit' }, field,
+        el('button', { type: 'submit', class: 'primary offset' }, 'Guardar'),
+        el('button', { type: 'button', class: 'offset',
+          onclick: () => { ui.editingId = null; delete ui.errors[row.id]; render(); } }, 'Cancelar')));
+      card.append(form);
+    } else if (confirming) {
+      card.append(el('p', { class: 'confirm-text' }, `¿Quitar a ${row.name}?`));
+      card.append(el('div', { class: 'row' },
+        el('button', { type: 'button', class: 'danger', onclick: () => { removeCharacter(row.id); ui.confirmId = null; render(); } }, 'Sí, quitar'),
+        el('button', { type: 'button', onclick: () => { ui.confirmId = null; render(); } }, 'Cancelar')));
+    } else {
+      card.append(el('div', { class: 'row' },
+        el('button', { type: 'button', class: 'primary', onclick: () => { ui.editingId = row.id; ui.confirmId = null; render(); } }, 'Actualizar'),
+        el('button', { type: 'button', onclick: () => { ui.confirmId = row.id; ui.editingId = null; render(); } }, 'Quitar')));
+    }
+    return card;
+  }
+
+  function paint(view) {
+    const next = $('next-tick');
+    next.classList.toggle('missing', view.nextTickInMs === null);
+    next.textContent = view.nextTickInMs === null
+      ? 'Falta la hora de recarga'
+      : `Próxima recarga en ${formatDuration(view.nextTickInMs)}`;
+
+    $('adjust-form').hidden = !ui.adjustOpen;
+    $('adjust-toggle').setAttribute('aria-expanded', String(ui.adjustOpen));
+
+    // Keep focus and caret across repaints (the 30 s timer repaints too).
+    const active = document.activeElement;
+    const focusId = active && active.id ? active.id : null;
+    const caret = focusId && 'selectionStart' in active ? [active.selectionStart, active.selectionEnd] : null;
+
+    const cards = $('cards');
+    const draft = new Map();
+    for (const input of cards.querySelectorAll('input')) draft.set(input.id, input.value);
+    cards.replaceChildren(...view.rows.map(cardNode));
+    for (const input of cards.querySelectorAll('input')) if (draft.has(input.id)) input.value = draft.get(input.id);
+    $('empty').hidden = view.rows.length > 0;
+    cards.hidden = view.rows.length === 0;
+
+    if (focusId && document.activeElement !== $(focusId)) {
+      const again = $(focusId);
+      if (again) { again.focus(); if (caret && again.setSelectionRange) again.setSelectionRange(caret[0], caret[1]); }
+    }
+  }
+
+  function render() {
+    paint(buildView(state.characters, state.schedule, Date.now()));
+  }
+
+  // ---- Events ----
+  $('adjust-toggle').addEventListener('click', () => {
+    ui.adjustOpen = !ui.adjustOpen;
+    showError('adjust-error', '');
+    render();
+    if (ui.adjustOpen) $('adjust-minutes').focus();
+  });
+  $('adjust-cancel').addEventListener('click', () => { ui.adjustOpen = false; showError('adjust-error', ''); render(); });
+  $('adjust-form').addEventListener('submit', e => {
+    e.preventDefault();
+    const r = parseMinutesInput($('adjust-minutes').value);
+    $('adjust-minutes').setAttribute('aria-invalid', String(!r.ok));
+    if (!r.ok) return showError('adjust-error', r.error);
+    showError('adjust-error', '');
+    resyncTick(r.value);
+    $('adjust-minutes').value = '';
+    ui.adjustOpen = false;
+    render();
+  });
+  $('add-form').addEventListener('submit', e => {
+    e.preventDefault();
+    const r = parseNameInput($('add-name').value);
+    $('add-name').setAttribute('aria-invalid', String(!r.ok));
+    if (!r.ok) return showError('add-error', r.error);
+    showError('add-error', '');
+    addCharacter(r.value);
+    $('add-name').value = '';
+    render();
+  });
+
+  render();
+  // Only repaints from memory; writes nothing.
+  setInterval(render, 30_000);
+</script>
