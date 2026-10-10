@@ -179,10 +179,10 @@
 
   /* ---- Summary and waste warning ---- */
   .summary { gap: 4px; }
-  .sum-total { display: flex; align-items: baseline; gap: 8px; }
-  .sum-num { font-size: 2rem; font-weight: 600; color: var(--gold-bright); font-variant-numeric: tabular-nums; }
   .sum-label, .sum-next, .hint { color: var(--muted); font-size: .875rem; margin: 0; }
   .sum-tip { margin: 0; font-weight: 600; }
+  .switch { display: flex; gap: 10px; align-items: flex-start; color: var(--fg); font-size: .875rem; cursor: pointer; }
+  .switch input { width: 18px; height: 18px; min-height: 0; margin-top: 2px; accent-color: var(--gold); flex: none; }
   .waste { margin: 0; color: #ffb35c; font-size: .8125rem; font-weight: 600; }
 
   /* ---- Event timers ---- */
@@ -352,6 +352,11 @@
     <p class="error" id="prefs-error" role="alert" hidden></p>
   </form>
 
+  <section class="panel" aria-labelledby="sound-title">
+    <h2 id="sound-title">Sonido</h2>
+    <label class="switch"><input type="checkbox" id="sound-toggle"> Tintineo con cada recarga y al empezar un evento; fanfarria al llenarse</label>
+  </section>
+
   <form class="panel" id="adjust-form" novalidate>
     <h2>Ajustar recarga</h2>
     <div class="field">
@@ -378,6 +383,8 @@
   import { summary, wasteWarning, projectEnergy } from './planner.js';
   import { dailySpent, staleEvents } from './spend.js';
   import { renderForecast, renderHistory, CHART_COLORS } from './charts.js';
+  import { createSound } from './sound.js';
+  const sound = createSound();
   import { formatClock, detectGains, rollValue, becameFull, sceneOptions } from './motion.js';
 
   // Data comes only from db snapshots. Writes happen only after a user action.
@@ -709,6 +716,7 @@
   const timeFmt = new Intl.DateTimeFormat('es', { hour: '2-digit', minute: '2-digit' });
   const dayFmt = new Intl.DateTimeFormat('es', { weekday: 'short', hour: '2-digit', minute: '2-digit' });
   const countdown = ms => ms < 86_400_000 ? formatClock(ms) : formatDuration(ms);
+  let lastActive = null;
   function paintEvents(now) {
     const items = EVENTS.map(e => ({ e, o: nextOccurrence(e, now) }))
       .sort((a, b) => (b.o.active - a.o.active) || (a.o.active ? a.o.endMs - b.o.endMs : a.o.startMs - b.o.startMs));
@@ -719,6 +727,9 @@
         o.active ? `En curso · termina en ${formatClock(o.endMs - now)}` : `Empieza en ${countdown(o.startMs - now)}`,
         el('small', {}, (sameDay(o.startMs) ? timeFmt : dayFmt).format(new Date(o.startMs)))),
       el('span', { class: 'ev-note' }, e.note))));
+    const activeNow = new Set(items.filter(i => i.o.active && i.e.durationMin > 0).map(i => i.e.id));
+    for (const id of activeNow) if (lastActive && !lastActive.has(id)) sound.chime();
+    lastActive = activeNow;
     const first = items[0];
     $('events-next').textContent = first.o.active ? `${first.e.name}: en curso` : `Próximo: ${first.e.name} en ${countdown(first.o.startMs - now)}`;
   }
@@ -803,8 +814,9 @@
         const card = cards.querySelector(`article[data-id="${CSS.escape(g.id)}"]`);
         if (card) card.append(el('span', { class: 'gain', 'aria-hidden': 'true' }, `+${g.gain}`));
         scene.ripple(g.id);
+        sound.chime();
       }
-      if (anchor === lastAnchor) for (const id of becameFull(lastEnergy, now, MAX)) scene.beam(id);
+      if (anchor === lastAnchor) for (const id of becameFull(lastEnergy, now, MAX)) { scene.beam(id); sound.fanfare(); }
     }
     if (!keepBaseline) lastEnergy = new Map(now.map(r => [r.id, r]));
     lastAnchor = anchor;
@@ -849,6 +861,8 @@
     else if (!e.shiftKey && document.activeElement === f.at(-1)) { e.preventDefault(); f[0].focus(); }
   });
   $('undo').addEventListener('click', undoLast);
+  $('sound-toggle').checked = sound.enabled();
+  $('sound-toggle').addEventListener('change', e => { sound.setEnabled(e.target.checked); if (e.target.checked) sound.chime(); });
 
   let paintedPresets = '';
   function paintPresets() {
