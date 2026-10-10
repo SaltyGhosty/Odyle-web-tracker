@@ -86,5 +86,7 @@ export function cpEta(points, goal, nowMs) {
   const last = recent.at(-1);
   if (last.cp >= goal) return { reached: true, at: last.at };
   if (slope <= 0) return { reached: false, at: null };
-  return { reached: false, at: last.at + (goal - last.cp) / slope };
+  const at = last.at + (goal - last.cp) / slope;
+  // a nearly flat trend gives absurd dates (beyond what Date can show): treat as "no estimate"
+  return { reached: false, at: Number.isFinite(at) && at - nowMs < 5 * 365 * 86_400_000 ? at : null };
 }

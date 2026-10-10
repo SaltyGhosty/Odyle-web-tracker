@@ -408,6 +408,7 @@
   .ai-form { display: flex; gap: 6px; align-items: flex-end; }
   .ai-form textarea { min-height: 44px; max-height: 120px; flex: 1; }
   body.toast-up .ai-fab { bottom: 84px; }
+  body.toast-up .ai-panel { bottom: 138px; height: min(560px, calc(100vh - 168px)); }
 
   /* ---- Custom timers ---- */
   .timer-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
@@ -1133,7 +1134,7 @@
         if (!cp.ok) { ui.errors[row.id] = cp.error; return render(); }
         const goal = parseCp($(`goal-${row.id}`).value);
         if (!goal.ok) { ui.errors[row.id] = goal.error; return render(); }
-        if (!await updateCharacter(row, r.value, c.value, cp.value, goal.value)) return;
+        if (!await updateCharacter(row, r.value, c.value, cp.value, goal.value ?? 0)) return; // empty goal field clears it
         ui.editingId = null; delete ui.errors[row.id]; render();
       } });
       const field = el('div', { class: 'field' },
@@ -1795,7 +1796,7 @@
   $('keys-close').addEventListener('click', () => toggleKeys(false));
   $('keys-help').addEventListener('click', e => { if (e.target === $('keys-help')) toggleKeys(false); });
   document.addEventListener('keydown', e => {
-    if (e.ctrlKey || e.metaKey || e.altKey || ui.menuOpen) return;
+    if (e.ctrlKey || e.metaKey || e.altKey || e.repeat || ui.menuOpen || !$('ai-panel').hidden) return;
     if (keysOpen() && e.key === 'Escape') { e.preventDefault(); toggleKeys(false); return; }
     const t = e.target;
     if (t && (t.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(t.tagName))) return;
@@ -1803,7 +1804,7 @@
     if (keysOpen()) return;
     if (/^[1-9]$/.test(e.key)) {
       const preset = state.presets[Number(e.key) - 1];
-      if (!preset || !my || ui.readOnly || ui.noDb) return;
+      if (!preset || !my || ui.readOnly || ui.noDb || (DESKTOP.matches && activeTab !== 'personajes')) return;
       const rows = buildView(state.characters, state.schedule, Date.now()).rows;
       const row = rows.find(r => r.id === ui.selectedId) || rows[0];
       if (!row) return;
@@ -1960,6 +1961,13 @@
     });
   }
 
+  // Shared legion data (calendar, wall): a refused write only affects that write, never the viewer's own data.
+  async function saveShared(fn) {
+    showNotice('');
+    try { await write(fn); return true; }
+    catch (e) { showNotice(e && e.code === 'invalid_argument' ? 'No tienes permiso para escribir aquí' : 'No se pudo guardar'); return false; }
+  }
+
   // ---- Legion calendar: appointments with Voy/Quizá/No; alert 15 minutes before ----
   const CAL_ALERT = 15 * 60_000;
   const calAlerted = new Set();
@@ -1977,10 +1985,10 @@
       }
     }
     const key = JSON.stringify(upcoming) + ui.readOnly + Math.floor(now / 60_000) + JSON.stringify(state.names);
-    if (key === paintedCal) return; // repaint at most once a minute or on change (keeps focus)
+    if (key === paintedCal || $('cal-list').contains(document.activeElement) && paintedCal.startsWith(JSON.stringify(upcoming))) return; // repaint at most once a minute or on change (keeps focus)
     paintedCal = key;
     const voteBtn = (c, v, label) => el('button', { type: 'button', 'aria-pressed': String(c.rsvp?.[myUid] === v), disabled: !my || ui.readOnly,
-      onclick: () => save(() => db.doc('calendar/' + c.id).update({ rsvp: { [myUid]: v } })) }, label);
+      onclick: () => saveShared(() => db.doc('calendar/' + c.id).update({ rsvp: { [myUid]: v } })) }, label);
     $('cal-list').replaceChildren(...(upcoming.length ? upcoming.map(c => {
       const votes = Object.values(c.rsvp || {});
       const n = v => votes.filter(x => x === v).length;
@@ -1990,7 +1998,7 @@
           el('small', {}, `${dateFmt.format(new Date(c.at))} · ${c.durationMin} min · ${live ? 'en curso' : 'en ' + formatDuration(c.at - now)} · por ${c.uid === myUid ? 'ti' : nameOf(c.uid)}`),
           el('small', {}, ` · Voy ${n('yes')} · Quizá ${n('maybe')} · No ${n('no')}`)),
         el('div', { class: 'rsvp' }, voteBtn(c, 'yes', 'Voy'), voteBtn(c, 'maybe', 'Quizá'), voteBtn(c, 'no', 'No'),
-          c.uid === myUid && !ui.readOnly ? el('button', { type: 'button', 'aria-label': `Borrar ${c.title}`, onclick: () => save(() => db.doc('calendar/' + c.id).delete()) }, '✕') : null));
+          c.uid === myUid && !ui.readOnly ? el('button', { type: 'button', 'aria-label': `Borrar ${c.title}`, onclick: () => saveShared(() => db.doc('calendar/' + c.id).delete()) }, '✕') : null));
     }) : [el('li', { class: 'muted hint' }, 'No hay citas próximas. Crea la primera.')]));
   }
   $('cal-form').addEventListener('submit', async e => {
@@ -2004,7 +2012,7 @@
     if (!Number.isInteger(dur) || dur < 5 || dur > 600) return showError('cal-error', 'Duración entre 5 y 600 minutos');
     showError('cal-error', '');
     const ref = db.collection('calendar').doc();
-    if (!await save(() => ref.set({ uid: myUid, title, at, durationMin: dur, rsvp: { [myUid]: 'yes' } }))) return;
+    if (!await saveShared(() => ref.set({ uid: myUid, title, at, durationMin: dur, rsvp: { [myUid]: 'yes' } }))) return;
     $('cal-title').value = ''; $('cal-at').value = '';
   });
 
@@ -2019,7 +2027,7 @@
     paintedWall = key;
     $('wall-list').replaceChildren(...(state.wall.length ? state.wall.map(m => el('li', {},
       el('span', { class: 'w-head' }, el('b', {}, m.uid === myUid ? 'Tú' : nameOf(m.uid)), ' ', el('small', {}, dateFmt.format(new Date(m.at)))),
-      m.uid === myUid && !ui.readOnly ? el('button', { type: 'button', 'aria-label': 'Borrar mensaje', onclick: () => save(() => db.doc('wall/' + m.id).delete()) }, 'Borrar') : null,
+      m.uid === myUid && !ui.readOnly ? el('button', { type: 'button', 'aria-label': 'Borrar mensaje', onclick: () => saveShared(() => db.doc('wall/' + m.id).delete()) }, 'Borrar') : null,
       el('p', { class: 'w-text' }, m.text))) : [el('li', { class: 'muted hint' }, 'Aún no hay mensajes.')]));
   }
   $('wall-text').addEventListener('input', e => { $('wall-count').textContent = `${e.target.value.length}/280`; });
@@ -2033,7 +2041,7 @@
     showError('wall-error', '');
     lastWallAt = Date.now();
     const ref = db.collection('wall').doc();
-    if (!await save(() => ref.set({ uid: myUid, at: Date.now(), text }))) return;
+    if (!await saveShared(() => ref.set({ uid: myUid, at: Date.now(), text }))) return;
     $('wall-text').value = ''; $('wall-count').textContent = '0/280';
   });
 
@@ -2073,6 +2081,8 @@
   // ---- Online now (room presence) and "Busco grupo" (room events). Nothing here is stored. ----
   let room = null;
   let peers = [];
+  let paintedLfg = '';
+  const lastLfgFrom = new Map(); // sender → time of their last alert (anti-spam)
   const lfgs = []; // offers heard in the last 15 minutes: {id, by, peer, act, text, at, replied}
   let myLfg = null; // {id, at, replies: Set}
   const LFG_TTL = 15 * 60_000;
@@ -2101,7 +2111,8 @@
       u.me ? 'Tú' : nameOf(u.uid), u.char ? el('small', {}, u.char) : null)));
     const now = Date.now();
     while (lfgs.length && now - lfgs[0].at > LFG_TTL) lfgs.shift();
-    $('lfg-list').replaceChildren(...[...lfgs].reverse().map(o => el('li', {},
+    const lfgKey = JSON.stringify(lfgs.map(o => [o.id, o.replied])) + JSON.stringify(state.names) + ui.readOnly;
+    if (lfgKey !== paintedLfg) paintedLfg = lfgKey, $('lfg-list').replaceChildren(...[...lfgs].reverse().map(o => el('li', {},
       el('span', {}, `${nameOf(o.by)}${o.char ? ` (${o.char})` : ''} busca grupo: ${o.act}`,
         el('small', {}, `${o.text ? o.text + ' · ' : ''}${timeFmt.format(new Date(o.at))}`)),
       el('button', { type: 'button', class: 'primary', disabled: o.replied || ui.readOnly, onclick: () => replyLfg(o) }, o.replied ? 'Apuntado' : 'Voy'))));
@@ -2167,7 +2178,9 @@
       const d = msg.data || {};
       const id = clean(d.id, 24), act = clean(d.act, 60);
       if (!id || !act || lfgs.some(o => o.id === id)) return;
-      if (msg.isMe) return; // our own offer comes back as an echo
+      if (msg.isMe || !msg.by) return; // our own offer comes back as an echo; unknown senders are ignored
+      if (Date.now() - (lastLfgFrom.get(msg.by) || 0) < 30_000) return;
+      lastLfgFrom.set(msg.by, Date.now());
       const o = { id, by: msg.by, peer: msg.peer, act, text: clean(d.text, 120), char: clean(d.char, 24), at: Date.now(), replied: false };
       lfgs.push(o); if (lfgs.length > 20) lfgs.shift();
       await resolveNames([msg.by]);
@@ -2296,6 +2309,7 @@
         sample = null; out.classList.add('err'); out.textContent = tr('El asistente no está disponible aquí.');
         $('ai-fab').hidden = true;
       } else {
+        if (aiTurns.at(-1)?.role === 'user') aiTurns.pop(); // no reply: don't leave an orphan question
         if (code !== 'refused' && (e.text || shownText)) aiRender(out, e.text || shownText); else out.replaceChildren();
         out.append(el('p', { class: 'ai-msg err' }, tr(AI_ERRORS[code] || 'No se pudo obtener respuesta. Inténtalo de nuevo.')));
       }
@@ -2317,7 +2331,7 @@
     $('ai-quick').hidden = false;
   });
   $('ai-quick').addEventListener('click', e => { const b = e.target.closest('[data-q]'); if (b) aiAsk(tr(b.dataset.q)); });
-  $('ai-form').addEventListener('submit', e => { e.preventDefault(); const v = $('ai-input').value; if (!v.trim()) return; $('ai-input').value = ''; aiAsk(v); });
+  $('ai-form').addEventListener('submit', e => { e.preventDefault(); if (aiCtl || !sample) return; const v = $('ai-input').value; if (!v.trim()) return; $('ai-input').value = ''; aiAsk(v); });
   $('ai-input').addEventListener('keydown', e => { if (e.key === 'Enter' && !e.shiftKey && !e.isComposing) { e.preventDefault(); $('ai-form').requestSubmit(); } });
   $('ai-panel').addEventListener('keydown', e => { if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); aiOpen(false); } });
   async function connectAssistant() {
@@ -2384,7 +2398,7 @@
           render();
         }, () => { memberSubs.delete(id); state.others.delete(id); render(); })); // retried on the next members snapshot
       }
-      if (user && ids.length) { try { const ps = await user.profiles(ids); for (const id of ids) state.names[id] = ps[id]?.name || ''; } catch {} }
+      await resolveNames(ids); // only ids we haven't named yet
       render();
     }, () => {});
     if (my) db.doc(my.stats).onSnapshot(snap => {
@@ -2433,13 +2447,17 @@
       render();
     }, onError);
     db.collection('calendar').where('at', '>', Date.now() - 86_400_000).orderBy('at').limit(100).onSnapshot(async snap => {
-      state.calendar = snap.docs.map(d => ({ id: d.id, ...d.data() })).filter(c => typeof c.title === 'string' && Number.isFinite(c.at) && Number.isFinite(c.durationMin))
+      const t0 = Date.now(), YEAR = 365 * 86_400_000;
+      state.calendar = snap.docs.map(d => ({ id: d.id, ...d.data() })).filter(c => typeof c.title === 'string' && typeof c.uid === 'string'
+        && Number.isFinite(c.at) && Math.abs(c.at - t0) < YEAR && Number.isInteger(c.durationMin) && c.durationMin >= 5 && c.durationMin <= 600)
         .map(c => ({ ...c, title: c.title.slice(0, 60), rsvp: c.rsvp && typeof c.rsvp === 'object' ? c.rsvp : {} }));
       await resolveNames(state.calendar.map(c => c.uid));
       paintCalendar(Date.now());
     }, () => {});
     db.collection('wall').orderBy('at', 'desc').limit(50).onSnapshot(async snap => {
-      state.wall = snap.docs.map(d => ({ id: d.id, ...d.data() })).filter(m => typeof m.text === 'string' && Number.isFinite(m.at))
+      const t0 = Date.now();
+      state.wall = snap.docs.map(d => ({ id: d.id, ...d.data() })).filter(m => typeof m.text === 'string' && typeof m.uid === 'string'
+        && Number.isFinite(m.at) && m.at < t0 + 3_600_000 && m.at > t0 - 365 * 86_400_000)
         .map(m => ({ ...m, text: m.text.slice(0, 280) }));
       await resolveNames(state.wall.map(m => m.uid));
       paintWall();
