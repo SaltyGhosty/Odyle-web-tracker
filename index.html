@@ -233,7 +233,7 @@
     #tab-ajustes > *, #tab-novedades > * { break-inside: avoid; margin: 0 0 20px; width: 100%; }
     #tab-ajustes[hidden], #tab-novedades[hidden] { display: none !important; }
     #tab-legion .legion:empty + .legion-empty { display: block; }
-    #tab-personajes #add-form { max-width: 560px; }
+    .chars-bar { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
     @media (prefers-reduced-motion: no-preference) { .tab-panel:not([hidden]) { animation: rise .35s cubic-bezier(.2, .7, .2, 1) both; } }
   }
 
@@ -411,6 +411,23 @@
   body.toast-up .ai-fab { bottom: calc(var(--toast-h, 50px) + 32px); }
   body.toast-up .ai-panel { bottom: calc(var(--toast-h, 50px) + 86px); height: min(560px, calc(100vh - var(--toast-h, 50px) - 116px)); }
 
+  /* ---- Personajes: "+" button and the add-character modal ---- */
+  .chars-bar { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: -8px; }
+  .chars-bar h2 { font-size: 1rem; color: var(--muted); letter-spacing: .08em; text-transform: uppercase; font-family: var(--font-body); font-weight: 600; }
+  .add-btn { width: 44px; height: 44px; min-height: 0; padding: 0; border-radius: 50%; font-size: 1.6rem; line-height: 1; font-weight: 500;
+    background: linear-gradient(180deg, var(--gold-bright), var(--gold)); color: var(--on-gold); border-color: var(--gold);
+    box-shadow: 0 0 16px rgba(232, 184, 90, .4); display: grid; place-items: center; }
+  .add-btn:hover { box-shadow: 0 0 22px rgba(232, 184, 90, .65); }
+  .modal { position: fixed; inset: 0; z-index: 14; display: grid; place-items: center; padding: 16px; background: rgba(2, 4, 10, .6);
+    opacity: 0; transition: opacity .22s ease; }
+  .modal.open { opacity: 1; }
+  .modal-box { width: min(440px, 100%); transform: translateY(10px) scale(.98); transition: transform .22s cubic-bezier(.2, .7, .2, 1); }
+  .modal.open .modal-box { transform: none; }
+  .modal-box .panel { background: var(--glass-strong); box-shadow: 0 16px 50px rgba(0, 0, 0, .6); }
+  .modal-box .field { display: flex; flex-direction: column; gap: 4px; }
+  .drawer-head button { padding: 4px 10px; min-height: 32px; }
+  @media (prefers-reduced-motion: reduce) { .modal, .modal-box { transition: none; } }
+
   /* ---- Custom timers ---- */
   .timer-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
   .timer-list:empty { display: none; }
@@ -514,6 +531,10 @@
   <p class="empty" id="nodata" hidden>No se pueden cargar los datos aquí</p>
   <p class="error" id="notice" role="alert" hidden></p>
   <h2 class="group-title" id="mine-title" hidden>Tus personajes</h2>
+  <div class="chars-bar" id="chars-bar">
+    <h2>Tus personajes</h2>
+    <button type="button" id="add-btn" class="add-btn" aria-label="Añadir personaje" title="Añadir personaje" aria-haspopup="dialog" hidden>+</button>
+  </div>
   <section class="grid" id="cards" aria-label="Personajes"></section>
   <section class="panel online" id="online-panel" aria-labelledby="online-title" hidden>
     <h2 id="online-title">En línea</h2>
@@ -610,7 +631,7 @@
   </div>
 
   <form class="panel" id="add-form" novalidate>
-    <h2>Añadir personaje</h2>
+    <div class="drawer-head"><h2 id="add-title">Añadir personaje</h2><button type="button" id="add-close" aria-label="Cerrar">✕</button></div>
     <div class="field">
       <label for="add-name">Nombre</label>
       <input id="add-name" maxlength="60" autocomplete="off" placeholder="Máximo 24 caracteres">
@@ -743,6 +764,8 @@
     <button type="button" id="ai-stop" hidden>Detener</button>
   </form>
 </section>
+
+<div id="add-modal" class="modal" role="dialog" aria-modal="true" aria-labelledby="add-title" hidden><div class="modal-box" id="add-box"></div></div>
 
 <div id="keys-help" class="keys-help" role="dialog" aria-modal="true" aria-labelledby="keys-title" hidden>
   <div class="panel">
@@ -1407,7 +1430,7 @@
   const drawerPanels = drawerOrder.filter(n => !n.classList.contains('drawer-head'));
   const isNews = n => n.querySelector && (n.querySelector('#news') || n.querySelector('#feedback-form'));
   const PLACE = {
-    personajes: () => ['guide', 'summary', 'add-form', 'empty', 'mine-title', 'cards'].map(id => $(id)),
+    personajes: () => ['guide', 'summary', 'empty', 'chars-bar', 'cards'].map(id => $(id)),
     eventos: () => [$('events'), $('timers-panel')],
     estadisticas: () => ['week-panel', 'sim-panel', 'forecast-panel', 'cp-panel', 'history-panel'].map(id => $(id)),
     legion: () => ['online-panel', 'calendar-panel', 'rank-panel', 'wall-panel', 'legion', 'legion-empty'].map(id => $(id)),
@@ -1430,6 +1453,7 @@
     for (const [k, p] of Object.entries(tabPanels)) p.hidden = k !== id;
     for (const b of nav.querySelectorAll('button')) b.toggleAttribute('aria-current', b.dataset.tab === id), b.dataset.tab === id && b.setAttribute('aria-current', 'page');
     if (id === 'eventos') $('events').open = true;
+    if (id === 'novedades') loadInbox(); // the owner's feedback inbox
     window.scrollTo({ top: 0 });
     render();
   }
@@ -1467,10 +1491,10 @@
   $('guide').addEventListener('click', e => {
     const b = e.target.closest('[data-step]'); if (!b) return;
     const step = b.dataset.step;
-    if (step === '1') goTo('personajes', 'add-name');
+    if (step === '1') { if (DESKTOP.matches) setTab('personajes'); openAdd(); }
     else if (step === '2') {
       const first = buildView(state.characters, state.schedule, Date.now()).rows[0];
-      if (!first) { goTo('personajes', 'add-name'); return; }
+      if (!first) { openAdd(); return; }
       ui.pop = first.id; ui.editingId = first.id; render(); $('energy-' + first.id)?.select();
     } else goTo('ajustes', 'adjust-minutes');
   });
@@ -1622,7 +1646,8 @@
     const locked = ui.noDb || ui.readOnly;
     $('nodata').hidden = !ui.noDb;
     $('menu-btn').hidden = locked || !db || !ui.loaded;
-    $('add-form').hidden = locked || !db || !ui.loaded; // nothing to add to without data or permission
+    $('add-btn').hidden = locked || !db || !ui.loaded; // nothing to add to without data or permission
+    if ($('add-btn').hidden && !$('add-modal').hidden) closeAdd();
     if ($('menu-btn').hidden && ui.menuOpen) closeMenu();
     paintPresets();
     paintTaskList();
@@ -1641,7 +1666,7 @@
     ui.pop = null; // pop-in plays once, not on later repaints
     for (const input of cards.querySelectorAll('input, select')) if (draft.has(input.id)) input.value = draft.get(input.id);
     $('empty').hidden = ui.noDb || view.rows.length > 0 || !ui.loaded;
-    $('empty').textContent = ui.readOnly ? 'Aún no hay personajes.' : DESKTOP.matches ? 'Aún no hay personajes. Añade el primero con el formulario de arriba.' : 'Aún no hay personajes. Añádelo desde el menú ☰.';
+    $('empty').textContent = ui.readOnly ? 'Aún no hay personajes.' : 'Aún no hay personajes. Pulsa + para añadir el primero.';
     cards.hidden = view.rows.length === 0;
     paintSummary(view.rows);
     paintGuide(view.rows);
@@ -1664,7 +1689,7 @@
     }
     if (state.hiddenMembers > 0) groups.push(el('p', { class: 'hint' }, `Mostrando ${MAX_SHOWN_TEXT(state.others.size, state.others.size + state.hiddenMembers)}`));
     $('legion').replaceChildren(...groups);
-    $('mine-title').hidden = !groups.length || !view.rows.length;
+    $('chars-bar').hidden = ui.noDb || !ui.loaded || (!view.rows.length && $('add-btn').hidden);
     orbList = [...view.rows, ...otherRows].map(r => ({
       id: r.id, el: document.querySelector(`[data-orb="${CSS.escape(r.id)}"]`), tick: null,
       percent: r.percent, color: r.color, state: r.isFull ? 'full' : r.nearFull ? 'near' : 'normal',
@@ -1801,7 +1826,7 @@
   $('keys-close').addEventListener('click', () => toggleKeys(false));
   $('keys-help').addEventListener('click', e => { if (e.target === $('keys-help')) toggleKeys(false); });
   document.addEventListener('keydown', e => {
-    if (e.ctrlKey || e.metaKey || e.altKey || e.repeat || ui.menuOpen || !$('ai-panel').hidden) return;
+    if (e.ctrlKey || e.metaKey || e.altKey || e.repeat || ui.menuOpen || !$('ai-panel').hidden || !$('add-modal').hidden) return;
     if (keysOpen() && e.key === 'Escape') { e.preventDefault(); toggleKeys(false); return; }
     const t = e.target;
     if (t && (t.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(t.tagName))) return;
@@ -1934,7 +1959,31 @@
     if (!await addCharacter(r.value, c.value)) return;
     $('add-name').value = '';
     $('add-class').value = '';
+    closeAdd();
     render();
+  });
+  // Add-character modal: opened with "+"; Esc, the backdrop or ✕ close it; Tab stays inside.
+  $('add-box').append($('add-form'));
+  function openAdd() {
+    if ($('add-btn').hidden) return;
+    showError('add-error', '');
+    reveal($('add-modal'), 'open');
+    $('add-name').focus({ preventScroll: true });
+  }
+  function closeAdd() {
+    if ($('add-modal').hidden) return;
+    conceal($('add-modal'), 'open');
+    if (!$('add-btn').hidden) $('add-btn').focus({ preventScroll: true });
+  }
+  $('add-btn').addEventListener('click', openAdd);
+  $('add-close').addEventListener('click', closeAdd);
+  $('add-modal').addEventListener('click', e => { if (e.target === $('add-modal')) closeAdd(); });
+  $('add-modal').addEventListener('keydown', e => {
+    if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); closeAdd(); return; }
+    if (e.key !== 'Tab') return;
+    const f = [...$('add-modal').querySelectorAll('button, input, select')].filter(x => !x.disabled && x.offsetParent !== null);
+    if (e.shiftKey && document.activeElement === f[0]) { e.preventDefault(); f.at(-1).focus(); }
+    else if (!e.shiftKey && document.activeElement === f.at(-1)) { e.preventDefault(); f[0].focus(); }
   });
   // Phones: orbs follow the device's tilt. iOS needs a tap to grant permission.
   function enableOrientation() {

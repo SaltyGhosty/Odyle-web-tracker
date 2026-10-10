@@ -601,3 +601,6 @@ for (const l of Object.keys(NEWS2)) Object.assign(STRINGS[l], NEWS2[l]);
 Object.assign(STRINGS.en, { 'No tienes permiso para escribir aquí': "You don't have permission to write here" });
 Object.assign(STRINGS.it, { 'No tienes permiso para escribir aquí': 'Non hai il permesso di scrivere qui' });
 Object.assign(STRINGS.pt, { 'No tienes permiso para escribir aquí': 'Você não tem permissão para escrever aqui' });
+Object.assign(STRINGS.en, { 'Aún no hay personajes. Pulsa + para añadir el primero.': 'No characters yet. Press + to add the first one.' });
+Object.assign(STRINGS.it, { 'Aún no hay personajes. Pulsa + para añadir el primero.': 'Ancora nessun personaggio. Premi + per aggiungere il primo.' });
+Object.assign(STRINGS.pt, { 'Aún no hay personajes. Pulsa + para añadir el primero.': 'Ainda não há personagens. Toque em + para adicionar o primeiro.' });

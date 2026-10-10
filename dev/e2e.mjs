@@ -126,6 +126,11 @@ const visible = (page, sel) => page.locator(sel).first().isVisible();
   check('escritorio: barra de navegación con 6 secciones', await visible(page, '#topnav') && await page.locator('#topnav button').count() === 6);
   check('escritorio: sin menú ☰', !(await visible(page, '#menu-btn')));
   check('tarjetas propias: 2', await page.locator('#cards article.card').count() === 2);
+  check('personajes: sin formulario en medio, con botón +', !(await visible(page, '#add-form')) && await visible(page, '#add-btn'));
+  await page.click('#add-btn');
+  check('+: abre la ventana con el foco en el nombre', await visible(page, '#add-modal') && await page.evaluate(() => document.activeElement?.id === 'add-name'));
+  await page.keyboard.press('Escape'); await page.waitForTimeout(400);
+  check('ventana: Esc la cierra y el foco vuelve al +', !(await visible(page, '#add-modal')) && await page.evaluate(() => document.activeElement?.id === 'add-btn'));
   check('tarjeta: mazmorras de hoy', /^Mazmorras \(40\): 7 ahora · \d+ antes de medianoche$/.test(await text(page, 'article[data-id=c1] .runs')), await text(page, 'article[data-id=c1] .runs'));
 
   // keyboard shortcuts
@@ -298,6 +303,9 @@ const visible = (page, sel) => page.locator(sel).first().isVisible();
   await page.click('#topnav [data-tab=legion]');
   check('móvil: en línea y calendario en Legión', await page.locator('#online-panel').isVisible() && await page.locator('#calendar-panel').isVisible());
   await page.click('#topnav [data-tab=personajes]');
+  await page.click('#add-btn');
+  await page.fill('#add-name', 'Nuevo'); await page.press('#add-name', 'Enter'); await page.waitForTimeout(500);
+  check('móvil: + añade un personaje y la ventana se cierra', await page.locator('#cards article.card').count() === 3 && !(await visible(page, '#add-modal')));
   await page.click('article[data-id=c1] button.spend'); await page.waitForTimeout(300);
   await page.waitForTimeout(400);
   const fab = await page.locator('#ai-fab').boundingBox(), toast = await page.locator('#toast').boundingBox();
