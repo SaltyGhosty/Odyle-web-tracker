@@ -160,6 +160,18 @@
     font-weight: 500; font-size: 1rem; background: var(--glass);
   }
 
+  /* ---- Group planner ---- */
+  .avail-grid { display: grid; grid-template-columns: auto auto 1fr 1fr; gap: 6px 8px; align-items: center; font-size: .875rem; }
+  .avail-grid input[type=time] { min-height: 34px; padding: 4px 8px; }
+  .avail-grid input[type=checkbox] { width: 18px; height: 18px; min-height: 0; accent-color: var(--gold); }
+  .planner { display: flex; flex-direction: column; gap: 10px; }
+  .planner table { width: 100%; border-collapse: collapse; font-size: .8125rem; font-variant-numeric: tabular-nums; }
+  .planner th, .planner td { padding: 6px 4px; text-align: center; border-bottom: 1px solid rgba(169, 179, 200, .12); }
+  .planner th:first-child, .planner td:first-child { text-align: left; }
+  .planner td.today { background: color-mix(in srgb, var(--gold) 10%, transparent); }
+  .planner .now { color: #7ee2a8; font-weight: 600; }
+  .table-scroll { overflow-x: auto; }
+
   /* ---- Week report & achievements ---- */
   .week-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
   .week-stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: 10px; }
@@ -449,6 +461,14 @@
     </form>
   </section>
 
+  <form class="panel" id="avail-form" novalidate>
+    <h2>Mi disponibilidad</h2>
+    <p class="hint">Para que tu legión sepa cuándo puedes jugar (tu hora local).</p>
+    <div class="avail-grid" id="avail-grid"></div>
+    <button type="submit" class="primary">Guardar</button>
+    <p class="error" id="avail-error" role="alert" hidden></p>
+  </form>
+
   <form class="panel" id="prefs-form" novalidate>
     <h2>Horas de descanso</h2>
     <p class="hint">Te aviso si un personaje se va a llenar mientras duermes o trabajas.</p>
@@ -514,7 +534,7 @@
   import { formatClock, detectGains, rollValue, becameFull, sceneOptions } from './motion.js';
 
   // Data comes only from db snapshots. Writes happen only after a user action.
-  const state = { characters: [], stats: null, tasks: DEFAULT_TASKS, progress: new Map(), cpHist: new Map(), hiddenMembers: 0, others: new Map(), names: {}, schedule: null, presets: [], events: [], prefs: { quietStart: '00:00', quietEnd: '08:00', favEvents: [], faction: 'elyos' } };
+  const state = { characters: [], memberData: new Map(), stats: null, tasks: DEFAULT_TASKS, progress: new Map(), cpHist: new Map(), hiddenMembers: 0, others: new Map(), names: {}, schedule: null, presets: [], events: [], prefs: { quietStart: '00:00', quietEnd: '08:00', favEvents: [], faction: 'elyos' } };
   // Interface-only state: which card is editing/confirming, validation messages.
   // noDb: no db in this view. readOnly: viewer cannot write (or a write was refused).
   const ui = { pop: null, notesId: null, tasksOpen: new Set(), menuOpen: false, editingId: null, extraId: null, confirmId: null, errors: {}, noDb: false, readOnly: false, loaded: false };
@@ -950,6 +970,66 @@
     if (!$('history-panel').hidden) renderHistory($('history'), dailySpent(state.events, now, new Date().getTimezoneOffset()));
   }
 
+  // ---- Group planner: each member's weekly availability (their local time) ----
+  const DAY_NAMES = ['Dom', 'Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb'];
+  const DAY_ORDER = [1, 2, 3, 4, 5, 6, 0];
+  const slotOk = v => v && /^([01]\d|2[0-3]):[0-5]\d$/.test(v.from) && /^([01]\d|2[0-3]):[0-5]\d$/.test(v.to);
+  function inSlot(slot, now = new Date()) {
+    if (!slotOk(slot)) return false;
+    const m = now.getHours() * 60 + now.getMinutes();
+    const [fh, fm] = slot.from.split(':').map(Number), [th, tm] = slot.to.split(':').map(Number);
+    const f = fh * 60 + fm, t = th * 60 + tm;
+    return f <= t ? m >= f && m < t : m >= f || m < t;
+  }
+  function plannerNode() {
+    if (!state.others.size || !myUid) return null;
+    const ids = [myUid, ...state.others.keys()];
+    const today = new Date().getDay();
+    const name = id => id === myUid ? 'Tú' : (state.names[id] || 'Alguien');
+    const av = id => state.memberData.get(id)?.availability?.days || {};
+    const nowFree = ids.filter(id => inSlot(av(id)[today]));
+    const table = el('table', {},
+      el('thead', {}, el('tr', {}, el('th', {}, 'Miembro'), ...DAY_ORDER.map(d => el('th', { class: d === today ? 'today' : '' }, DAY_NAMES[d])))),
+      el('tbody', {}, ...ids.map(id => el('tr', {}, el('td', {}, name(id)),
+        ...DAY_ORDER.map(d => { const sl = av(id)[d]; return el('td', { class: d === today ? 'today' : '' }, slotOk(sl) ? `${sl.from}–${sl.to}` : '—'); })))));
+    return el('section', { class: 'panel planner', 'aria-label': 'Planificador de grupo' },
+      el('h2', {}, 'Planificador de grupo'),
+      el('p', { class: nowFree.length ? 'now' : 'hint' }, nowFree.length ? `Disponibles ahora: ${nowFree.map(name).join(', ')}` : 'Nadie ha marcado disponibilidad para esta hora.'),
+      el('div', { class: 'table-scroll' }, table),
+      el('p', { class: 'hint' }, 'Horas en la zona horaria de cada miembro. Marca la tuya en el menú ☰ → Mi disponibilidad.'));
+  }
+  function buildAvailabilityForm() {
+    const grid = $('avail-grid');
+    grid.replaceChildren();
+    for (const d of DAY_ORDER) {
+      grid.append(
+        el('input', { type: 'checkbox', id: `av-on-${d}`, 'aria-label': `Disponible el ${DAY_NAMES[d]}` }),
+        el('label', { for: `av-on-${d}` }, DAY_NAMES[d]),
+        el('input', { type: 'time', id: `av-from-${d}`, value: '19:00', 'aria-label': `Desde (${DAY_NAMES[d]})` }),
+        el('input', { type: 'time', id: `av-to-${d}`, value: '23:00', 'aria-label': `Hasta (${DAY_NAMES[d]})` }));
+    }
+  }
+  function fillAvailabilityForm(a) {
+    if (!a || !a.days || $('drawer').contains(document.activeElement)) return;
+    for (const d of DAY_ORDER) {
+      const sl = a.days[d];
+      $(`av-on-${d}`).checked = slotOk(sl);
+      if (slotOk(sl)) { $(`av-from-${d}`).value = sl.from; $(`av-to-${d}`).value = sl.to; }
+    }
+  }
+  buildAvailabilityForm();
+  $('avail-form').addEventListener('submit', async e => {
+    e.preventDefault();
+    if (!my) return;
+    const days = {};
+    for (const d of DAY_ORDER) {
+      const from = $(`av-from-${d}`).value, to = $(`av-to-${d}`).value;
+      days[d] = $(`av-on-${d}`).checked && from && to && from !== to ? { from, to } : null;
+    }
+    showError('avail-error', '');
+    await save(() => db.doc(my.member).update({ availability: { days } }));
+  });
+
   // "Tu semana": totals, combat power gain, streak and achievements.
   function weekData(rows) {
     const stats = { ...EMPTY_STATS, ...(state.stats || {}) };
@@ -1161,6 +1241,8 @@
         el('div', { class: 'grid' }, ...rows.map((r, i) => cardNode(r, i, true)))));
     }
     if (state.hiddenMembers > 0) groups.push(el('p', { class: 'hint' }, `Mostrando ${MAX_SHOWN_TEXT(state.others.size, state.others.size + state.hiddenMembers)}`));
+    const planner = plannerNode();
+    if (planner) groups.unshift(planner);
     $('legion').replaceChildren(...groups);
     $('mine-title').hidden = !groups.length || !view.rows.length;
     orbList = [...view.rows, ...otherRows].map(r => ({
@@ -1432,6 +1514,8 @@
     const MAX_OTHERS = 64 - 10;
     const memberSubs = new Map();
     db.collection('members').onSnapshot(async snap => {
+      state.memberData = new Map(snap.docs.map(d => [d.id, d.data() || {}]));
+      if (myUid) fillAvailabilityForm(state.memberData.get(myUid)?.availability);
       const all = snap.docs.map(d => d.id).filter(id => id !== myUid);
       const ids = all.slice(0, MAX_OTHERS);
       state.hiddenMembers = all.length - ids.length;
