@@ -408,8 +408,8 @@
   .ai-quick button { padding: 4px 10px; min-height: 30px; font-size: .75rem; border-radius: 999px; }
   .ai-form { display: flex; gap: 6px; align-items: flex-end; }
   .ai-form textarea { min-height: 44px; max-height: 120px; flex: 1; }
-  body.toast-up .ai-fab { bottom: 84px; }
-  body.toast-up .ai-panel { bottom: 138px; height: min(560px, calc(100vh - 168px)); }
+  body.toast-up .ai-fab { bottom: calc(var(--toast-h, 50px) + 32px); }
+  body.toast-up .ai-panel { bottom: calc(var(--toast-h, 50px) + 86px); height: min(560px, calc(100vh - var(--toast-h, 50px) - 116px)); }
 
   /* ---- Custom timers ---- */
   .timer-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
@@ -896,6 +896,7 @@
     undo = entry;
     $('toast-text').textContent = text;
     reveal($('toast'), 'show'); document.body.classList.add('toast-up');
+    document.body.style.setProperty('--toast-h', $('toast').offsetHeight + 'px'); // the assistant button moves above it
     clearTimeout(undoTimer);
     undoTimer = setTimeout(() => { undo = null; (conceal($('toast'), 'show'), document.body.classList.remove('toast-up')); }, 8000);
   }
@@ -905,6 +906,7 @@
     undo = null; clearTimeout(undoTimer); (conceal($('toast'), 'show'), document.body.classList.remove('toast-up'));
     await save(() => db.doc(my.characters + '/' + u.charId).update(u.prev), u.charId);
     if (u.eventId) await save(() => db.doc(my.events + '/' + u.eventId).delete());
+    if (u.spent) await bumpStats({ spent: -u.spent, spends: -1 });
   }
   async function updateCharacter(row, value, classId, cp, goal = null) {
     const before = state.characters.find(c => c.id === row.id);
@@ -1001,6 +1003,7 @@
       delete ui.errors[row.id];
       return { energy: d.energy, event: { kind: 'spend', amount: preset.cost, presetId: preset.id }, label: `Gastaste ${preset.cost} en ${r.name}` };
     });
+    if (ok && undo && undo.charId === row.id) undo.spent = preset.cost; // undoing takes it out of the stats too
     if (ok) await bumpStats({ spent: preset.cost, spends: 1 });
     return ok;
   }

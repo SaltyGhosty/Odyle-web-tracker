@@ -38,10 +38,10 @@ export function bumped(stats, todayKey, { spent = 0, spends = 0, tasks = 0, full
   const s = { ...EMPTY_STATS, ...(stats || {}) };
   const log = { ...s.daysLog };
   const today = log[todayKey] || { spent: 0, tasks: 0 };
-  log[todayKey] = { spent: today.spent + spent, tasks: today.tasks + tasks };
+  log[todayKey] = { spent: Math.max(0, today.spent + spent), tasks: Math.max(0, today.tasks + tasks) }; // negative = an undone spend
   const keys = Object.keys(log).sort();
   while (keys.length > 60) delete log[keys.shift()];
-  const next = { ...s, daysLog: log, spentTotal: s.spentTotal + spent, spendCount: s.spendCount + spends,
+  const next = { ...s, daysLog: log, spentTotal: Math.max(0, s.spentTotal + spent), spendCount: Math.max(0, s.spendCount + spends),
     tasksDone: s.tasksDone + tasks, fullDays: s.fullDays + fullDays };
   next.bestStreak = Math.max(s.bestStreak, streak(log, todayKey));
   return next;

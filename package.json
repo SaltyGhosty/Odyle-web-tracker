@@ -1,1 +1,1 @@
-{"type":"module","scripts":{"test":"node --test"}}
+{"type":"module","scripts":{"test":"node --test","e2e":"node dev/e2e.mjs"}}
