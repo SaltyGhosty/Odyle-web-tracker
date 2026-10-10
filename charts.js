@@ -96,3 +96,36 @@ export function renderHistory(svg, days) {
     svg.append(node('text', { x: cx, y: HH - 8, class: 'axis', 'text-anchor': 'middle' }, i === days.length - 1 ? 'hoy' : weekday.format(date)));
   });
 }
+
+// Combat power over time: one line per character, x = time of each entry, y = combat power.
+const short = new Intl.NumberFormat('es', { notation: 'compact', maximumFractionDigits: 1 });
+const dayMonth = new Intl.DateTimeFormat('es', { day: 'numeric', month: 'short' });
+export function renderCp(svg, series, nowMs) {
+  svg.setAttribute('viewBox', `0 0 ${W} ${H}`);
+  svg.replaceChildren();
+  const pts = series.flatMap(s => s.points);
+  if (!pts.length) return;
+  const t0 = Math.min(...pts.map(p => p.at)), t1 = Math.max(nowMs, t0 + DAY);
+  const lo = Math.min(...pts.map(p => p.cp)), hi = Math.max(...pts.map(p => p.cp));
+  const pad = Math.max(1, (hi - lo) * 0.1);
+  const y0 = Math.max(0, lo - pad), y1 = hi + pad;
+  const x = t => PAD.l + (t - t0) / (t1 - t0) * (W - PAD.l - PAD.r);
+  const y = v => H - PAD.b - (v - y0) / (y1 - y0) * (H - PAD.t - PAD.b);
+  for (const v of [y0, (y0 + y1) / 2, y1]) {
+    svg.append(node('line', { x1: PAD.l, x2: W - PAD.r, y1: y(v), y2: y(v), class: 'grid' }));
+    svg.append(node('text', { x: PAD.l - 6, y: y(v) + 4, class: 'axis', 'text-anchor': 'end' }, short.format(v)));
+  }
+  for (const t of [t0, (t0 + t1) / 2, t1]) {
+    svg.append(node('text', { x: x(t), y: H - 8, class: 'axis', 'text-anchor': 'middle' }, dayMonth.format(new Date(t))));
+  }
+  for (const s of series) {
+    if (!s.points.length) continue;
+    const d = s.points.map((p, i) => `${i ? 'L' : 'M'}${x(p.at).toFixed(1)},${y(p.cp).toFixed(1)}`).join('') + `H${x(nowMs).toFixed(1)}`;
+    svg.append(node('path', { d, class: 'series', stroke: s.color }));
+    for (const p of s.points) {
+      const c = node('circle', { cx: x(p.at), cy: y(p.cp), r: 4, fill: s.color, class: 'dot' });
+      c.append(node('title', {}, `${s.name}: ${p.cp.toLocaleString('es')} · ${dayMonth.format(new Date(p.at))}`));
+      svg.append(c);
+    }
+  }
+}

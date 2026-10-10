@@ -8,6 +8,7 @@ export function paths(uid) {
     presets: member + '/settings/presets',
     prefs: member + '/settings/prefs',
     events: member + '/events',
+    cp: member + '/cp', // one doc per character: {points:[{at, cp}]}
   };
 }
 

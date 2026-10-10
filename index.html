@@ -161,6 +161,27 @@
   .legion:empty { display: none; }
   .legion .member h2 { margin-bottom: 12px; }
 
+  /* ---- Combat power, notes, favourite events, alert banner ---- */
+  .cp-line { margin: 0; color: var(--muted); font-size: .8125rem; font-variant-numeric: tabular-nums; }
+  .cp-line strong { color: var(--fg); font-weight: 600; }
+  .cp-line .up { color: #7ee2a8; }
+  .note-preview { margin: 0; color: var(--muted); font-size: .8125rem; font-style: italic; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  textarea { font: inherit; color: inherit; background: rgba(5, 9, 20, .7); border: 1px solid var(--line); border-radius: 10px; padding: 9px 12px; width: 100%; min-height: 90px; resize: vertical; }
+  .note-count { color: var(--muted); font-size: .75rem; margin: 0; text-align: right; }
+  .event-row { grid-template-columns: auto minmax(0, 1fr) auto; }
+  .event-row .fav { grid-row: 1 / span 2; align-self: center; background: none; border: none; min-height: 32px; padding: 4px 6px; font-size: 1.1rem; color: var(--muted); }
+  .event-row .fav[aria-pressed="true"] { color: var(--gold-bright); text-shadow: 0 0 8px rgba(255, 217, 138, .7); }
+  .event-row .ev-note { grid-column: 2; }
+  .event-row .ev-when { grid-column: 3; }
+  .event-row.favorite .ev-name { color: var(--gold-bright); }
+  .alert { position: fixed; z-index: 12; top: 12px; left: 50%; transform: translate(-50%, -20px); opacity: 0;
+    display: flex; align-items: center; gap: 12px; max-width: calc(100vw - 32px);
+    background: var(--glass-strong); border: 1px solid var(--gold-bright); border-radius: 12px; padding: 10px 12px 10px 16px;
+    box-shadow: 0 0 24px rgba(255, 217, 138, .35); transition: opacity .25s ease, transform .25s ease; font-weight: 600; }
+  .alert.show { opacity: 1; transform: translate(-50%, 0); }
+  @media (prefers-reduced-motion: reduce) { .alert { transition: none; } }
+  .chart .dot { stroke: var(--bg); stroke-width: 2; }
+
   /* ---- Charts ---- */
   .chart-wrap { position: relative; }
   .chart { width: 100%; height: auto; display: block; overflow: visible; }
@@ -318,6 +339,12 @@
     <ul class="legend" id="forecast-legend"></ul>
   </section>
 
+  <section class="panel chart-panel" id="cp-panel" aria-labelledby="cp-title" hidden>
+    <h2 id="cp-title">Poder de combate</h2>
+    <svg id="cp-chart" class="chart" role="img" aria-label="Evolución del poder de combate de cada personaje"></svg>
+    <ul class="legend" id="cp-legend"></ul>
+  </section>
+
   <section class="panel chart-panel" id="history-panel" aria-labelledby="history-title" hidden>
     <h2 id="history-title">Historial de gasto</h2>
     <svg id="history" class="chart" role="img" aria-label="OD gastada cada día, últimos 7 días"></svg>
@@ -370,6 +397,8 @@
   <section class="panel" aria-labelledby="sound-title">
     <h2 id="sound-title">Sonido</h2>
     <label class="switch"><input type="checkbox" id="sound-toggle"> Tintineo con cada recarga y al empezar un evento; fanfarria al llenarse</label>
+    <button type="button" id="notify-btn" hidden>Activar avisos del navegador</button>
+    <p class="hint" id="notify-state"></p>
   </section>
 
   <form class="panel" id="adjust-form" novalidate>
@@ -382,6 +411,11 @@
     <button type="submit" class="primary">Guardar</button>
   </form>
 </aside>
+
+<div id="alert" class="alert" role="alert" hidden>
+  <span id="alert-text"></span>
+  <button type="button" id="alert-close" aria-label="Cerrar aviso">✕</button>
+</div>
 
 <div id="toast" class="toast" role="status" hidden>
   <span id="toast-text"></span>
@@ -397,16 +431,16 @@
   import { EVENTS, nextOccurrence } from './events.js';
   import { summary, wasteWarning, projectEnergy } from './planner.js';
   import { dailySpent, staleEvents } from './spend.js';
-  import { renderForecast, renderHistory, CHART_COLORS } from './charts.js';
+  import { renderForecast, renderHistory, renderCp, CHART_COLORS } from './charts.js';
   import { createSound } from './sound.js';
   const sound = createSound();
   import { formatClock, detectGains, rollValue, becameFull, sceneOptions } from './motion.js';
 
   // Data comes only from db snapshots. Writes happen only after a user action.
-  const state = { characters: [], hiddenMembers: 0, others: new Map(), names: {}, schedule: null, presets: [], events: [], prefs: { quietStart: '00:00', quietEnd: '08:00' } };
+  const state = { characters: [], cpHist: new Map(), hiddenMembers: 0, others: new Map(), names: {}, schedule: null, presets: [], events: [], prefs: { quietStart: '00:00', quietEnd: '08:00', favEvents: [] } };
   // Interface-only state: which card is editing/confirming, validation messages.
   // noDb: no db in this view. readOnly: viewer cannot write (or a write was refused).
-  const ui = { pop: null, menuOpen: false, editingId: null, extraId: null, confirmId: null, errors: {}, noDb: false, readOnly: false, loaded: false };
+  const ui = { pop: null, notesId: null, menuOpen: false, editingId: null, extraId: null, confirmId: null, errors: {}, noDb: false, readOnly: false, loaded: false };
 
   let db = null;
   let user = null;
@@ -511,8 +545,34 @@
     await save(() => db.doc(my.characters + '/' + u.charId).update(u.prev), u.charId);
     if (u.eventId) await save(() => db.doc(my.events + '/' + u.eventId).delete());
   }
-  const updateCharacter = (row, value, classId) => changeEnergy(row.id, r => ({
-    energy: value, event: { kind: 'set', amount: value - r.energy }, label: `${r.name}: energía puesta en ${value}` }), { classId });
+  async function updateCharacter(row, value, classId, cp) {
+    const before = state.characters.find(c => c.id === row.id);
+    const cpChanged = cp !== null && cp !== before?.cp;
+    const ok = await changeEnergy(row.id, r => ({
+      energy: value, event: { kind: 'set', amount: value - r.energy }, label: `${r.name}: energía puesta en ${value}` }),
+      cp === null ? { classId } : { classId, cp });
+    if (ok && cpChanged) {
+      const pts = [...(state.cpHist.get(row.id) || []), { at: Date.now(), cp }].slice(-200);
+      await save(() => db.doc(my.cp + '/' + row.id).set({ points: pts }));
+    }
+    return ok;
+  }
+  const saveNotes = (id, text) => save(() => db.doc(my.characters + '/' + id).update({ notes: String(text).slice(0, 500) }), id);
+  function parseCp(s) {
+    const t = String(s).trim().replace(/[.\s]/g, '');
+    if (t === '') return { ok: true, value: null };
+    if (!/^\d+$/.test(t) || Number(t) > 99_999_999) return { ok: false, error: 'El poder de combate es un número entero' };
+    return { ok: true, value: Number(t) };
+  }
+  const cpFmt = new Intl.NumberFormat('es');
+  function cpLine(row) {
+    const pts = state.cpHist.get(row.id) || [];
+    const weekAgo = Date.now() - 7 * 86_400_000;
+    const base = [...pts].reverse().find(p => p.at <= weekAgo) || pts.find(p => p.at > weekAgo);
+    const delta = base ? row.cp - base.cp : 0;
+    return el('p', { class: 'cp-line' }, 'PC ', el('strong', {}, cpFmt.format(row.cp)),
+      delta > 0 ? el('span', { class: 'up' }, ` · +${cpFmt.format(delta)} esta semana`) : null);
+  }
   function spend(row, preset) {
     return changeEnergy(row.id, r => {
       const d = applyDelta(r.energy, -preset.cost);
@@ -621,12 +681,14 @@
       el('small', {}, `/ ${row.max}`),
       row.isFull ? el('span', { class: 'badge' }, 'Lleno') : null));
 
+    if (Number.isFinite(row.cp)) panel.append(cpLine(row));
     const info = el('div', { class: 'info' });
     info.append(el('p', { class: 'full-in' }, row.isFull ? 'Energía al máximo' : (row.fullAtMs === null ? row.fullInText : `Lleno en ${row.fullInText}`)));
     if (row.fullAtMs !== null) info.append(el('p', { class: 'full-at' }, dateFmt.format(new Date(row.fullAtMs))));
     const waste = readonly ? '' : row.isFull ? 'Estás perdiendo 15 de OD cada 3 h' : wasteText(row);
     if (waste) info.append(el('p', { class: 'waste' }, waste));
     panel.append(info);
+    if (row.notes && ui.notesId !== row.id) panel.append(el('p', { class: 'note-preview', title: row.notes }, '📝 ' + row.notes.split('\n')[0]));
 
     if (readonly || ui.readOnly || ui.noDb) {
       // someone else's character, read-only viewer, or stale: no edit controls
@@ -639,7 +701,9 @@
         if (!r.ok) { ui.errors[row.id] = r.error; return render(); }
         const c = parseClassInput($(classId).value);
         if (!c.ok) { ui.errors[row.id] = c.error; return render(); }
-        if (!await updateCharacter(row, r.value, c.value)) return;
+        const cp = parseCp($(`cp-${row.id}`).value);
+        if (!cp.ok) { ui.errors[row.id] = cp.error; return render(); }
+        if (!await updateCharacter(row, r.value, c.value, cp.value)) return;
         ui.editingId = null; delete ui.errors[row.id]; render();
       } });
       const field = el('div', { class: 'field' },
@@ -649,6 +713,9 @@
       if (err) field.append(errorLine(`err-${row.id}`, err));
       form.append(el('div', { class: 'row' }, field,
         el('div', { class: 'field' }, el('label', { for: classId }, 'Clase'), classSelect(classId, row.classId))));
+      form.append(el('div', { class: 'field' }, el('label', { for: `cp-${row.id}` }, 'Poder de combate (opcional)'),
+        el('input', { id: `cp-${row.id}`, inputmode: 'numeric', autocomplete: 'off', placeholder: 'p. ej. 412300',
+          value: Number.isFinite(row.cp) ? String(row.cp) : '' })));
       form.append(el('div', { class: 'row' },
         el('button', { type: 'submit', class: 'primary' }, 'Guardar'),
         el('button', { type: 'button',
@@ -672,6 +739,21 @@
         el('button', { type: 'submit', class: 'primary' }, 'Añadir'),
         el('button', { type: 'button', onclick: () => { ui.extraId = null; delete ui.errors[row.id]; render(); } }, 'Cancelar')));
       panel.append(form);
+    } else if (ui.notesId === row.id) {
+      const noteId = `notes-${row.id}`;
+      const count = el('p', { class: 'note-count', id: `notes-count-${row.id}` }, `${(row.notes || '').length}/500`);
+      const area = el('textarea', { id: noteId, maxlength: '500', 'aria-describedby': `notes-count-${row.id}`,
+        oninput: e => { count.textContent = `${e.target.value.length}/500`; } });
+      area.value = row.notes || '';
+      const form = el('form', { class: ui.pop === row.id ? 'pop' : '', novalidate: true, onsubmit: async e => {
+        e.preventDefault();
+        if (!await saveNotes(row.id, $(noteId).value)) return;
+        ui.notesId = null; render();
+      } }, el('label', { for: noteId }, 'Notas'), area, count,
+        el('div', { class: 'row' },
+          el('button', { type: 'submit', class: 'primary' }, 'Guardar'),
+          el('button', { type: 'button', onclick: () => { ui.notesId = null; render(); } }, 'Cancelar')));
+      panel.append(form);
     } else if (confirming) {
       panel.append(el('p', { class: `confirm-text ${ui.pop === row.id ? 'pop' : ''}` }, `¿Quitar a ${row.name}?`));
       panel.append(el('div', { class: 'row' },
@@ -681,10 +763,11 @@
       if (err) panel.append(errorLine(`err-${row.id}`, err));
       panel.append(el('div', { class: 'spend-row' },
         ...state.presets.map(p => el('button', { type: 'button', class: 'spend', disabled: busy.has(row.id), onclick: () => spend(row, p) }, `${p.name} −${p.cost}`)),
-        el('button', { type: 'button', class: 'extra', disabled: busy.has(row.id), onclick: () => { ui.pop = row.id; ui.extraId = row.id; ui.editingId = ui.confirmId = null; delete ui.errors[row.id]; render(); $('extra-' + row.id)?.focus(); } }, '+ Extra')));
+        el('button', { type: 'button', class: 'extra', disabled: busy.has(row.id), onclick: () => { ui.pop = row.id; ui.extraId = row.id; ui.editingId = ui.confirmId = ui.notesId = null; delete ui.errors[row.id]; render(); $('extra-' + row.id)?.focus(); } }, '+ Extra')));
       panel.append(el('div', { class: 'row' },
-        el('button', { type: 'button', class: 'primary', onclick: () => { ui.pop = row.id; ui.editingId = row.id; ui.confirmId = ui.extraId = null; delete ui.errors[row.id]; render(); $('energy-' + row.id)?.select(); } }, 'Actualizar'),
-        el('button', { type: 'button', class: 'remove', onclick: () => { ui.pop = row.id; ui.confirmId = row.id; ui.editingId = ui.extraId = null; render(); } }, 'Quitar')));
+        el('button', { type: 'button', class: 'primary', onclick: () => { ui.pop = row.id; ui.editingId = row.id; ui.confirmId = ui.extraId = ui.notesId = null; delete ui.errors[row.id]; render(); $('energy-' + row.id)?.select(); } }, 'Actualizar'),
+        el('button', { type: 'button', class: 'notes', onclick: () => { ui.pop = row.id; ui.notesId = row.id; ui.editingId = ui.extraId = ui.confirmId = null; render(); $('notes-' + row.id)?.focus(); } }, 'Notas'),
+        el('button', { type: 'button', class: 'remove', onclick: () => { ui.pop = row.id; ui.confirmId = row.id; ui.editingId = ui.extraId = ui.notesId = null; render(); } }, 'Quitar')));
     }
     card.append(panel);
     return card;
@@ -706,6 +789,15 @@
         points: projectEnergy(byId.get(r.id), anchor, now, 7) }));
       renderForecast($('forecast'), series, now, $('forecast-tip'));
       $('forecast-legend').replaceChildren(...series.map(s => {
+        const sw = el('span', { class: 'sw' }); sw.style.background = s.color;
+        return el('li', {}, sw, s.name);
+      }));
+    }
+    const cpSeries = rows.map((r, i) => ({ name: r.name, color: CHART_COLORS[i % CHART_COLORS.length], points: state.cpHist.get(r.id) || [] }));
+    $('cp-panel').hidden = !cpSeries.some(s => s.points.length);
+    if (!$('cp-panel').hidden) {
+      renderCp($('cp-chart'), cpSeries, now);
+      $('cp-legend').replaceChildren(...cpSeries.filter(s => s.points.length).map(s => {
         const sw = el('span', { class: 'sw' }); sw.style.background = s.color;
         return el('li', {}, sw, s.name);
       }));
@@ -732,12 +824,45 @@
   const timeFmt = new Intl.DateTimeFormat('es', { hour: '2-digit', minute: '2-digit' });
   const dayFmt = new Intl.DateTimeFormat('es', { weekday: 'short', hour: '2-digit', minute: '2-digit' });
   const countdown = ms => ms < 86_400_000 ? formatClock(ms) : formatDuration(ms);
+  // Favourite events: alert 5 minutes before they start (banner + sound + browser notification).
+  const ALERT_BEFORE = 5 * 60_000;
+  const alerted = new Set();
+  let alertTimer = 0;
+  function checkFavAlerts(items, now) {
+    for (const { e, o, f } of items) {
+      if (!f || o.active) continue;
+      const left = o.startMs - now;
+      const key = e.id + ':' + o.startMs;
+      if (left > 0 && left <= ALERT_BEFORE && !alerted.has(key)) {
+        alerted.add(key);
+        const text = `★ ${e.name} empieza a las ${timeFmt.format(new Date(o.startMs))}`;
+        $('alert-text').textContent = text;
+        reveal($('alert'), 'show');
+        clearTimeout(alertTimer);
+        alertTimer = setTimeout(() => conceal($('alert'), 'show'), Math.max(left, 60_000));
+        sound.chime();
+        try { if (window.Notification && Notification.permission === 'granted') new Notification('Energía Odyle', { body: text }); } catch {}
+      }
+    }
+  }
+  async function toggleFav(id) {
+    if (!my || ui.readOnly) return;
+    const set = new Set(state.prefs.favEvents);
+    set.has(id) ? set.delete(id) : set.add(id);
+    state.prefs = { ...state.prefs, favEvents: [...set] };
+    paintEvents(Date.now());
+    await save(() => db.doc(my.prefs).set({ ...state.prefs }));
+  }
+
   let lastActive = null;
   function paintEvents(now) {
-    const items = EVENTS.map(e => ({ e, o: nextOccurrence(e, now) }))
-      .sort((a, b) => (b.o.active - a.o.active) || (a.o.active ? a.o.endMs - b.o.endMs : a.o.startMs - b.o.startMs));
+    const fav = new Set(state.prefs.favEvents);
+    const items = EVENTS.map(e => ({ e, o: nextOccurrence(e, now), f: fav.has(e.id) }))
+      .sort((a, b) => (b.o.active - a.o.active) || (b.f - a.f) || (a.o.active ? a.o.endMs - b.o.endMs : a.o.startMs - b.o.startMs));
+    checkFavAlerts(items, now);
     const sameDay = ms => new Date(ms).toDateString() === new Date(now).toDateString();
-    $('event-list').replaceChildren(...items.map(({ e, o }) => el('li', { class: `event-row ${o.active ? 'active' : ''}`, 'data-event': e.id },
+    $('event-list').replaceChildren(...items.map(({ e, o, f }) => el('li', { class: `event-row ${o.active ? 'active' : ''} ${f ? 'favorite' : ''}`, 'data-event': e.id },
+      el('button', { type: 'button', class: 'fav', 'data-fav': e.id, 'aria-pressed': String(f), 'aria-label': `${f ? 'Quitar de' : 'Añadir a'} favoritos: ${e.name}`, disabled: !my || ui.readOnly }, f ? '★' : '☆'),
       el('span', { class: 'ev-name' }, e.name),
       el('span', { class: 'ev-when' },
         o.active ? `En curso · termina en ${formatClock(o.endMs - now)}` : `Empieza en ${countdown(o.startMs - now)}`,
@@ -792,7 +917,8 @@
     const cards = $('cards');
     const draft = new Map();
     for (const input of cards.querySelectorAll('input, select')) draft.set(input.id, input.value);
-    cards.replaceChildren(...view.rows.map((r, i) => cardNode(r, i)));
+    const extraOf = new Map(state.characters.map(c => [c.id, c]));
+    cards.replaceChildren(...view.rows.map((r, i) => cardNode({ ...r, cp: extraOf.get(r.id)?.cp, notes: typeof extraOf.get(r.id)?.notes === 'string' ? extraOf.get(r.id).notes : '' }, i)));
     ui.pop = null; // pop-in plays once, not on later repaints
     for (const input of cards.querySelectorAll('input, select')) if (draft.has(input.id)) input.value = draft.get(input.id);
     $('empty').hidden = ui.noDb || view.rows.length > 0 || !ui.loaded;
@@ -914,6 +1040,16 @@
     else if (!e.shiftKey && document.activeElement === f.at(-1)) { e.preventDefault(); f[0].focus(); }
   });
   $('undo').addEventListener('click', undoLast);
+  $('event-list').addEventListener('click', e => { const b = e.target.closest('[data-fav]'); if (b) toggleFav(b.dataset.fav); });
+  $('alert-close').addEventListener('click', () => { clearTimeout(alertTimer); conceal($('alert'), 'show'); });
+  function paintNotifyState() {
+    if (!window.Notification) { $('notify-btn').hidden = true; $('notify-state').textContent = ''; return; }
+    const p = Notification.permission;
+    $('notify-btn').hidden = p !== 'default';
+    $('notify-state').textContent = p === 'granted' ? 'Avisos del navegador activados.' : p === 'denied' ? 'El navegador tiene bloqueados los avisos; verás el aviso dentro de la página.' : '';
+  }
+  $('notify-btn').addEventListener('click', async () => { try { await Notification.requestPermission(); } catch {} paintNotifyState(); });
+  paintNotifyState();
   $('sound-toggle').checked = sound.enabled();
   // after a reload, audio can only start after a gesture: wake it on the first tap if sound is on
   document.addEventListener('pointerdown', () => { if (sound.enabled()) sound.setEnabled(true); }, { once: true });
@@ -936,7 +1072,8 @@
     const quietStart = $('quiet-start').value, quietEnd = $('quiet-end').value;
     if (!TIME.test(quietStart) || !TIME.test(quietEnd) || quietStart === quietEnd) return showError('prefs-error', 'Elige dos horas distintas');
     showError('prefs-error', '');
-    await save(() => db.doc(my.prefs).set({ quietStart, quietEnd }));
+    state.prefs = { ...state.prefs, quietStart, quietEnd };
+    await save(() => db.doc(my.prefs).set({ ...state.prefs }));
   });
   $('preset-form').addEventListener('submit', async e => {
     e.preventDefault();
@@ -1039,8 +1176,8 @@
     }, onError);
     else { ui.loaded = true; render(); }
     // Legion: every member's characters (read-only for everyone but their owner).
-    // A view may hold 64 subscriptions; the page keeps 6 of its own, so at most 58 other members.
-    const MAX_OTHERS = 64 - 6;
+    // A view may hold 64 subscriptions; the page keeps 7 of its own, so at most 57 other members.
+    const MAX_OTHERS = 64 - 7;
     const memberSubs = new Map();
     db.collection('members').onSnapshot(async snap => {
       const all = snap.docs.map(d => d.id).filter(id => id !== myUid);
@@ -1058,6 +1195,11 @@
       if (user && ids.length) { try { const ps = await user.profiles(ids); for (const id of ids) state.names[id] = ps[id]?.name || ''; } catch {} }
       render();
     }, () => {});
+    if (my) db.collection(my.cp).onSnapshot(snap => {
+      state.cpHist = new Map(snap.docs.map(d => [d.id, (Array.isArray(d.data().points) ? d.data().points : [])
+        .filter(p => Number.isFinite(p?.at) && Number.isFinite(p?.cp)).sort((a, b) => a.at - b.at)]));
+      render();
+    }, onError);
     if (my) db.collection(my.events).onSnapshot(snap => {
       state.events = snap.docs.map(d => ({ id: d.id, ...d.data() })).filter(e => Number.isFinite(e.at) && Number.isFinite(e.amount));
       render();
@@ -1065,7 +1207,8 @@
     if (my) db.doc(my.prefs).onSnapshot(snap => {
       const d = snap.exists ? snap.data() : {};
       const ok = v => typeof v === 'string' && /^([01]\d|2[0-3]):[0-5]\d$/.test(v);
-      state.prefs = { quietStart: ok(d.quietStart) ? d.quietStart : '00:00', quietEnd: ok(d.quietEnd) ? d.quietEnd : '08:00' };
+      state.prefs = { quietStart: ok(d.quietStart) ? d.quietStart : '00:00', quietEnd: ok(d.quietEnd) ? d.quietEnd : '08:00',
+        favEvents: Array.isArray(d.favEvents) ? d.favEvents.filter(id => EVENTS.some(e => e.id === id)) : [] };
       if (document.activeElement !== $('quiet-start')) $('quiet-start').value = state.prefs.quietStart;
       if (document.activeElement !== $('quiet-end')) $('quiet-end').value = state.prefs.quietEnd;
       render();
