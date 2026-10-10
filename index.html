@@ -347,6 +347,18 @@
     .pop { animation: none; }
   }
 
+  /* ---- Online now and "Busco grupo" ---- */
+  .online-pill { border-radius: 999px; padding: 6px 12px; min-height: 0; font-size: .8125rem; color: #7ee2a8; border-color: rgba(126, 226, 168, .45); }
+  .online-list { list-style: none; margin: 0; padding: 0; display: flex; flex-wrap: wrap; gap: 6px; }
+  .online-list li { display: flex; align-items: center; gap: 6px; padding: 4px 10px; border-radius: 999px; background: rgba(255, 255, 255, .05); border: 1px solid var(--line); font-size: .8125rem; }
+  .online-list li::before { content: ""; width: 8px; height: 8px; border-radius: 50%; background: #7ee2a8; box-shadow: 0 0 6px #7ee2a8; }
+  .online-list li.me { border-color: var(--gold); }
+  .online-list small { color: var(--muted); }
+  .lfg-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
+  .lfg-list li { display: flex; align-items: center; gap: 10px; padding: 8px 0; border-top: 1px solid rgba(232, 184, 90, .12); }
+  .lfg-list li > span { flex: 1; min-width: 0; overflow-wrap: anywhere; }
+  .lfg-list small { display: block; color: var(--muted); }
+
   /* ---- Custom timers ---- */
   .timer-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
   .timer-list:empty { display: none; }
@@ -420,6 +432,7 @@
         <p class="clock-time" id="next-tick"></p>
       </div>
     </div>
+    <button type="button" id="online-pill" class="online-pill" hidden></button>
     <button type="button" id="motion-btn" hidden>Activar movimiento</button>
     <button type="button" id="menu-btn" class="menu-btn" aria-label="Menú" aria-expanded="false" aria-controls="drawer" hidden>☰</button>
   </header>
@@ -450,6 +463,17 @@
   <p class="error" id="notice" role="alert" hidden></p>
   <h2 class="group-title" id="mine-title" hidden>Tus personajes</h2>
   <section class="grid" id="cards" aria-label="Personajes"></section>
+  <section class="panel online" id="online-panel" aria-labelledby="online-title" hidden>
+    <h2 id="online-title">En línea</h2>
+    <ul class="online-list" id="online-list"></ul>
+    <form id="lfg-form" class="row" novalidate>
+      <div class="field"><label for="lfg-act">Busco grupo para</label><select id="lfg-act"></select></div>
+      <div class="field"><label for="lfg-text">Detalle (opcional)</label><input id="lfg-text" maxlength="120" autocomplete="off" placeholder="Faltan 2, nivel 45+"></div>
+      <button type="submit" class="primary offset" id="lfg-send">Busco grupo</button>
+    </form>
+    <p class="hint" id="lfg-state" role="status"></p>
+    <ul class="lfg-list" id="lfg-list"></ul>
+  </section>
   <section class="legion" id="legion" aria-label="Legión"></section>
   <p class="hint legion-empty" id="legion-empty">Cuando otros miembros de tu legión usen la página, aquí verás sus personajes.</p>
   <p class="empty" id="empty" hidden>Aún no hay personajes. Añádelo desde el menú ☰ o con el formulario de arriba.</p>
@@ -613,6 +637,7 @@
 
 <div id="alert" class="alert" role="alert" hidden>
   <span id="alert-text"></span>
+  <button type="button" id="alert-action" class="primary" hidden></button>
   <button type="button" id="alert-close" aria-label="Cerrar aviso">✕</button>
 </div>
 
@@ -1276,7 +1301,7 @@
     personajes: () => ['guide', 'summary', 'add-form', 'empty', 'mine-title', 'cards'].map(id => $(id)),
     eventos: () => [$('events'), $('timers-panel')],
     estadisticas: () => ['week-panel', 'sim-panel', 'forecast-panel', 'cp-panel', 'history-panel'].map(id => $(id)),
-    legion: () => [$('legion'), $('legion-empty')],
+    legion: () => [$('online-panel'), $('legion'), $('legion-empty')],
     ajustes: () => drawerPanels.filter(n => n.id !== 'add-form' && !isNews(n)),
     novedades: () => drawerPanels.filter(isNews),
   };
@@ -1372,6 +1397,7 @@
         alerted.add(key);
         const text = `★ ${e.name} empieza a las ${timeFmt.format(new Date(o.startMs))}`;
         $('alert-text').textContent = text;
+        alertAction = null; $('alert-action').hidden = true;
         reveal($('alert'), 'show');
         clearTimeout(alertTimer);
         alertTimer = setTimeout(() => conceal($('alert'), 'show'), Math.max(left, 60_000));
@@ -1436,6 +1462,7 @@
       if (!timersPrimed || now - t.endsAt > 5000) continue;
       const text = `⏰ ${t.name}: ¡tiempo!`;
       $('alert-text').textContent = text;
+      alertAction = null; $('alert-action').hidden = true;
       reveal($('alert'), 'show');
       clearTimeout(alertTimer);
       alertTimer = setTimeout(() => conceal($('alert'), 'show'), 60_000);
@@ -1826,6 +1853,126 @@
     });
   }
 
+  // ---- Online now (room presence) and "Busco grupo" (room events). Nothing here is stored. ----
+  let room = null;
+  let peers = [];
+  const lfgs = []; // offers heard in the last 15 minutes: {id, by, peer, act, text, at, replied}
+  let myLfg = null; // {id, at, replies: Set}
+  const LFG_TTL = 15 * 60_000;
+  const clean = (v, n) => typeof v === 'string' ? v.replace(/[\u0000-\u001f\u007f]/g, ' ').trim().slice(0, n) : '';
+  const nameOf = uid => (uid && state.names[uid]) || 'Alguien';
+  async function resolveNames(ids) {
+    const need = [...new Set(ids.filter(id => id && !(id in state.names)))];
+    if (!user || !need.length) return;
+    try { const ps = await user.profiles(need); for (const id of need) state.names[id] = ps[id]?.name || ''; } catch {}
+  }
+  function paintOnline() {
+    // one entry per person (a person may have several tabs open)
+    const people = new Map();
+    for (const p of peers) {
+      if (p.kind !== 'viewer') continue;
+      const key = p.by || p.peer;
+      const char = clean(p.presence?.char, 24);
+      if (!people.has(key) || (char && !people.get(key).char)) people.set(key, { uid: p.by, me: p.isMe, char });
+    }
+    const list = [...people.values()].sort((a, b) => b.me - a.me);
+    $('online-panel').hidden = !room;
+    $('online-pill').hidden = !room || list.length === 0;
+    $('online-pill').textContent = `● ${list.length} en línea`;
+    $('online-title').textContent = `En línea (${list.length})`;
+    $('online-list').replaceChildren(...list.map(u => el('li', { class: u.me ? 'me' : '' },
+      u.me ? 'Tú' : nameOf(u.uid), u.char ? el('small', {}, u.char) : null)));
+    const now = Date.now();
+    while (lfgs.length && now - lfgs[0].at > LFG_TTL) lfgs.shift();
+    $('lfg-list').replaceChildren(...[...lfgs].reverse().map(o => el('li', {},
+      el('span', {}, `${nameOf(o.by)}${o.char ? ` (${o.char})` : ''} busca grupo: ${o.act}`,
+        el('small', {}, `${o.text ? o.text + ' · ' : ''}${timeFmt.format(new Date(o.at))}`)),
+      el('button', { type: 'button', class: 'primary', disabled: o.replied || ui.readOnly, onclick: () => replyLfg(o) }, o.replied ? 'Apuntado' : 'Voy'))));
+    if (myLfg && now - myLfg.at < LFG_TTL) {
+      const who = [...myLfg.replies].map(nameOf);
+      $('lfg-state').textContent = who.length ? `Respuestas: ${who.length} · ${who.join(', ')}` : 'Buscando grupo… aún sin respuestas';
+    } else $('lfg-state').textContent = '';
+  }
+  function fillLfgActivities() {
+    const keep = $('lfg-act').value;
+    $('lfg-act').replaceChildren(...EVENTS.map(e => el('option', { value: e.name }, e.name)),
+      el('option', { value: 'Mazmorra' }, 'Mazmorra'), el('option', { value: 'Otra' }, 'Otra (escríbela en el detalle)'));
+    if (keep) $('lfg-act').value = keep;
+  }
+  fillLfgActivities();
+  const myCharName = () => [...state.characters].sort((a, b) => (a.order || 0) - (b.order || 0))[0]?.name || '';
+  let presenceChar = null;
+  function syncPresence() {
+    if (!room) return;
+    const char = myCharName();
+    if (char === presenceChar) return;
+    presenceChar = char;
+    room.presence({ uid: myUid || null, char, at: Date.now() }).catch(() => {});
+  }
+  async function replyLfg(o) {
+    if (!room || o.replied) return;
+    o.replied = true; paintOnline();
+    try { await room.emit('lfgReply', { id: o.id }); } catch { o.replied = false; paintOnline(); showNotice('No se pudo responder'); }
+  }
+  $('lfg-form').addEventListener('submit', async e => {
+    e.preventDefault();
+    if (!room || ui.readOnly) return;
+    if (myLfg && Date.now() - myLfg.at < 30_000) { $('lfg-state').textContent = 'Espera unos segundos antes de volver a avisar'; return; }
+    const act = clean($('lfg-act').value, 60), text = clean($('lfg-text').value, 120);
+    const id = 'g' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
+    myLfg = { id, at: Date.now(), replies: new Set() };
+    try { await room.emit('lfg', { id, act, text, char: myCharName() }); $('lfg-text').value = ''; }
+    catch (err) { myLfg = null; showNotice(err && err.code === 'not_permitted' ? 'No tienes permiso para avisar al grupo' : 'No se pudo enviar el aviso'); }
+    paintOnline();
+  });
+  let alertAction = null;
+  $('alert-action').addEventListener('click', () => { const f = alertAction; alertAction = null; $('alert-action').hidden = true; clearTimeout(alertTimer); conceal($('alert'), 'show'); if (f) f(); });
+  function showAlert(text, action = null, label = '') {
+    $('alert-text').textContent = text;
+    alertAction = action;
+    $('alert-action').hidden = !action;
+    $('alert-action').textContent = label;
+    reveal($('alert'), 'show');
+    clearTimeout(alertTimer);
+    alertTimer = setTimeout(() => { alertAction = null; conceal($('alert'), 'show'); }, 60_000);
+    sound.chime();
+    try { if (window.Notification && Notification.permission === 'granted' && document.hidden) new Notification(tr('Energía Odyle'), { body: tr(text) }); } catch {}
+  }
+  async function connectRoom() {
+    try { room = await window.claude.use('room'); } catch { room = null; }
+    if (!room) return;
+    room.onPeers(async change => {
+      peers = change.peers;
+      await resolveNames(peers.map(p => p.by));
+      paintOnline();
+    }, () => { room = null; paintOnline(); });
+    room.on('lfg', async msg => {
+      const d = msg.data || {};
+      const id = clean(d.id, 24), act = clean(d.act, 60);
+      if (!id || !act || lfgs.some(o => o.id === id)) return;
+      if (msg.isMe) return; // our own offer comes back as an echo
+      const o = { id, by: msg.by, peer: msg.peer, act, text: clean(d.text, 120), char: clean(d.char, 24), at: Date.now(), replied: false };
+      lfgs.push(o); if (lfgs.length > 20) lfgs.shift();
+      await resolveNames([msg.by]);
+      paintOnline();
+      showAlert(`${nameOf(msg.by)} busca grupo: ${act}`, ui.readOnly ? null : () => replyLfg(o), 'Voy');
+    });
+    room.on('lfgReply', async msg => {
+      const id = clean(msg.data?.id, 24);
+      if (!myLfg || id !== myLfg.id || msg.isMe) return;
+      myLfg.replies.add(msg.by || msg.peer);
+      await resolveNames([msg.by]);
+      paintOnline();
+      sound.chime();
+    });
+    syncPresence();
+    paintOnline();
+  }
+  $('online-pill').addEventListener('click', () => {
+    if (DESKTOP.matches) setTab('legion');
+    $('online-panel').scrollIntoView({ block: 'start', behavior: reduceMotion ? 'auto' : 'smooth' });
+  });
+
   DESKTOP.addEventListener('change', applyLayout);
   applyLayout(); // after every top-level declaration: it renders
   render();
@@ -1840,7 +1987,7 @@
       if (Date.now() >= due && due !== nextRepaintAt) { nextRepaintAt = due; render(); }
     }
   }, 1000);
-  setInterval(render, 30_000);
+  setInterval(() => { render(); paintOnline(); }, 30_000);
   document.addEventListener('visibilitychange', () => { if (!document.hidden) render(); });
 
   // ---- Connect to db (one subscription each, never from render) ----
@@ -1864,6 +2011,7 @@
       state.characters = snap.docs.map(d => ({ id: d.id, ...d.data() }));
       for (const c of state.characters) if (busy.get(c.id) === c.recordedAt) busy.delete(c.id);
       ui.loaded = true;
+      syncPresence();
       render();
     }, onError);
     else { ui.loaded = true; render(); }
@@ -1938,6 +2086,8 @@
       render();
     }, onError);
   }
+
+  connectRoom(); // after db/user: presence carries this viewer's id
 
   // Register this viewer as a member, and (owner only, once) move the characters kept in the
   // old shared 'characters' collection into the owner's own part, intact, then remove the old docs.
