@@ -216,11 +216,12 @@ export function createScene(canvas, { particles = 300, feathers = 20, clouds = 5
   const bgScene = new THREE.Scene();
   const bgCam = new THREE.PerspectiveCamera(60, 1, 0.1, 100);
   bgCam.position.z = 10;
-  const pos = new Float32Array(particles * 3), seed = new Float32Array(particles), tint = new Float32Array(particles * 3);
+  const pos = new Float32Array(particles * 3), seed = new Float32Array(particles), tint = new Float32Array(particles * 3), isSky = new Uint8Array(particles);
   for (let i = 0; i < particles; i++) {
     pos.set([(Math.random() - 0.5) * 24, (Math.random() - 0.5) * 16, Math.random() * 10 - 6], i * 3);
     seed[i] = Math.random();
-    const c = Math.random() < 0.6 ? SKY : GOLD;
+    isSky[i] = Math.random() < 0.6 ? 1 : 0;
+    const c = isSky[i] ? SKY : GOLD;
     tint.set([c.r, c.g, c.b], i * 3);
   }
   const pGeo = new THREE.BufferGeometry();
@@ -462,6 +463,14 @@ export function createScene(canvas, { particles = 300, feathers = 20, clouds = 5
     setOrbs(list) { orbs = list.slice(); },
     ripple(id) { ripples.set(id, clock.getElapsedTime()); },
     beam(id) { beams.set(id, clock.getElapsedTime()); },
+    // Faction colours: every material shares GOLD/SKY by reference, so updating them recolours
+    // orbs, runes, feathers, clouds and the beam; particle tints are rewritten.
+    setPalette({ primary, secondary }) {
+      GOLD.set(primary); SKY.set(secondary);
+      const attr = pGeo.getAttribute('tint');
+      for (let i = 0; i < particles; i++) { const c = isSky[i] ? SKY : GOLD; attr.setXYZ(i, c.r, c.g, c.b); }
+      attr.needsUpdate = true;
+    },
     async enableOrientation() {
       try {
         const D = window.DeviceOrientationEvent;

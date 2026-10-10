@@ -24,6 +24,11 @@
     --font-body: "Figtree", system-ui, -apple-system, "Segoe UI", sans-serif;
     color-scheme: dark;
   }
+  :root[data-faction="asmodian"] {
+    --bg: #0d0612; --bg-2: #1a0b22; --glass: rgba(24, 10, 30, .62); --glass-strong: rgba(24, 10, 30, .84);
+    --fg: #f1e6ee; --muted: #b9a6bf; --line: rgba(226, 85, 107, .3);
+    --gold: #e2556b; --gold-bright: #ff8fa0; --sky: #a67cff; --on-gold: #1a0508;
+  }
   @media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) { color-scheme: dark; } }
   :root[data-theme="dark"] { color-scheme: dark; }
 
@@ -296,7 +301,7 @@
   <header>
     <div>
       <h1>Energía Odyle</h1>
-      <p class="subtitle">Daevas de Elyos</p>
+      <p class="subtitle" id="subtitle">Daevas de Elyos</p>
     </div>
     <div class="clock" id="clock">
       <svg class="ring" viewBox="0 0 60 60" aria-hidden="true">
@@ -394,6 +399,15 @@
     <p class="error" id="prefs-error" role="alert" hidden></p>
   </form>
 
+  <section class="panel" aria-labelledby="look-title">
+    <h2 id="look-title">Apariencia</h2>
+    <div class="row" role="radiogroup" aria-label="Facción">
+      <label class="switch"><input type="radio" name="faction" value="elyos" id="faction-elyos"> Elyos</label>
+      <label class="switch"><input type="radio" name="faction" value="asmodian" id="faction-asmodian"> Asmodiano</label>
+    </div>
+    <label class="switch"><input type="checkbox" id="lite-toggle"> Modo ligero (sin 3D, ahorra batería)</label>
+  </section>
+
   <section class="panel" aria-labelledby="sound-title">
     <h2 id="sound-title">Sonido</h2>
     <label class="switch"><input type="checkbox" id="sound-toggle"> Tintineo con cada recarga y al empezar un evento; fanfarria al llenarse</label>
@@ -437,7 +451,7 @@
   import { formatClock, detectGains, rollValue, becameFull, sceneOptions } from './motion.js';
 
   // Data comes only from db snapshots. Writes happen only after a user action.
-  const state = { characters: [], cpHist: new Map(), hiddenMembers: 0, others: new Map(), names: {}, schedule: null, presets: [], events: [], prefs: { quietStart: '00:00', quietEnd: '08:00', favEvents: [] } };
+  const state = { characters: [], cpHist: new Map(), hiddenMembers: 0, others: new Map(), names: {}, schedule: null, presets: [], events: [], prefs: { quietStart: '00:00', quietEnd: '08:00', favEvents: [], faction: 'elyos' } };
   // Interface-only state: which card is editing/confirming, validation messages.
   // noDb: no db in this view. readOnly: viewer cannot write (or a write was refused).
   const ui = { pop: null, notesId: null, menuOpen: false, editingId: null, extraId: null, confirmId: null, errors: {}, noDb: false, readOnly: false, loaded: false };
@@ -451,8 +465,22 @@
   let scene = null;
   let animate = false;
   document.body.classList.add('flat');
+  let lite = false;
+  try { lite = localStorage.getItem('odyle-lite') === '1'; } catch {}
+  const FACTIONS = {
+    elyos: { primary: '#e8b85a', secondary: '#7cc8ff', subtitle: 'Daevas de Elyos' },
+    asmodian: { primary: '#e2556b', secondary: '#a67cff', subtitle: 'Daevas de Asmodae' },
+  };
+  function applyFaction(f) {
+    const fx = FACTIONS[f] || FACTIONS.elyos;
+    document.documentElement.dataset.faction = FACTIONS[f] ? f : 'elyos';
+    $('subtitle').textContent = fx.subtitle;
+    if (scene) scene.setPalette(fx);
+    const r = document.getElementById('faction-' + (FACTIONS[f] ? f : 'elyos')); if (r) r.checked = true;
+  }
   async function initScene() {
-    if (reduceMotion) return;
+    if (reduceMotion || lite) return;
+    if (scene) { animate = true; document.body.classList.remove('flat'); scene.start(); render(); return; }
     try {
       const { createScene } = await import('./orb.js');
       scene = createScene(document.getElementById('scene'), sceneOptions(innerWidth));
@@ -460,6 +488,7 @@
     if (!scene) return;
     animate = true;
     document.body.classList.remove('flat');
+    scene.setPalette(FACTIONS[state.prefs.faction] || FACTIONS.elyos);
     scene.start();
     enableTilt();
     enableOrientation();
@@ -1040,6 +1069,18 @@
     else if (!e.shiftKey && document.activeElement === f.at(-1)) { e.preventDefault(); f[0].focus(); }
   });
   $('undo').addEventListener('click', undoLast);
+  $('lite-toggle').checked = lite;
+  $('lite-toggle').addEventListener('change', e => {
+    lite = e.target.checked;
+    try { localStorage.setItem('odyle-lite', lite ? '1' : '0'); } catch {}
+    if (lite) { animate = false; if (scene) scene.stop(); document.body.classList.add('flat'); render(); }
+    else initScene();
+  });
+  for (const r of document.querySelectorAll('input[name=faction]')) r.addEventListener('change', async e => {
+    applyFaction(e.target.value);
+    state.prefs = { ...state.prefs, faction: e.target.value };
+    if (my && !ui.readOnly) await save(() => db.doc(my.prefs).set({ ...state.prefs }));
+  });
   $('event-list').addEventListener('click', e => { const b = e.target.closest('[data-fav]'); if (b) toggleFav(b.dataset.fav); });
   $('alert-close').addEventListener('click', () => { clearTimeout(alertTimer); conceal($('alert'), 'show'); });
   function paintNotifyState() {
@@ -1208,7 +1249,9 @@
       const d = snap.exists ? snap.data() : {};
       const ok = v => typeof v === 'string' && /^([01]\d|2[0-3]):[0-5]\d$/.test(v);
       state.prefs = { quietStart: ok(d.quietStart) ? d.quietStart : '00:00', quietEnd: ok(d.quietEnd) ? d.quietEnd : '08:00',
-        favEvents: Array.isArray(d.favEvents) ? d.favEvents.filter(id => EVENTS.some(e => e.id === id)) : [] };
+        favEvents: Array.isArray(d.favEvents) ? d.favEvents.filter(id => EVENTS.some(e => e.id === id)) : [],
+        faction: d.faction === 'asmodian' ? 'asmodian' : 'elyos' };
+      applyFaction(state.prefs.faction);
       if (document.activeElement !== $('quiet-start')) $('quiet-start').value = state.prefs.quietStart;
       if (document.activeElement !== $('quiet-end')) $('quiet-end').value = state.prefs.quietEnd;
       render();
