@@ -13,8 +13,8 @@ const node = (tag, attrs = {}, text) => {
   if (text !== undefined) n.textContent = text;
   return n;
 };
-const weekday = new Intl.DateTimeFormat(LOCALE, { weekday: 'short' });
-const when = new Intl.DateTimeFormat(LOCALE, { weekday: 'short', hour: '2-digit', minute: '2-digit' });
+const weekday = { format: v => new Intl.DateTimeFormat(LOCALE, { weekday: 'short' }).format(v) }; // follows the live language
+const when = { format: v => new Intl.DateTimeFormat(LOCALE, { weekday: 'short', hour: '2-digit', minute: '2-digit' }).format(v) }; // follows the live language
 
 // series: [{name, color, points:[{t, energy}]}]; tooltip: an HTML element positioned over the svg.
 export function renderForecast(svg, series, nowMs, tooltip) {
@@ -99,8 +99,8 @@ export function renderHistory(svg, days) {
 }
 
 // Combat power over time: one line per character, x = time of each entry, y = combat power.
-const short = new Intl.NumberFormat(LOCALE, { notation: 'compact', maximumFractionDigits: 1 });
-const dayMonth = new Intl.DateTimeFormat(LOCALE, { day: 'numeric', month: 'short' });
+const short = { format: v => new Intl.NumberFormat(LOCALE, { notation: 'compact', maximumFractionDigits: 1 }).format(v) }; // follows the live language
+const dayMonth = { format: v => new Intl.DateTimeFormat(LOCALE, { day: 'numeric', month: 'short' }).format(v) }; // follows the live language
 export function renderCp(svg, series, nowMs) {
   svg.setAttribute('viewBox', `0 0 ${W} ${H}`);
   svg.replaceChildren();

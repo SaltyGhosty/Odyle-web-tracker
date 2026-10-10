@@ -567,3 +567,10 @@ const MORE = {
   pt: { 'La importación se detuvo a medias; vuelve a intentarlo.': 'A importação parou no meio; tente de novo.', 'El navegador tiene bloqueados los avisos; verás el aviso dentro de la página.': 'O navegador bloqueia as notificações; você verá o aviso dentro da página.', 'No se pudieron preparar tus datos; vuelve a cargar la página': 'Não foi possível preparar seus dados; recarregue a página', 'No se pudo enviar ahora; inténtalo más tarde.': 'Não foi possível enviar agora; tente mais tarde.' },
 };
 for (const l of Object.keys(MORE)) Object.assign(STRINGS[l], MORE[l]);
+
+const NAV = {
+  en: { Personajes: 'Characters', 'Estadísticas': 'Statistics', Ajustes: 'Settings', Secciones: 'Sections', 'Cuando otros miembros de tu legión usen la página, aquí verás sus personajes y su disponibilidad.': 'When other members of your legion use the page, their characters and availability will show up here.', 'Aún no hay personajes. Añade el primero con el formulario de arriba.': 'No characters yet. Add the first one with the form above.' },
+  it: { Personajes: 'Personaggi', 'Estadísticas': 'Statistiche', Ajustes: 'Impostazioni', Secciones: 'Sezioni', 'Cuando otros miembros de tu legión usen la página, aquí verás sus personajes y su disponibilidad.': 'Quando altri membri della tua legione useranno la pagina, qui vedrai i loro personaggi e la loro disponibilità.', 'Aún no hay personajes. Añade el primero con el formulario de arriba.': 'Ancora nessun personaggio. Aggiungi il primo con il modulo qui sopra.' },
+  pt: { Personajes: 'Personagens', 'Estadísticas': 'Estatísticas', Ajustes: 'Configurações', Secciones: 'Seções', 'Cuando otros miembros de tu legión usen la página, aquí verás sus personajes y su disponibilidad.': 'Quando outros membros da sua legião usarem a página, você verá aqui os personagens e a disponibilidade deles.', 'Aún no hay personajes. Añade el primero con el formulario de arriba.': 'Ainda não há personagens. Adicione o primeiro com o formulário acima.' },
+};
+for (const l of Object.keys(NAV)) Object.assign(STRINGS[l], NAV[l]);

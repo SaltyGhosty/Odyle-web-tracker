@@ -213,6 +213,29 @@
   .guide-steps li.done::before { content: "✓"; background: var(--gold); color: var(--on-gold); }
   .guide-steps li.done button { text-decoration: line-through; opacity: .6; }
 
+  /* ---- Desktop: top navigation bar with sections (mobile keeps the ☰ drawer) ---- */
+  .topnav { display: none; }
+  .legion-empty { display: none; }
+  @media (min-width: 900px) {
+    #menu-btn { display: none !important; }
+    .topnav {
+      display: flex; gap: 4px; position: sticky; top: 0; z-index: 6; margin: -8px -16px 0; padding: 8px 16px;
+      background: color-mix(in srgb, var(--bg) 80%, transparent); -webkit-backdrop-filter: blur(12px); backdrop-filter: blur(12px);
+      border-bottom: 1px solid var(--line);
+    }
+    .topnav button { border: none; background: none; border-radius: 8px; padding: 10px 14px; color: var(--muted); font-weight: 600; position: relative; }
+    .topnav button:hover { color: var(--fg); background: rgba(255, 255, 255, .04); }
+    .topnav button[aria-current="page"] { color: var(--gold-bright); }
+    .topnav button[aria-current="page"]::after { content: ""; position: absolute; left: 14px; right: 14px; bottom: 2px; height: 2px; border-radius: 2px; background: var(--gold); box-shadow: 0 0 8px var(--gold); }
+    .tab-panel { display: flex; flex-direction: column; gap: 24px; }
+    .tab-panel[hidden] { display: none !important; }
+    #tab-ajustes, #tab-novedades { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 20px; align-items: start; }
+    #tab-ajustes[hidden], #tab-novedades[hidden] { display: none !important; }
+    #tab-legion .legion:empty + .legion-empty { display: block; }
+    #tab-personajes #add-form { max-width: 560px; }
+    @media (prefers-reduced-motion: no-preference) { .tab-panel:not([hidden]) { animation: rise .35s cubic-bezier(.2, .7, .2, 1) both; } }
+  }
+
   /* ---- Legion ---- */
   .group-title { font-size: 1rem; color: var(--muted); letter-spacing: .08em; text-transform: uppercase; margin: 4px 0 -8px; }
   .legion { display: flex; flex-direction: column; gap: 20px; }
@@ -386,7 +409,8 @@
   <h2 class="group-title" id="mine-title" hidden>Tus personajes</h2>
   <section class="grid" id="cards" aria-label="Personajes"></section>
   <section class="legion" id="legion" aria-label="Legión"></section>
-  <p class="empty" id="empty" hidden>Aún no hay personajes. Añádelo desde el menú ☰.</p>
+  <p class="hint legion-empty" id="legion-empty">Cuando otros miembros de tu legión usen la página, aquí verás sus personajes y su disponibilidad.</p>
+  <p class="empty" id="empty" hidden>Aún no hay personajes. Añádelo desde el menú ☰ o con el formulario de arriba.</p>
 
   <section class="panel guide" id="guide" aria-labelledby="guide-title" hidden>
     <h2 id="guide-title">Empieza en 3 pasos</h2>
@@ -555,7 +579,7 @@
 </div>
 
 <script type="module">
-  import { startI18n, tr, LOCALE, LANG, LANGS, setLang } from './i18n.js';
+  import { startI18n, tr, LOCALE, LANG, LANGS, setLang, onLangChange } from './i18n.js';
   startI18n();
   import { buildView, parseEnergyInput, parseMinutesInput, parseNameInput, parseClassInput } from './view.js';
   import { anchorFromCountdown, formatDuration, nextTickAt, TICK_MS, MAX } from './energy.js';
@@ -764,7 +788,7 @@
     if (!/^\d+$/.test(t) || Number(t) > 99_999_999) return { ok: false, error: 'El poder de combate es un número entero' };
     return { ok: true, value: Number(t) };
   }
-  const cpFmt = new Intl.NumberFormat(LOCALE);
+  let cpFmt = new Intl.NumberFormat(LOCALE);
   function cpLine(row) {
     const pts = state.cpHist.get(row.id) || [];
     const weekAgo = Date.now() - 7 * 86_400_000;
@@ -793,7 +817,7 @@
 
   // ---- Rendering ----
   const $ = id => document.getElementById(id);
-  const dateFmt = new Intl.DateTimeFormat(LOCALE, { weekday: 'short', day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
+  let dateFmt = new Intl.DateTimeFormat(LOCALE, { weekday: 'short', day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
   const SVG_NS = 'http://www.w3.org/2000/svg';
 
   function el(tag, props = {}, ...kids) {
@@ -1208,6 +1232,64 @@
     } catch (e) { if (!e || e.code !== 'declined') showNotice('No se pudo descargar la imagen aquí'); }
   });
 
+  // ---- Desktop layout: nav bar + sections. The same nodes are moved between the sections (desktop)
+  // and their original places in the page and the ☰ drawer (mobile); nothing is duplicated. ----
+  const DESKTOP = matchMedia('(min-width: 900px)');
+  const TABS = [['personajes', 'Personajes'], ['eventos', 'Eventos'], ['estadisticas', 'Estadísticas'], ['legion', 'Legión'], ['ajustes', 'Ajustes'], ['novedades', 'Novedades']];
+  const pageEl = document.querySelector('.page');
+  const pageOrder = [...pageEl.children];
+  const drawerOrder = [...$('drawer').children];
+  const drawerPanels = drawerOrder.filter(n => !n.classList.contains('drawer-head'));
+  const isNews = n => n.querySelector && (n.querySelector('#news') || n.querySelector('#feedback-form'));
+  const PLACE = {
+    personajes: () => ['guide', 'summary', 'add-form', 'empty', 'mine-title', 'cards'].map(id => $(id)),
+    eventos: () => [$('events')],
+    estadisticas: () => ['week-panel', 'forecast-panel', 'cp-panel', 'history-panel'].map(id => $(id)),
+    legion: () => [$('legion'), $('legion-empty')],
+    ajustes: () => drawerPanels.filter(n => n.id !== 'add-form' && !isNews(n)),
+    novedades: () => drawerPanels.filter(isNews),
+  };
+  const nav = el('nav', { class: 'topnav', id: 'topnav', 'aria-label': 'Secciones' });
+  const tabWrap = el('div', { class: 'tabs' });
+  const tabPanels = {};
+  for (const [id, label] of TABS) {
+    nav.append(el('button', { type: 'button', 'data-tab': id, onclick: () => setTab(id) }, label));
+    tabPanels[id] = el('section', { class: 'tab-panel', id: 'tab-' + id, 'aria-label': label });
+    tabWrap.append(tabPanels[id]);
+  }
+  let activeTab = 'personajes';
+  try { const t = localStorage.getItem('odyle-tab'); if (TABS.some(([id]) => id === t)) activeTab = t; } catch {}
+  function setTab(id) {
+    activeTab = id;
+    try { localStorage.setItem('odyle-tab', id); } catch {}
+    for (const [k, p] of Object.entries(tabPanels)) p.hidden = k !== id;
+    for (const b of nav.querySelectorAll('button')) b.toggleAttribute('aria-current', b.dataset.tab === id), b.dataset.tab === id && b.setAttribute('aria-current', 'page');
+    if (id === 'eventos') $('events').open = true;
+    window.scrollTo({ top: 0 });
+    render();
+  }
+  function applyLayout() {
+    if (DESKTOP.matches) {
+      if (ui.menuOpen) closeMenu();
+      const header = pageEl.querySelector('header');
+      header.after(nav);
+      nav.after(tabWrap);
+      // notices stay above the sections
+      tabWrap.before($('nodata'), $('notice'));
+      for (const [id] of TABS) tabPanels[id].replaceChildren(...PLACE[id]());
+      setTab(activeTab);
+    } else {
+      nav.remove(); tabWrap.remove();
+      for (const n of pageOrder) pageEl.append(n);
+      for (const n of drawerOrder) $('drawer').append(n);
+    }
+  }
+  // Where a step lives: a section on desktop, the drawer on mobile.
+  function goTo(tab, focusId) {
+    if (DESKTOP.matches) { setTab(tab); } else openMenu();
+    const f = $(focusId); if (f) { f.focus({ preventScroll: true }); f.scrollIntoView({ block: 'center' }); }
+  }
+
   // First-run guide: shown until the viewer has a character, has set its energy and the recharge time.
   function paintGuide(rows) {
     const s1 = rows.length > 0;
@@ -1220,12 +1302,12 @@
   $('guide').addEventListener('click', e => {
     const b = e.target.closest('[data-step]'); if (!b) return;
     const step = b.dataset.step;
-    if (step === '1') { openMenu(); $('add-name').focus(); }
+    if (step === '1') goTo('personajes', 'add-name');
     else if (step === '2') {
       const first = buildView(state.characters, state.schedule, Date.now()).rows[0];
-      if (!first) { openMenu(); return; }
+      if (!first) { goTo('personajes', 'add-name'); return; }
       ui.pop = first.id; ui.editingId = first.id; render(); $('energy-' + first.id)?.select();
-    } else { openMenu(); $('adjust-minutes').focus(); $('adjust-minutes').scrollIntoView({ block: 'center' }); }
+    } else goTo('ajustes', 'adjust-minutes');
   });
 
   function paintSummary(rows) {
@@ -1243,8 +1325,8 @@
   }
 
   // Event timers: sorted by what happens next; running events first, in gold.
-  const timeFmt = new Intl.DateTimeFormat(LOCALE, { hour: '2-digit', minute: '2-digit' });
-  const dayFmt = new Intl.DateTimeFormat(LOCALE, { weekday: 'short', hour: '2-digit', minute: '2-digit' });
+  let timeFmt = new Intl.DateTimeFormat(LOCALE, { hour: '2-digit', minute: '2-digit' });
+  let dayFmt = new Intl.DateTimeFormat(LOCALE, { weekday: 'short', hour: '2-digit', minute: '2-digit' });
   const countdown = ms => ms < 86_400_000 ? formatClock(ms) : formatDuration(ms);
   // Favourite events: alert 5 minutes before they start (banner + sound + browser notification).
   const ALERT_BEFORE = 5 * 60_000;
@@ -1345,7 +1427,7 @@
     ui.pop = null; // pop-in plays once, not on later repaints
     for (const input of cards.querySelectorAll('input, select')) if (draft.has(input.id)) input.value = draft.get(input.id);
     $('empty').hidden = ui.noDb || view.rows.length > 0 || !ui.loaded;
-    $('empty').textContent = ui.readOnly ? 'Aún no hay personajes.' : 'Aún no hay personajes. Añádelo desde el menú ☰.';
+    $('empty').textContent = ui.readOnly ? 'Aún no hay personajes.' : DESKTOP.matches ? 'Aún no hay personajes. Añade el primero con el formulario de arriba.' : 'Aún no hay personajes. Añádelo desde el menú ☰.';
     cards.hidden = view.rows.length === 0;
     paintSummary(view.rows);
     paintGuide(view.rows);
@@ -1469,7 +1551,20 @@
   });
   $('undo').addEventListener('click', undoLast);
   for (const [code, label] of Object.entries(LANGS)) $('lang-select').append(el('option', { value: code, selected: code === LANG }, label));
-  $('lang-select').addEventListener('change', e => { setLang(e.target.value); location.reload(); });
+  // Language switches live (no reload); it is saved with the viewer's settings so it survives reloads.
+  $('lang-select').addEventListener('change', async e => {
+    setLang(e.target.value);
+    state.prefs = { ...state.prefs, lang: e.target.value };
+    if (my && !ui.readOnly) await save(() => db.doc(my.prefs).set({ ...state.prefs }));
+  });
+  onLangChange(code => {
+    cpFmt = new Intl.NumberFormat(LOCALE);
+    dateFmt = new Intl.DateTimeFormat(LOCALE, { weekday: 'short', day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
+    timeFmt = new Intl.DateTimeFormat(LOCALE, { hour: '2-digit', minute: '2-digit' });
+    dayFmt = new Intl.DateTimeFormat(LOCALE, { weekday: 'short', hour: '2-digit', minute: '2-digit' });
+    $('lang-select').value = code;
+    render();
+  });
   $('lite-toggle').checked = lite;
   $('lite-toggle').addEventListener('change', e => {
     lite = e.target.checked;
@@ -1596,6 +1691,8 @@
     });
   }
 
+  DESKTOP.addEventListener('change', applyLayout);
+  applyLayout(); // after every top-level declaration: it renders
   render();
   initScene();
   // Timers only repaint from memory; they never write.
@@ -1684,8 +1781,10 @@
       const ok = v => typeof v === 'string' && /^([01]\d|2[0-3]):[0-5]\d$/.test(v);
       state.prefs = { quietStart: ok(d.quietStart) ? d.quietStart : '00:00', quietEnd: ok(d.quietEnd) ? d.quietEnd : '08:00',
         favEvents: Array.isArray(d.favEvents) ? d.favEvents.filter(id => EVENTS.some(e => e.id === id)) : [],
-        faction: d.faction === 'asmodian' ? 'asmodian' : 'elyos' };
+        faction: d.faction === 'asmodian' ? 'asmodian' : 'elyos',
+        ...(LANGS[d.lang] ? { lang: d.lang } : {}) };
       applyFaction(state.prefs.faction);
+      if (LANGS[d.lang] && d.lang !== LANG) setLang(d.lang);
       if (document.activeElement !== $('quiet-start')) $('quiet-start').value = state.prefs.quietStart;
       if (document.activeElement !== $('quiet-end')) $('quiet-end').value = state.prefs.quietEnd;
       render();
