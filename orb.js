@@ -31,7 +31,7 @@ const PARTICLE_FS = `
 const LIQUID_VS = `
   varying vec3 vPos; varying vec3 vNormal; varying vec3 vView;
   void main() {
-    vPos = position;
+    vPos = (modelMatrix * vec4(position, 1.0)).xyz; // world space: liquid stays level when the orb tilts
     vNormal = normalize(normalMatrix * normal);
     vec4 mv = modelViewMatrix * vec4(position, 1.0);
     vView = normalize(-mv.xyz);
@@ -58,11 +58,11 @@ const LIQUID_FS = `
     gl_FragColor = vec4(col, 1.0);
   }`;
 const SHELL_FS = `
-  uniform vec3 uGold; uniform float uGlow;
+  uniform vec3 uGold; uniform float uGlow; uniform vec3 uLightDir;
   varying vec3 vNormal; varying vec3 vView;
   void main() {
     float fres = pow(1.0 - abs(dot(normalize(vNormal), normalize(vView))), 2.5);
-    float spec = pow(max(dot(reflect(-normalize(vView), normalize(vNormal)), normalize(vec3(-0.5, 0.8, 0.6))), 0.0), 40.0);
+    float spec = pow(max(dot(reflect(-normalize(vView), normalize(vNormal)), normalize(uLightDir)), 0.0), 40.0);
     gl_FragColor = vec4(uGold * (fres * (0.8 + uGlow) + spec * 1.2), fres * 0.9 + spec);
   }`;
 const HALO_VS = `varying vec2 vUv; void main(){ vUv = uv; gl_Position = projectionMatrix * modelViewMatrix * vec4(position,1.0); }`;
@@ -73,6 +73,67 @@ const HALO_FS = `
     float a = smoothstep(1.0, 0.55, d) * uGlow * 0.55;
     gl_FragColor = vec4(uColor, a);
   }`;
+
+const RUNE_VS = `
+  attribute float aIndex;
+  varying vec2 vUv; varying float vIndex;
+  void main() {
+    vUv = uv; vIndex = aIndex;
+    vec4 center = modelViewMatrix * instanceMatrix * vec4(0.0, 0.0, 0.0, 1.0);
+    gl_Position = projectionMatrix * (center + vec4(position.xy, 0.0, 0.0)); // billboard
+  }`;
+const RUNE_FS = `
+  uniform sampler2D uAtlas; uniform float uLit, uFull, uFade, uTime; uniform vec3 uGold;
+  varying vec2 vUv; varying float vIndex;
+  void main() {
+    float glyph = texture2D(uAtlas, vec2((vIndex + vUv.x) / 12.0, vUv.y)).a;
+    float on = max(uFull, step(vIndex + 0.5, uLit));
+    float newest = (1.0 - uFull) * step(uLit - 0.5, vIndex) * step(vIndex, uLit - 0.5);
+    float flicker = 0.85 + 0.15 * sin(uTime * 3.0 + vIndex * 1.7);
+    float glow = smoothstep(0.5, 0.0, length(vUv - 0.5)) * on * 0.35;
+    vec3 col = uGold * (on * (1.25 + newest * 0.6) * flicker + (1.0 - on) * 0.22);
+    float a = (glyph * (on * 0.95 + (1.0 - on) * 0.35) + glow) * uFade;
+    if (a < 0.01) discard;
+    gl_FragColor = vec4(col, a);
+  }`;
+const BURST_VS = `
+  attribute vec3 aStart; attribute float aSeed;
+  uniform float uT, uPixelRatio;
+  varying float vA;
+  void main() {
+    float k = clamp(uT, 0.0, 1.0);
+    float e = k * k * (3.0 - 2.0 * k);
+    vec3 p = mix(aStart, aStart * 0.05, e) + vec3(0.0, sin(k * 3.14159) * 0.25 * aSeed, 0.0);
+    vec4 mv = modelViewMatrix * vec4(p, 1.0);
+    gl_Position = projectionMatrix * mv;
+    gl_PointSize = (3.0 + aSeed * 4.0) * uPixelRatio * (1.0 - 0.5 * k);
+    vA = sin(k * 3.14159) * step(0.0001, uT) * step(uT, 0.9999);
+  }`;
+const BURST_FS = `
+  uniform vec3 uGold; varying float vA;
+  void main() { float d = length(gl_PointCoord - 0.5); gl_FragColor = vec4(uGold * 1.4, smoothstep(0.5, 0.0, d) * vA); }`;
+
+// 12 original rune glyphs drawn as gold strokes into one atlas row (64 px per glyph).
+function runeAtlas() {
+  const c = document.createElement('canvas'); c.width = 64 * 12; c.height = 64;
+  const g = c.getContext('2d');
+  g.strokeStyle = '#fff'; g.lineWidth = 5; g.lineCap = 'round'; g.lineJoin = 'round';
+  const strokes = [
+    [[32,10,32,54],[32,20,46,30]], [[24,10,24,54],[24,14,42,26],[24,30,42,42]], [[32,10,32,54],[18,24,46,24]],
+    [[20,54,32,10],[32,10,44,54],[24,38,40,38]], [[22,10,22,54],[22,32,42,14],[22,32,42,54]], [[32,10,32,54],[18,18,46,46]],
+    [[18,32,32,12],[32,12,46,32],[46,32,32,52],[32,52,18,32]], [[24,10,24,54],[40,10,40,54],[24,32,40,32]],
+    [[32,10,32,54],[20,20,32,32],[44,20,32,32]], [[20,12,44,52],[44,12,20,52]], [[32,10,32,54],[32,40,46,52],[32,40,18,52]],
+    [[22,12,42,12],[42,12,22,52],[22,52,42,52]],
+  ];
+  strokes.forEach((lines, i) => {
+    g.beginPath();
+    for (const [x1, y1, x2, y2] of lines) { g.moveTo(i * 64 + x1, y1); g.lineTo(i * 64 + x2, y2); }
+    g.stroke();
+  });
+  const tex = new THREE.CanvasTexture(c);
+  tex.colorSpace = THREE.NoColorSpace;
+  return tex;
+}
 
 function hasWebGL() {
   try { const c = document.createElement('canvas'); return !!(c.getContext('webgl2') || c.getContext('webgl')); }
@@ -112,9 +173,11 @@ export function createScene(canvas, { particles = 300 } = {}) {
   bgScene.add(new THREE.Points(pGeo, pMat));
 
   // ---- Orb (one set of meshes, re-drawn per slot with its own uniforms) ----
+  // orbGroup tilts toward the pointer; it holds the liquid, the glass and the rune ring.
   const orbScene = new THREE.Scene();
-  const orbCam = new THREE.PerspectiveCamera(35, 1, 0.1, 10);
-  orbCam.position.z = 3.6;
+  const orbCam = new THREE.PerspectiveCamera(35, 1, 0.1, 20);
+  orbCam.position.z = 4.6;
+  const orbGroup = new THREE.Group();
   const liquidU = {
     uFill: { value: 0 }, uTime: { value: 0 }, uRipple: { value: 0 }, uGlow: { value: 0 },
     uColor: { value: new THREE.Color() }, uGold: { value: GOLD },
@@ -123,23 +186,78 @@ export function createScene(canvas, { particles = 300 } = {}) {
     vertexShader: LIQUID_VS, fragmentShader: LIQUID_FS, uniforms: liquidU,
     side: THREE.DoubleSide,
   }));
-  const shellU = { uGold: { value: GOLD }, uGlow: { value: 0 } };
+  const shellU = { uGold: { value: GOLD }, uGlow: { value: 0 }, uLightDir: { value: new THREE.Vector3(-0.5, 0.8, 0.6) } };
   const shell = new THREE.Mesh(new THREE.SphereGeometry(1.0, 64, 48), new THREE.ShaderMaterial({
     vertexShader: LIQUID_VS, fragmentShader: SHELL_FS, uniforms: shellU,
     transparent: true, depthWrite: false, blending: THREE.AdditiveBlending,
   }));
   const haloU = { uColor: { value: new THREE.Color() }, uGlow: { value: 0 } };
-  const halo = new THREE.Mesh(new THREE.PlaneGeometry(2.9, 2.9), new THREE.ShaderMaterial({
+  const halo = new THREE.Mesh(new THREE.PlaneGeometry(3.2, 3.2), new THREE.ShaderMaterial({
     vertexShader: HALO_VS, fragmentShader: HALO_FS, uniforms: haloU,
     transparent: true, depthWrite: false, blending: THREE.AdditiveBlending,
   }));
   halo.position.z = -1.2;
-  orbScene.add(halo, liquid, shell);
+
+  // Rune ring: 12 billboards on a tilted, slowly spinning circle (radius 1.3).
+  const RING_R = 1.3;
+  const runeU = { uAtlas: { value: runeAtlas() }, uLit: { value: 0 }, uFull: { value: 0 }, uFade: { value: 1 }, uTime: { value: 0 }, uGold: { value: GOLD } };
+  const runes = new THREE.InstancedMesh(new THREE.PlaneGeometry(0.3, 0.3), new THREE.ShaderMaterial({
+    vertexShader: RUNE_VS, fragmentShader: RUNE_FS, uniforms: runeU,
+    transparent: true, depthWrite: false, blending: THREE.AdditiveBlending,
+  }), 12);
+  const idx = new Float32Array(12);
+  const m = new THREE.Matrix4();
+  const runeAngle = i => -Math.PI / 2 + i * (Math.PI * 2 / 12);
+  for (let i = 0; i < 12; i++) {
+    idx[i] = i;
+    m.makeTranslation(Math.cos(runeAngle(i)) * RING_R, 0, Math.sin(runeAngle(i)) * RING_R);
+    runes.setMatrixAt(i, m);
+  }
+  runes.geometry.setAttribute('aIndex', new THREE.InstancedBufferAttribute(idx, 1));
+  // Burst: 8 sparks per rune flying into the orb.
+  const sparks = 96, start = new Float32Array(sparks * 3), sseed = new Float32Array(sparks);
+  for (let i = 0; i < sparks; i++) {
+    const a = runeAngle(i % 12) + (Math.random() - 0.5) * 0.3;
+    const r = RING_R + (Math.random() - 0.5) * 0.15;
+    start.set([Math.cos(a) * r, (Math.random() - 0.5) * 0.15, Math.sin(a) * r], i * 3);
+    sseed[i] = Math.random();
+  }
+  const bGeo = new THREE.BufferGeometry();
+  bGeo.setAttribute('position', new THREE.BufferAttribute(new Float32Array(sparks * 3), 3));
+  bGeo.setAttribute('aStart', new THREE.BufferAttribute(start, 3));
+  bGeo.setAttribute('aSeed', new THREE.BufferAttribute(sseed, 1));
+  const burstU = { uT: { value: 0 }, uPixelRatio: { value: pixelRatio }, uGold: { value: GOLD } };
+  const burst = new THREE.Points(bGeo, new THREE.ShaderMaterial({
+    vertexShader: BURST_VS, fragmentShader: BURST_FS, uniforms: burstU,
+    transparent: true, depthWrite: false, blending: THREE.AdditiveBlending,
+  }));
+  burst.frustumCulled = false;
+  const ringTilt = new THREE.Group(); ringTilt.rotation.set(0.95, 0, 0.22);
+  const ringSpin = new THREE.Group(); ringSpin.add(runes, burst);
+  ringTilt.add(ringSpin);
+  orbGroup.add(liquid, shell, ringTilt);
+  orbScene.add(halo, orbGroup);
 
   let orbs = [];
   const ripples = new Map();
+  const tilts = new Map();
   let raf = 0, running = false;
   const clock = new THREE.Clock();
+
+  // Tilt input: pointer position (desktop) or device orientation (phone, once enabled).
+  const pointer = { x: null, y: null };
+  let orientation = null;
+  const onPointer = e => { pointer.x = e.clientX; pointer.y = e.clientY; };
+  const onOrientation = e => { if (e.beta != null && e.gamma != null) orientation = { beta: e.beta, gamma: e.gamma }; };
+  window.addEventListener('pointermove', onPointer, { passive: true });
+  const MAX_TILT = 0.35;
+  const clampT = v => Math.max(-MAX_TILT, Math.min(MAX_TILT, v));
+  function targetTilt(r) {
+    if (orientation) return { x: clampT((orientation.beta - 45) / 45 * MAX_TILT), y: clampT(orientation.gamma / 45 * MAX_TILT) };
+    if (pointer.x === null) return { x: 0, y: 0 };
+    const cx = r.left + r.width / 2, cy = r.top + r.height / 2;
+    return { x: clampT((pointer.y - cy) / (innerHeight / 2) * MAX_TILT), y: clampT((pointer.x - cx) / (innerWidth / 2) * MAX_TILT) };
+  }
 
   function glowFor(state, t) {
     if (state === 'full') return 1.0;
@@ -162,18 +280,28 @@ export function createScene(canvas, { particles = 300 } = {}) {
     renderer.render(bgScene, bgCam);
 
     renderer.setScissorTest(true);
+    ringSpin.rotation.y = t * 0.25;
     for (const o of orbs) {
-      if (!o.el.isConnected) continue;
+      if (!o.el || !o.el.isConnected) continue;
       const r = o.el.getBoundingClientRect();
       if (r.width === 0 || r.bottom < 0 || r.top > h || r.right < 0 || r.left > w) continue;
       const bottom = h - r.bottom;
       renderer.setViewport(r.left, bottom, r.width, r.height);
       renderer.setScissor(r.left, bottom, r.width, r.height);
       orbCam.aspect = r.width / r.height; orbCam.updateProjectionMatrix();
+
+      const goal = targetTilt(r);
+      const cur = tilts.get(o.id) || { x: 0, y: 0 };
+      cur.x += (goal.x - cur.x) * 0.08; cur.y += (goal.y - cur.y) * 0.08;
+      tilts.set(o.id, cur);
+      orbGroup.rotation.set(cur.x, cur.y, 0);
+      shellU.uLightDir.value.set(-0.5 - cur.y * 1.5, 0.8 + cur.x * 1.5, 0.6);
+
       const glow = glowFor(o.state, t);
-      const start = ripples.get(o.id);
-      const ripple = start === undefined ? 0 : Math.max(0, 1 - (t - start) / 1.2);
-      if (start !== undefined && ripple === 0) ripples.delete(o.id);
+      const began = ripples.get(o.id);
+      const since = began === undefined ? Infinity : t - began;
+      const ripple = Math.max(0, 1 - since / 1.2);
+      if (began !== undefined && since > 1.6) ripples.delete(o.id);
       liquidU.uFill.value = Math.min(1, Math.max(0, o.percent / 100));
       liquidU.uTime.value = t;
       liquidU.uRipple.value = ripple;
@@ -183,6 +311,12 @@ export function createScene(canvas, { particles = 300 } = {}) {
       haloU.uColor.value.set(o.color).lerp(GOLD, 0.5);
       haloU.uGlow.value = glow + ripple;
       liquid.rotation.y = t * 0.2;
+      runeU.uTime.value = t;
+      runeU.uFull.value = o.state === 'full' ? 1 : 0;
+      runeU.uLit.value = o.tick == null ? 0 : Math.min(12, Math.max(0, Math.floor(o.tick * 12)));
+      // During a burst the old runes fade out and sparks fly in; the ring refills from zero.
+      burstU.uT.value = since < 0.9 ? since / 0.9 : 0;
+      runeU.uFade.value = since < 0.9 ? 0.3 + 0.7 * (since / 0.9) : 1;
       renderer.render(orbScene, orbCam);
     }
   }
@@ -195,11 +329,22 @@ export function createScene(canvas, { particles = 300 } = {}) {
   return {
     setOrbs(list) { orbs = list.slice(); },
     ripple(id) { ripples.set(id, clock.getElapsedTime()); },
+    async enableOrientation() {
+      try {
+        const D = window.DeviceOrientationEvent;
+        if (!D) return false;
+        if (typeof D.requestPermission === 'function' && (await D.requestPermission()) !== 'granted') return false;
+        window.addEventListener('deviceorientation', onOrientation);
+        return true;
+      } catch { return false; }
+    },
     start() { running = true; if (!document.hidden) resume(); },
     stop() { running = false; pause(); },
     dispose() {
       running = false; pause();
       document.removeEventListener('visibilitychange', onVisibility);
+      window.removeEventListener('pointermove', onPointer);
+      window.removeEventListener('deviceorientation', onOrientation);
       renderer.dispose();
     },
   };

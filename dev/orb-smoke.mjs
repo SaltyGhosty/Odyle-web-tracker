@@ -20,6 +20,12 @@ const px = JSON.parse(execFileSync('python3', ['-c',
   'import sys,json;from PIL import Image;im=Image.open("dev/screens/orb-smoke.png").convert("RGB");print(json.dumps([im.getpixel(tuple(c)) for c in json.loads(sys.argv[1])]))',
   JSON.stringify(centers)]).toString());
 const lit = px.map(([r, g, b]) => r + g + b > 60);
+// rune ring: B (0 runes lit) and C (11 lit) are otherwise identical; C's ring band must be brighter.
+const band = cx => JSON.parse(execFileSync('python3', ['-c',
+  `import json;from PIL import Image;im=Image.open("dev/screens/orb-smoke.png").convert("RGB");print(sum(sum(im.getpixel((x,y))) for x in list(range(${cx}-72,${cx}-50))+list(range(${cx}+50,${cx}+72)) for y in range(110,150)))`]).toString());
+const ring = { b: band(290), c: band(470) };
+lit.push(ring.c > ring.b * 1.3);
+console.log('ring brightness', ring);
 console.log(JSON.stringify({ scene: ok, errors, px, lit }));
 await browser.close();
 const pass = ok === true && errors.length === 0 && lit.every(Boolean);
