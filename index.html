@@ -347,6 +347,37 @@
     .pop { animation: none; }
   }
 
+  /* ---- Custom timers ---- */
+  .timer-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
+  .timer-list:empty { display: none; }
+  .timer-list li { display: flex; align-items: center; gap: 10px; padding: 6px 0; border-top: 1px solid rgba(232, 184, 90, .12); }
+  .timer-list .t-name { flex: 1; min-width: 0; font-weight: 600; overflow-wrap: anywhere; }
+  .timer-list .t-left { color: var(--sky); font-variant-numeric: tabular-nums; }
+  .timer-list li.done .t-left { color: var(--gold-bright); }
+  .row .field.narrow { flex: 0 1 90px; }
+
+  /* ---- Keyboard shortcuts ---- */
+  .card.selected .panel { outline: 1px solid var(--sky); outline-offset: 2px; }
+  kbd { font: 600 .8em var(--font-body); border: 1px solid var(--line); border-bottom-width: 2px; border-radius: 5px; padding: 1px 6px; background: rgba(255, 255, 255, .05); }
+  .keys-help { position: fixed; inset: 0; z-index: 13; display: grid; place-items: center; padding: 16px; background: rgba(2, 4, 10, .55); }
+  .keys-help .panel { width: min(440px, 100%); background: var(--glass-strong); }
+  .keys { display: grid; grid-template-columns: auto 1fr; gap: 8px 14px; margin: 0; align-items: baseline; }
+  .keys dt { white-space: nowrap; } .keys dd { margin: 0; color: var(--muted); font-size: .875rem; }
+  .keys-hint { display: none; }
+  @media (pointer: fine) and (min-width: 900px) { .keys-hint { display: block; } }
+
+  /* ---- Compact mode: small orb beside a short panel, no charts or extra panels ---- */
+  body.compact .grid { gap: 10px; }
+  body.compact .card { grid-template-columns: 76px minmax(0, 1fr); align-items: center; justify-items: stretch; }
+  body.compact .orb-col { margin: 0 -14px 0 0; }
+  body.compact .orb-slot { width: 76px; height: 76px; }
+  body.compact .tick-left { font-size: .7rem; }
+  body.compact .card .panel { padding: 10px 12px 10px 24px; gap: 6px; }
+  body.compact .card .energy .num { font-size: 1.6rem; }
+  body.compact .info .full-at, body.compact .info .runs, body.compact .note-preview, body.compact .tasks-wrap,
+  body.compact .goal-text, body.compact .cls-name, body.compact .guide { display: none; }
+  body.compact .chart-panel, body.compact #week-panel, body.compact #sim-panel, body.compact #summary { display: none !important; }
+
   /* ---- Motion (only when allowed) ---- */
   @media (prefers-reduced-motion: no-preference) {
     .card.enter { animation: rise .6s cubic-bezier(.2, .7, .2, 1) both; animation-delay: calc(var(--i) * 90ms); }
@@ -403,6 +434,17 @@
     <summary><h2>Eventos</h2><span class="events-next" id="events-next"></span></summary>
     <ul class="event-list" id="event-list"></ul>
   </details>
+
+  <section class="panel" id="timers-panel" aria-labelledby="timers-title" hidden>
+    <h2 id="timers-title">Tus temporizadores</h2>
+    <ul class="timer-list" id="timer-list"></ul>
+    <form id="timer-form" class="row" novalidate>
+      <div class="field"><label for="timer-name">Nombre</label><input id="timer-name" maxlength="40" autocomplete="off" placeholder="Jefe de campo"></div>
+      <div class="field narrow"><label for="timer-min">Minutos</label><input id="timer-min" inputmode="numeric" autocomplete="off" placeholder="30"></div>
+      <button type="submit" class="primary offset">Iniciar</button>
+      <p class="error" id="timer-error" role="alert" hidden></p>
+    </form>
+  </section>
 
   <p class="empty" id="nodata" hidden>No se pueden cargar los datos aquí</p>
   <p class="error" id="notice" role="alert" hidden></p>
@@ -519,6 +561,8 @@
       <label class="switch"><input type="radio" name="faction" value="asmodian" id="faction-asmodian"> Asmodiano</label>
     </div>
     <label class="switch"><input type="checkbox" id="lite-toggle"> Modo ligero (sin 3D, ahorra batería)</label>
+    <label class="switch"><input type="checkbox" id="compact-toggle"> Modo compacto (tarjetas pequeñas, sin gráficos)</label>
+    <p class="hint keys-hint">Atajos de teclado: pulsa <kbd>?</kbd> para verlos.</p>
     <div class="field"><label for="lang-select">Idioma</label><select id="lang-select"></select></div>
   </section>
 
@@ -572,6 +616,20 @@
   <button type="button" id="alert-close" aria-label="Cerrar aviso">✕</button>
 </div>
 
+<div id="keys-help" class="keys-help" role="dialog" aria-modal="true" aria-labelledby="keys-title" hidden>
+  <div class="panel">
+    <div class="drawer-head"><h2 id="keys-title">Atajos de teclado</h2><button type="button" id="keys-close" aria-label="Cerrar">✕</button></div>
+    <dl class="keys">
+      <dt><kbd>1</kbd>–<kbd>9</kbd></dt><dd>Gastar con el botón 1–9 en el personaje seleccionado</dd>
+      <dt><kbd>Z</kbd></dt><dd>Deshacer el último cambio</dd>
+      <dt><kbd>←</kbd> <kbd>→</kbd></dt><dd>Cambiar de sección</dd>
+      <dt><kbd>?</kbd></dt><dd>Mostrar u ocultar esta ayuda</dd>
+      <dt><kbd>Esc</kbd></dt><dd>Cerrar</dd>
+    </dl>
+    <p class="hint">Haz clic en una tarjeta para seleccionarla; si no, se usa la primera.</p>
+  </div>
+</div>
+
 <div id="toast" class="toast" role="status" hidden>
   <span id="toast-text"></span>
   <button type="button" id="undo">Deshacer</button>
@@ -596,10 +654,10 @@
   import { formatClock, detectGains, rollValue, becameFull, sceneOptions } from './motion.js';
 
   // Data comes only from db snapshots. Writes happen only after a user action.
-  const state = { characters: [], memberData: new Map(), stats: null, tasks: DEFAULT_TASKS, progress: new Map(), cpHist: new Map(), hiddenMembers: 0, others: new Map(), names: {}, schedule: null, presets: [], events: [], prefs: { quietStart: '00:00', quietEnd: '08:00', favEvents: [], faction: 'elyos' } };
+  const state = { characters: [], memberData: new Map(), stats: null, tasks: DEFAULT_TASKS, progress: new Map(), cpHist: new Map(), hiddenMembers: 0, others: new Map(), names: {}, schedule: null, presets: [], events: [], timers: [], prefs: { quietStart: '00:00', quietEnd: '08:00', favEvents: [], faction: 'elyos' } };
   // Interface-only state: which card is editing/confirming, validation messages.
   // noDb: no db in this view. readOnly: viewer cannot write (or a write was refused).
-  const ui = { pop: null, notesId: null, tasksOpen: new Set(), menuOpen: false, editingId: null, extraId: null, confirmId: null, errors: {}, noDb: false, readOnly: false, loaded: false };
+  const ui = { pop: null, notesId: null, tasksOpen: new Set(), menuOpen: false, editingId: null, extraId: null, confirmId: null, errors: {}, selectedId: null, noDb: false, readOnly: false, loaded: false };
 
   let db = null;
   let user = null;
@@ -893,7 +951,7 @@
     const mood = row.isFull ? 'full' : row.nearFull ? 'near' : '';
     const fresh = !seen.has(row.id);
     seen.add(row.id);
-    const card = el('article', { class: `card ${mood} ${fresh && animate ? 'enter' : ''}`, 'data-id': row.id,
+    const card = el('article', { class: `card ${mood} ${fresh && animate ? 'enter' : ''} ${!readonly && ui.selectedId === row.id ? 'selected' : ''}`, 'data-id': row.id,
       style: `--c:${row.color};--i:${index}` });
 
     card.append(el('div', { class: 'orb-col' },
@@ -1216,7 +1274,7 @@
   const isNews = n => n.querySelector && (n.querySelector('#news') || n.querySelector('#feedback-form'));
   const PLACE = {
     personajes: () => ['guide', 'summary', 'add-form', 'empty', 'mine-title', 'cards'].map(id => $(id)),
-    eventos: () => [$('events')],
+    eventos: () => [$('events'), $('timers-panel')],
     estadisticas: () => ['week-panel', 'sim-panel', 'forecast-panel', 'cp-panel', 'history-panel'].map(id => $(id)),
     legion: () => [$('legion'), $('legion-empty')],
     ajustes: () => drawerPanels.filter(n => n.id !== 'add-form' && !isNews(n)),
@@ -1352,10 +1410,55 @@
     $('events-next').textContent = first.o.active ? `${first.e.name}: en curso` : `Próximo: ${first.e.name} en ${countdown(first.o.startMs - now)}`;
   }
 
+  // ---- Custom timers: name + minutes; countdown, sound and alert when they end ----
+  const timerDone = new Set();
+  let timersPrimed = false, paintedTimers = '';
+  function paintTimers(now) {
+    $('timers-panel').hidden = !my || ui.noDb;
+    if ($('timers-panel').hidden) return;
+    const key = JSON.stringify(state.timers) + ui.readOnly;
+    if (key !== paintedTimers) { // rebuild only when the list changes (keeps focus); the clock updates the text below
+      paintedTimers = key;
+      $('timer-list').replaceChildren(...[...state.timers].sort((a, b) => a.endsAt - b.endsAt).map(t => el('li', { 'data-timer': t.id },
+        el('span', { class: 't-name' }, t.name),
+        el('span', { class: 't-left', 'data-ends': String(t.endsAt) }),
+        ui.readOnly ? null : el('button', { type: 'button', id: `timer-del-${t.id}`, 'aria-label': `Quitar ${t.name}`, onclick: () => saveTimers(state.timers.filter(x => x.id !== t.id)) }, '✕'))));
+    }
+    for (const li of $('timer-list').children) {
+      const left = Number(li.querySelector('.t-left').dataset.ends) - now;
+      li.classList.toggle('done', left <= 0);
+      li.querySelector('.t-left').textContent = left > 0 ? formatClock(left) : '¡Terminado!';
+    }
+    // Alert once per timer, when it crosses zero while the page is open (not for timers that ended before loading).
+    for (const t of state.timers) {
+      if (t.endsAt > now || timerDone.has(t.id)) continue;
+      timerDone.add(t.id);
+      if (!timersPrimed || now - t.endsAt > 5000) continue;
+      const text = `⏰ ${t.name}: ¡tiempo!`;
+      $('alert-text').textContent = text;
+      reveal($('alert'), 'show');
+      clearTimeout(alertTimer);
+      alertTimer = setTimeout(() => conceal($('alert'), 'show'), 60_000);
+      sound.fanfare();
+      try { if (window.Notification && Notification.permission === 'granted') new Notification(tr('Energía Odyle'), { body: tr(text) }); } catch {}
+    }
+    timersPrimed = true;
+  }
+  const saveTimers = items => save(() => db.doc(my.timers).set({ items }));
+  function parseTimer(name, minutes) {
+    const n = String(name).trim().replace(/\s+/g, ' ');
+    if (!n) return { ok: false, error: 'Escribe un nombre' };
+    if (n.length > 40) return { ok: false, error: 'Máximo 40 caracteres' };
+    const m = Number(String(minutes).trim().replace(',', '.'));
+    if (!Number.isFinite(m) || m <= 0 || m > 7 * 24 * 60) return { ok: false, error: 'Minutos entre 1 y 10080' };
+    return { ok: true, value: { name: n, minutes: m } };
+  }
+
   // Also the per-card rune timers ("+15 en hh:mm:ss") and the rune ring progress.
   let orbList = [];
   function paintClock() {
     paintEvents(Date.now());
+    paintTimers(Date.now());
     const anchor = state.schedule && Number.isFinite(state.schedule.anchorMs) ? state.schedule.anchorMs : null;
     const left = anchor === null ? null : nextTickAt(anchor, Date.now()) - Date.now();
     for (const p of document.querySelectorAll('.tick-left')) {
@@ -1523,6 +1626,65 @@
   });
   $('undo').addEventListener('click', undoLast);
   $('sim-runs').addEventListener('input', () => render());
+  $('timer-form').addEventListener('submit', async e => {
+    e.preventDefault();
+    if (!my || ui.readOnly) return;
+    const r = parseTimer($('timer-name').value, $('timer-min').value);
+    if (!r.ok) return showError('timer-error', r.error);
+    showError('timer-error', '');
+    const item = { id: 'tm' + Date.now().toString(36), name: r.value.name, endsAt: Date.now() + Math.round(r.value.minutes * 60_000) };
+    if (!await saveTimers([...state.timers, item].slice(-20))) return;
+    $('timer-name').value = ''; $('timer-min').value = '';
+  });
+
+  // Compact mode (this device only).
+  let compact = false;
+  try { compact = localStorage.getItem('odyle-compact') === '1'; } catch {}
+  document.body.classList.toggle('compact', compact);
+  $('compact-toggle').checked = compact;
+  $('compact-toggle').addEventListener('change', e => {
+    compact = e.target.checked;
+    try { localStorage.setItem('odyle-compact', compact ? '1' : '0'); } catch {}
+    document.body.classList.toggle('compact', compact);
+    render();
+  });
+
+  // Keyboard shortcuts (desktop): 1–9 spend, Z undo, ←/→ sections, ? help. Ignored while typing.
+  $('cards').addEventListener('pointerdown', e => {
+    const card = e.target.closest('article[data-id]');
+    if (card && ui.selectedId !== card.dataset.id) { ui.selectedId = card.dataset.id; for (const c of $('cards').children) c.classList.toggle('selected', c === card); }
+  });
+  const keysOpen = () => !$('keys-help').hidden;
+  function toggleKeys(show = !keysOpen()) {
+    if (show) { reveal($('keys-help'), 'show'); $('keys-close').focus(); } else { $('keys-help').hidden = true; }
+  }
+  $('keys-close').addEventListener('click', () => toggleKeys(false));
+  $('keys-help').addEventListener('click', e => { if (e.target === $('keys-help')) toggleKeys(false); });
+  document.addEventListener('keydown', e => {
+    if (e.ctrlKey || e.metaKey || e.altKey || ui.menuOpen) return;
+    if (keysOpen() && e.key === 'Escape') { e.preventDefault(); toggleKeys(false); return; }
+    const t = e.target;
+    if (t && (t.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(t.tagName))) return;
+    if (e.key === '?') { e.preventDefault(); toggleKeys(); return; }
+    if (keysOpen()) return;
+    if (/^[1-9]$/.test(e.key)) {
+      const preset = state.presets[Number(e.key) - 1];
+      if (!preset || !my || ui.readOnly || ui.noDb) return;
+      const rows = buildView(state.characters, state.schedule, Date.now()).rows;
+      const row = rows.find(r => r.id === ui.selectedId) || rows[0];
+      if (!row) return;
+      e.preventDefault();
+      spend(row, preset);
+    } else if (e.key === 'z' || e.key === 'Z') {
+      if (undo) { e.preventDefault(); undoLast(); }
+    } else if ((e.key === 'ArrowLeft' || e.key === 'ArrowRight') && DESKTOP.matches) {
+      const i = TABS.findIndex(([id]) => id === activeTab);
+      const next = TABS[(i + (e.key === 'ArrowRight' ? 1 : TABS.length - 1)) % TABS.length][0];
+      e.preventDefault();
+      setTab(next);
+      nav.querySelector(`[data-tab="${next}"]`)?.focus({ preventScroll: true });
+    }
+  });
   for (const [code, label] of Object.entries(LANGS)) $('lang-select').append(el('option', { value: code, selected: code === LANG }, label));
   // Language switches live (no reload); it is saved with the viewer's settings so it survives reloads.
   $('lang-select').addEventListener('change', async e => {
@@ -1706,8 +1868,8 @@
     }, onError);
     else { ui.loaded = true; render(); }
     // Legion: every member's characters (read-only for everyone but their owner).
-    // A view may hold 64 subscriptions; the page keeps 10 of its own, so at most 54 other members.
-    const MAX_OTHERS = 64 - 10;
+    // A view may hold 64 subscriptions; the page keeps 13 of its own, so at most 51 other members.
+    const MAX_OTHERS = 64 - 13;
     const memberSubs = new Map();
     db.collection('members').onSnapshot(async snap => {
       state.memberData = new Map(snap.docs.map(d => [d.id, d.data() || {}]));
@@ -1764,6 +1926,11 @@
     if (my) db.doc(my.presets).onSnapshot(snap => {
       const items = snap.exists && Array.isArray(snap.data().items) ? snap.data().items : [];
       state.presets = items.filter(p => p && typeof p.name === 'string' && Number.isFinite(p.cost));
+      render();
+    }, onError);
+    if (my) db.doc(my.timers).onSnapshot(snap => {
+      const items = snap.exists && Array.isArray(snap.data().items) ? snap.data().items : [];
+      state.timers = items.filter(t => t && typeof t.id === 'string' && typeof t.name === 'string' && Number.isFinite(t.endsAt));
       render();
     }, onError);
     db.doc('settings/schedule').onSnapshot(snap => {

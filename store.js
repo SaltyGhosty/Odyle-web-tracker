@@ -12,6 +12,7 @@ export function paths(uid) {
     tasks: member + '/settings/tasks',
     progress: member + '/progress', // one doc per character
     stats: member + '/settings/stats',
+    timers: member + '/settings/timers', // {items:[{id, name, endsAt}]}
   };
 }
 
