@@ -39,3 +39,52 @@ export function projectEnergy(char, anchorMs, nowMs, days) {
   }
   return pts;
 }
+
+// Dungeon runs you can afford now, and by the end of the day counting recharges until then.
+export function runsToday(energy, cost, anchorMs, nowMs, endOfDayMs) {
+  if (!(cost > 0)) return { now: 0, byMidnight: 0 };
+  const now = Math.floor(energy / cost);
+  let gained = 0;
+  if (anchorMs !== null && anchorMs !== undefined) {
+    for (let t = nextTickAt(anchorMs, nowMs); t <= endOfDayMs; t += TICK_MS) gained += REGEN;
+  }
+  return { now, byMidnight: Math.floor((energy + gained) / cost) };
+}
+
+// Pace simulator: spend `runsPerDay` × cost every day (spread evenly), recharge every 3 h, cap 840.
+// Returns OD lost to the cap and the first day energy cannot cover the day's runs.
+export function simulate(energy, anchorMs, nowMs, runsPerDay, cost, days = 7) {
+  const step = TICK_MS;
+  let e = energy, waste = 0, emptyOn = null;
+  const spendEvery = runsPerDay > 0 ? 86_400_000 / runsPerDay : Infinity;
+  let nextSpend = nowMs + spendEvery / 2;
+  let nextTick = anchorMs !== null && anchorMs !== undefined ? nextTickAt(anchorMs, nowMs) : Infinity;
+  const end = nowMs + days * 86_400_000;
+  while (true) {
+    const t = Math.min(nextSpend, nextTick);
+    if (t > end) break;
+    if (t === nextTick) {
+      if (e >= 840) waste += REGEN; // already full: the whole recharge is lost
+      else { const next = e + REGEN; waste += Math.max(0, next - 840); e = Math.min(840, next); }
+      nextTick += step;
+    } else {
+      if (e >= cost) e -= cost; else if (emptyOn === null) emptyOn = t;
+      nextSpend += spendEvery;
+    }
+  }
+  return { wasteOD: waste, emptyOn };
+}
+
+// Combat-power goal: estimated date at the recent pace (least-squares over the last 30 days of entries).
+export function cpEta(points, goal, nowMs) {
+  const recent = points.filter(p => p.at >= nowMs - 30 * 86_400_000);
+  if (recent.length < 2 || !(goal > 0)) return null;
+  const n = recent.length, mx = recent.reduce((a, p) => a + p.at, 0) / n, my = recent.reduce((a, p) => a + p.cp, 0) / n;
+  const num = recent.reduce((a, p) => a + (p.at - mx) * (p.cp - my), 0), den = recent.reduce((a, p) => a + (p.at - mx) ** 2, 0);
+  if (den === 0) return null;
+  const slope = num / den; // cp per ms
+  const last = recent.at(-1);
+  if (last.cp >= goal) return { reached: true, at: last.at };
+  if (slope <= 0) return { reached: false, at: null };
+  return { reached: false, at: last.at + (goal - last.cp) / slope };
+}

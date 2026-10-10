@@ -182,6 +182,16 @@
   .ach strong { display: block; color: var(--fg); }
   .ach span { color: var(--muted); }
 
+  /* ---- Runs, simulator, CP goal ---- */
+  .runs { margin: 0; color: var(--sky); font-size: .8125rem; }
+  .goal { display: flex; flex-direction: column; gap: 4px; }
+  .goal-bar { height: 6px; border-radius: 3px; background: rgba(169, 179, 200, .15); overflow: hidden; }
+  .goal-bar span { display: block; height: 100%; background: linear-gradient(90deg, var(--gold), var(--gold-bright)); border-radius: 3px; }
+  .goal-text { margin: 0; color: var(--muted); font-size: .75rem; }
+  #sim-runs { width: 100%; accent-color: var(--gold); min-height: 0; padding: 0; }
+  .sim-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 4px; font-size: .875rem; }
+  .sim-list .bad { color: #ffb35c; } .sim-list .ok { color: #7ee2a8; }
+
   /* ---- Task list ---- */
   .tasks-box { display: flex; flex-direction: column; gap: 4px; border-top: 1px solid rgba(169, 179, 200, .15); padding-top: 8px; }
   .task-row { display: flex; align-items: center; justify-content: space-between; gap: 8px; font-size: .875rem; }
@@ -433,6 +443,13 @@
     <ul class="achievements" id="achievements"></ul>
   </section>
 
+  <section class="panel" id="sim-panel" aria-labelledby="sim-title" hidden>
+    <h2 id="sim-title">Simulador de ritmo</h2>
+    <label for="sim-runs">Mazmorras al día por personaje: <strong id="sim-runs-val">3</strong></label>
+    <input type="range" id="sim-runs" min="0" max="10" value="3">
+    <ul class="sim-list" id="sim-list"></ul>
+  </section>
+
   <section class="panel chart-panel" id="history-panel" aria-labelledby="history-title" hidden>
     <h2 id="history-title">Historial de gasto</h2>
     <svg id="history" class="chart" role="img" aria-label="OD gastada cada día, últimos 7 días"></svg>
@@ -569,7 +586,7 @@
   import { paths, planMigration } from './store.js';
   import { applyDelta, parsePreset, parseExtraInput } from './spend.js';
   import { EVENTS, nextOccurrence } from './events.js';
-  import { summary, wasteWarning, projectEnergy } from './planner.js';
+  import { summary, wasteWarning, projectEnergy, runsToday, simulate, cpEta } from './planner.js';
   import { dailySpent, staleEvents } from './spend.js';
   import { renderForecast, renderHistory, renderCp, CHART_COLORS } from './charts.js';
   import { createSound } from './sound.js';
@@ -702,12 +719,14 @@
     await save(() => db.doc(my.characters + '/' + u.charId).update(u.prev), u.charId);
     if (u.eventId) await save(() => db.doc(my.events + '/' + u.eventId).delete());
   }
-  async function updateCharacter(row, value, classId, cp) {
+  async function updateCharacter(row, value, classId, cp, goal = null) {
     const before = state.characters.find(c => c.id === row.id);
     const cpChanged = cp !== null && cp !== before?.cp;
+    const extra = { classId };
+    if (cp !== null) extra.cp = cp;
+    if (goal !== null) extra.cpGoal = goal || null; // 0 clears the goal
     const ok = await changeEnergy(row.id, r => ({
-      energy: value, event: { kind: 'set', amount: value - r.energy }, label: `${r.name}: energía puesta en ${value}` }),
-      cp === null ? { classId } : { classId, cp });
+      energy: value, event: { kind: 'set', amount: value - r.energy }, label: `${r.name}: energía puesta en ${value}` }), extra);
     if (ok && cpChanged) {
       const pts = [...(state.cpHist.get(row.id) || []), { at: Date.now(), cp }].slice(-200);
       await save(() => db.doc(my.cp + '/' + row.id).set({ points: pts }));
@@ -776,8 +795,16 @@
     const weekAgo = Date.now() - 7 * 86_400_000;
     const base = [...pts].reverse().find(p => p.at <= weekAgo) || pts.find(p => p.at > weekAgo);
     const delta = base ? row.cp - base.cp : 0;
-    return el('p', { class: 'cp-line' }, 'PC ', el('strong', {}, cpFmt.format(row.cp)),
+    const line = el('p', { class: 'cp-line' }, 'PC ', el('strong', {}, cpFmt.format(row.cp)),
       delta > 0 ? el('span', { class: 'up' }, ` · +${cpFmt.format(delta)} esta semana`) : null);
+    if (!(row.cpGoal > 0)) return line;
+    const pct = Math.min(100, Math.round(row.cp / row.cpGoal * 100));
+    const eta = cpEta(pts, row.cpGoal, Date.now());
+    const etaText = row.cp >= row.cpGoal ? '¡Objetivo cumplido!' : eta && eta.at ? `Al ritmo actual: ${dateFmt.format(new Date(eta.at))}` : 'Apunta tu PC más veces para estimar la fecha';
+    return el('div', { class: 'goal' }, line,
+      el('div', { class: 'goal-bar', role: 'progressbar', 'aria-valuemin': '0', 'aria-valuemax': '100', 'aria-valuenow': String(pct), 'aria-label': `Objetivo de PC ${cpFmt.format(row.cpGoal)}` },
+        el('span', { style: `width:${pct}%` })),
+      el('p', { class: 'goal-text' }, `Objetivo ${cpFmt.format(row.cpGoal)} · ${pct}% · ${etaText}`));
   }
   async function spend(row, preset) {
     const ok = await changeEnergy(row.id, r => {
@@ -893,6 +920,13 @@
     const info = el('div', { class: 'info' });
     info.append(el('p', { class: 'full-in' }, row.isFull ? 'Energía al máximo' : (row.fullAtMs === null ? row.fullInText : `Lleno en ${row.fullInText}`)));
     if (row.fullAtMs !== null) info.append(el('p', { class: 'full-at' }, dateFmt.format(new Date(row.fullAtMs))));
+    if (!readonly) {
+      const cost = state.presets[0]?.cost ?? 40;
+      const anchor = state.schedule && Number.isFinite(state.schedule.anchorMs) ? state.schedule.anchorMs : null;
+      const eod = new Date(); eod.setHours(23, 59, 59, 999);
+      const r = runsToday(row.energy, cost, anchor, Date.now(), eod.getTime());
+      info.append(el('p', { class: 'runs' }, `Mazmorras (${cost}): ${r.now} ahora · ${r.byMidnight} antes de medianoche`));
+    }
     const waste = readonly ? '' : row.isFull ? 'Estás perdiendo 15 de OD cada 3 h' : wasteText(row);
     if (waste) info.append(el('p', { class: 'waste' }, waste));
     panel.append(info);
@@ -911,7 +945,9 @@
         if (!c.ok) { ui.errors[row.id] = c.error; return render(); }
         const cp = parseCp($(`cp-${row.id}`).value);
         if (!cp.ok) { ui.errors[row.id] = cp.error; return render(); }
-        if (!await updateCharacter(row, r.value, c.value, cp.value)) return;
+        const goal = parseCp($(`goal-${row.id}`).value);
+        if (!goal.ok) { ui.errors[row.id] = goal.error; return render(); }
+        if (!await updateCharacter(row, r.value, c.value, cp.value, goal.value)) return;
         ui.editingId = null; delete ui.errors[row.id]; render();
       } });
       const field = el('div', { class: 'field' },
@@ -924,6 +960,9 @@
       form.append(el('div', { class: 'field' }, el('label', { for: `cp-${row.id}` }, 'Poder de combate (opcional)'),
         el('input', { id: `cp-${row.id}`, inputmode: 'numeric', autocomplete: 'off', placeholder: 'p. ej. 412300',
           value: Number.isFinite(row.cp) ? String(row.cp) : '' })));
+      form.append(el('div', { class: 'field' }, el('label', { for: `goal-${row.id}` }, 'Objetivo de PC (opcional)'),
+        el('input', { id: `goal-${row.id}`, inputmode: 'numeric', autocomplete: 'off', placeholder: 'p. ej. 150000',
+          value: Number.isFinite(row.cpGoal) ? String(row.cpGoal) : '' })));
       form.append(el('div', { class: 'row' },
         el('button', { type: 'submit', class: 'primary' }, 'Guardar'),
         el('button', { type: 'button',
@@ -1111,6 +1150,20 @@
     }
     return { stats, wk, cpGain, streakNow: streak(stats.daysLog, todayKey()), list: unlocked(stats, maxCp) };
   }
+  function paintSim(rows) {
+    const anchor = state.schedule && Number.isFinite(state.schedule.anchorMs) ? state.schedule.anchorMs : null;
+    $('sim-panel').hidden = !my || rows.length === 0 || anchor === null;
+    if ($('sim-panel').hidden) return;
+    const runs = Number($('sim-runs').value), cost = state.presets[0]?.cost ?? 40;
+    $('sim-runs-val').textContent = String(runs);
+    const now = Date.now();
+    $('sim-list').replaceChildren(...rows.map(r => {
+      const sim = simulate(r.energy, anchor, now, runs, cost, 7);
+      if (sim.emptyOn !== null) return el('li', { class: 'bad' }, `${r.name}: te quedas sin OD el ${dayFmt.format(new Date(sim.emptyOn))}`);
+      if (sim.wasteOD > 0) return el('li', { class: 'bad' }, `${r.name}: desperdicias ${sim.wasteOD} de OD esta semana`);
+      return el('li', { class: 'ok' }, `${r.name}: ritmo perfecto, sin desperdiciar`);
+    }));
+  }
   function paintWeek(rows) {
     $('week-panel').hidden = !my || rows.length === 0;
     if ($('week-panel').hidden) return;
@@ -1164,7 +1217,7 @@
   const PLACE = {
     personajes: () => ['guide', 'summary', 'add-form', 'empty', 'mine-title', 'cards'].map(id => $(id)),
     eventos: () => [$('events')],
-    estadisticas: () => ['week-panel', 'forecast-panel', 'cp-panel', 'history-panel'].map(id => $(id)),
+    estadisticas: () => ['week-panel', 'sim-panel', 'forecast-panel', 'cp-panel', 'history-panel'].map(id => $(id)),
     legion: () => [$('legion'), $('legion-empty')],
     ajustes: () => drawerPanels.filter(n => n.id !== 'add-form' && !isNews(n)),
     novedades: () => drawerPanels.filter(isNews),
@@ -1343,7 +1396,7 @@
     const draft = new Map();
     for (const input of cards.querySelectorAll('input, select')) draft.set(input.id, input.value);
     const extraOf = new Map(state.characters.map(c => [c.id, c]));
-    cards.replaceChildren(...view.rows.map((r, i) => cardNode({ ...r, cp: extraOf.get(r.id)?.cp, notes: typeof extraOf.get(r.id)?.notes === 'string' ? extraOf.get(r.id).notes : '' }, i)));
+    cards.replaceChildren(...view.rows.map((r, i) => cardNode({ ...r, cp: extraOf.get(r.id)?.cp, cpGoal: extraOf.get(r.id)?.cpGoal, notes: typeof extraOf.get(r.id)?.notes === 'string' ? extraOf.get(r.id).notes : '' }, i)));
     ui.pop = null; // pop-in plays once, not on later repaints
     for (const input of cards.querySelectorAll('input, select')) if (draft.has(input.id)) input.value = draft.get(input.id);
     $('empty').hidden = ui.noDb || view.rows.length > 0 || !ui.loaded;
@@ -1352,6 +1405,7 @@
     paintSummary(view.rows);
     paintGuide(view.rows);
     paintWeek(view.rows);
+    paintSim(view.rows);
     paintCharts(view.rows);
 
     // Other members: read-only groups with their own orbs; ids are prefixed with the member id.
@@ -1468,6 +1522,7 @@
     else if (!e.shiftKey && document.activeElement === f.at(-1)) { e.preventDefault(); f[0].focus(); }
   });
   $('undo').addEventListener('click', undoLast);
+  $('sim-runs').addEventListener('input', () => render());
   for (const [code, label] of Object.entries(LANGS)) $('lang-select').append(el('option', { value: code, selected: code === LANG }, label));
   // Language switches live (no reload); it is saved with the viewer's settings so it survives reloads.
   $('lang-select').addEventListener('change', async e => {
