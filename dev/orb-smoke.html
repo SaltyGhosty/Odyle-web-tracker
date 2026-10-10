@@ -6,7 +6,7 @@
 <div class="slot" id="s3" style="left:400px;top:60px"></div>
 <script type="module">
 import { createScene } from '../orb.js';
-const scene = createScene(document.getElementById('c'), { particles: 200 });
+const scene = createScene(document.getElementById('c'), { particles: 200, feathers: 14, clouds: 4 });
 window.__scene = !!scene;
 if (scene) {
   scene.setOrbs([
@@ -17,5 +17,7 @@ if (scene) {
   scene.start();
   window.__scn = scene;
   setTimeout(() => scene.ripple('a'), 300);
+  window.__beamAt = performance.now() + 900;
+  setTimeout(() => scene.beam('b'), 900);
 }
 </script>

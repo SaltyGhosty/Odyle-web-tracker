@@ -8,11 +8,11 @@ const SKY = new THREE.Color('#7cc8ff');
 const PARTICLE_VS = `
   attribute float seed;
   attribute vec3 tint;
-  uniform float uTime, uPixelRatio;
+  uniform float uTime, uPixelRatio, uCamY;
   varying vec3 vTint; varying float vFade;
   void main() {
     vec3 p = position;
-    p.y = mod(p.y + uTime * (0.15 + seed * 0.25) + 8.0, 16.0) - 8.0;
+    p.y = mod(p.y + uTime * (0.15 + seed * 0.25) - uCamY + 8.0, 16.0) - 8.0 + uCamY;
     p.x += sin(uTime * 0.3 + seed * 6.2831) * 0.4;
     vec4 mv = modelViewMatrix * vec4(p, 1.0);
     gl_Position = projectionMatrix * mv;
@@ -135,12 +135,74 @@ function runeAtlas() {
   return tex;
 }
 
+const FEATHER_VS = `
+  attribute vec3 aBase; attribute float aSeed;
+  uniform float uTime, uCamY;
+  varying vec2 vUv; varying float vA;
+  void main() {
+    vUv = uv;
+    float fall = uTime * (0.25 + aSeed * 0.35);
+    vec3 c = aBase;
+    c.y = mod(c.y - fall - uCamY + 7.0, 14.0) - 7.0 + uCamY;
+    c.x += sin(uTime * (0.4 + aSeed * 0.5) + aSeed * 20.0) * 0.8;
+    float spin = uTime * (0.3 + aSeed * 0.6) + aSeed * 6.2831;
+    vec2 q = position.xy;
+    q.x *= cos(uTime * (0.8 + aSeed) + aSeed * 9.0); // flutter: the feather turns in 3D
+    q = mat2(cos(spin), -sin(spin), sin(spin), cos(spin)) * q;
+    vec4 mv = viewMatrix * vec4(c, 1.0) + vec4(q, 0.0, 0.0);
+    gl_Position = projectionMatrix * mv;
+    vA = 0.35 + 0.35 * aSeed;
+  }`;
+const FEATHER_FS = `
+  uniform vec3 uGold; varying vec2 vUv; varying float vA;
+  void main() {
+    float y = vUv.y, x = abs(vUv.x - 0.5);
+    float w = sin(3.14159 * pow(y, 0.8)) * 0.42;
+    float vane = smoothstep(w, w - 0.06, x);
+    float barbs = 0.75 + 0.25 * sin(y * 60.0 + x * 30.0);
+    float shaft = smoothstep(0.03, 0.0, x) * step(0.05, y);
+    float a = (vane * barbs * 0.8 + shaft) * vA;
+    if (a < 0.01) discard;
+    gl_FragColor = vec4(mix(uGold, vec3(1.0, 0.95, 0.85), 0.35), a);
+  }`;
+const CLOUD_VS = `
+  uniform float uTime, uCamY;
+  attribute float aSeed;
+  varying vec2 vUv; varying float vSeed;
+  void main() {
+    vUv = uv; vSeed = aSeed;
+    vec4 wp = modelMatrix * vec4(position, 1.0);
+    wp.x += sin(uTime * 0.03 + aSeed * 10.0) * 2.0;
+    wp.y = mod(wp.y - uCamY + 12.0, 24.0) - 12.0 + uCamY;
+    gl_Position = projectionMatrix * viewMatrix * wp;
+  }`;
+const CLOUD_FS = `
+  uniform float uTime; uniform vec3 uSky; varying vec2 vUv; varying float vSeed;
+  float h(vec2 p) { return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }
+  float n(vec2 p) { vec2 i = floor(p), f = fract(p); f = f * f * (3.0 - 2.0 * f);
+    return mix(mix(h(i), h(i + vec2(1, 0)), f.x), mix(h(i + vec2(0, 1)), h(i + vec2(1, 1)), f.x), f.y); }
+  void main() {
+    vec2 p = vUv * 3.0 + vSeed * 7.0 + vec2(uTime * 0.01, 0.0);
+    float v = n(p) * 0.5 + n(p * 2.0) * 0.25 + n(p * 4.0) * 0.125;
+    float edge = smoothstep(0.5, 0.15, length(vUv - 0.5));
+    gl_FragColor = vec4(uSky, smoothstep(0.35, 0.8, v) * edge * 0.28);
+  }`;
+const BEAM_VS = `varying vec2 vUv; void main(){ vUv = uv; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }`;
+const BEAM_FS = `
+  uniform float uA, uTime; uniform vec3 uGold; varying vec2 vUv;
+  void main() {
+    float core = exp(-pow((vUv.x - 0.5) * 7.0, 2.0));
+    float rise = smoothstep(1.0, 0.0, vUv.y) * smoothstep(0.0, 0.08, vUv.y);
+    float shimmer = 0.8 + 0.2 * sin(vUv.y * 40.0 - uTime * 12.0);
+    gl_FragColor = vec4(mix(uGold, vec3(1.0), core * 0.6), core * rise * shimmer * uA);
+  }`;
+
 function hasWebGL() {
   try { const c = document.createElement('canvas'); return !!(c.getContext('webgl2') || c.getContext('webgl')); }
   catch { return false; }
 }
 
-export function createScene(canvas, { particles = 300 } = {}) {
+export function createScene(canvas, { particles = 300, feathers = 20, clouds = 5 } = {}) {
   if (!hasWebGL()) return null;
   let renderer;
   try { renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: true }); }
@@ -167,10 +229,48 @@ export function createScene(canvas, { particles = 300 } = {}) {
   pGeo.setAttribute('tint', new THREE.BufferAttribute(tint, 3));
   const pMat = new THREE.ShaderMaterial({
     vertexShader: PARTICLE_VS, fragmentShader: PARTICLE_FS,
-    uniforms: { uTime: { value: 0 }, uPixelRatio: { value: pixelRatio } },
+    uniforms: { uTime: { value: 0 }, uPixelRatio: { value: pixelRatio }, uCamY: { value: 0 } },
     transparent: true, depthWrite: false, blending: THREE.AdditiveBlending,
   });
   bgScene.add(new THREE.Points(pGeo, pMat));
+
+  // Far layer: soft ether clouds. Near layer: golden Daeva feathers falling and turning.
+  const cloudU = { uTime: { value: 0 }, uCamY: { value: 0 }, uSky: { value: SKY } };
+  const cloudMat = new THREE.ShaderMaterial({ vertexShader: CLOUD_VS, fragmentShader: CLOUD_FS, uniforms: cloudU,
+    transparent: true, depthWrite: false, blending: THREE.AdditiveBlending });
+  for (let i = 0; i < clouds; i++) {
+    const g = new THREE.PlaneGeometry(16, 9);
+    g.setAttribute('aSeed', new THREE.BufferAttribute(new Float32Array(4).fill(Math.random()), 1));
+    const mesh = new THREE.Mesh(g, cloudMat);
+    mesh.position.set((Math.random() - 0.5) * 20, -12 + (i + Math.random() * 0.5) * (24 / clouds), -14 - Math.random() * 4);
+    mesh.frustumCulled = false;
+    bgScene.add(mesh);
+  }
+  const featherU = { uTime: { value: 0 }, uCamY: { value: 0 }, uGold: { value: GOLD } };
+  const fGeo = new THREE.InstancedBufferGeometry().copy(new THREE.PlaneGeometry(0.22, 0.6));
+  fGeo.instanceCount = feathers;
+  const fBase = new Float32Array(feathers * 3), fSeed = new Float32Array(feathers);
+  for (let i = 0; i < feathers; i++) {
+    fBase.set([(Math.random() - 0.5) * 14, (Math.random() - 0.5) * 14, 2 + Math.random() * 4], i * 3);
+    fSeed[i] = Math.random();
+  }
+  fGeo.setAttribute('aBase', new THREE.InstancedBufferAttribute(fBase, 3));
+  fGeo.setAttribute('aSeed', new THREE.InstancedBufferAttribute(fSeed, 1));
+  const featherMesh = new THREE.Mesh(fGeo, new THREE.ShaderMaterial({ vertexShader: FEATHER_VS, fragmentShader: FEATHER_FS,
+    uniforms: featherU, transparent: true, depthWrite: false, side: THREE.DoubleSide }));
+  featherMesh.frustumCulled = false;
+  bgScene.add(featherMesh);
+
+  // Light beam: drawn in screen pixels (orthographic) so it can rise above the orb's slot.
+  const beamScene = new THREE.Scene();
+  const beamCam = new THREE.OrthographicCamera(0, 1, 1, 0, -1, 1);
+  const beamU = { uA: { value: 0 }, uTime: { value: 0 }, uGold: { value: GOLD } };
+  const beamGeo = new THREE.PlaneGeometry(1, 1); beamGeo.translate(0.5, 0.5, 0);
+  const beamMesh = new THREE.Mesh(beamGeo, new THREE.ShaderMaterial({ vertexShader: BEAM_VS, fragmentShader: BEAM_FS,
+    uniforms: beamU, transparent: true, depthWrite: false, depthTest: false, blending: THREE.AdditiveBlending }));
+  beamScene.add(beamMesh);
+  const beams = new Map();
+  const BEAM_S = 3.2;
 
   // ---- Orb (one set of meshes, re-drawn per slot with its own uniforms) ----
   // orbGroup tilts toward the pointer; it holds the liquid, the glass and the rune ring.
@@ -276,8 +376,28 @@ export function createScene(canvas, { particles = 300 } = {}) {
     renderer.setScissorTest(false);
     renderer.setViewport(0, 0, w, h);
     renderer.clear();
-    pMat.uniforms.uTime.value = t;
+    // Parallax: the background camera follows the scroll; nearer layers move faster on screen.
+    bgCam.position.y = -window.scrollY * 0.004;
+    for (const u of [pMat.uniforms, cloudU, featherU]) { u.uTime.value = t; u.uCamY.value = bgCam.position.y; }
     renderer.render(bgScene, bgCam);
+
+    if (beams.size) {
+      beamCam.right = w; beamCam.top = h; beamCam.updateProjectionMatrix();
+      beamU.uTime.value = t;
+      for (const o of orbs) {
+        const b0 = beams.get(o.id);
+        if (b0 === undefined || !o.el || !o.el.isConnected) continue;
+        const age = t - b0;
+        if (age > BEAM_S) { beams.delete(o.id); continue; }
+        const r = o.el.getBoundingClientRect();
+        const cy = h - (r.top + r.height / 2);
+        const bw = r.width * 0.5, bh = Math.min(h, r.height * 3.2);
+        beamMesh.position.set(r.left + r.width / 2 - bw / 2, cy, 0);
+        beamMesh.scale.set(bw, bh * Math.min(1, age / 0.35), 1);
+        beamU.uA.value = Math.min(1, age / 0.2) * Math.min(1, (BEAM_S - age) / 1.0);
+        renderer.render(beamScene, beamCam);
+      }
+    }
 
     renderer.setScissorTest(true);
     ringSpin.rotation.y = t * 0.25;
@@ -329,6 +449,7 @@ export function createScene(canvas, { particles = 300 } = {}) {
   return {
     setOrbs(list) { orbs = list.slice(); },
     ripple(id) { ripples.set(id, clock.getElapsedTime()); },
+    beam(id) { beams.set(id, clock.getElapsedTime()); },
     async enableOrientation() {
       try {
         const D = window.DeviceOrientationEvent;

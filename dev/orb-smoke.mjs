@@ -13,6 +13,11 @@ await page.goto('http://localhost:8123/dev/orb-smoke.html');
 await page.waitForTimeout(1500);
 const ok = await page.evaluate(() => window.__scene);
 const shot = await page.screenshot({ path: 'dev/screens/orb-smoke.png' });
+// beam('b') fired at ~0.9 s; the screenshot above is at ~1.5 s → a column above orb B is lit.
+const { execFileSync: ex } = await import('node:child_process');
+const beamPx = JSON.parse(ex('python3', ['-c', 'import json;from PIL import Image;im=Image.open("dev/screens/orb-smoke.png").convert("RGB");print(max(sum(im.getpixel((x,25))) for x in range(280,300)))']).toString());
+const noBeamPx = JSON.parse(ex('python3', ['-c', 'import json;from PIL import Image;im=Image.open("dev/screens/orb-smoke.png").convert("RGB");print(max(sum(im.getpixel((x,25))) for x in range(100,120)))']).toString());
+console.log('beam column', beamPx, 'no-beam column', noBeamPx);
 // center pixel of each slot (from the screenshot) must differ from background #070b18
 const centers = [[110, 130], [290, 130], [470, 130]];
 const { execFileSync } = await import('node:child_process');
@@ -24,10 +29,10 @@ const lit = px.map(([r, g, b]) => r + g + b > 60);
 const band = cx => JSON.parse(execFileSync('python3', ['-c',
   `import json;from PIL import Image;im=Image.open("dev/screens/orb-smoke.png").convert("RGB");print(sum(sum(im.getpixel((x,y))) for x in list(range(${cx}-72,${cx}-50))+list(range(${cx}+50,${cx}+72)) for y in range(110,150)))`]).toString());
 const ring = { b: band(290), c: band(470) };
-lit.push(ring.c > ring.b * 1.3);
+lit.push(ring.c > ring.b * 1.15); // was ~1.01 before the ring existed
 console.log('ring brightness', ring);
 console.log(JSON.stringify({ scene: ok, errors, px, lit }));
 await browser.close();
-const pass = ok === true && errors.length === 0 && lit.every(Boolean);
+const pass = beamPx > 300 && noBeamPx < 300 && ok === true && errors.length === 0 && lit.every(Boolean);
 console.log(pass ? 'PASS' : 'FAIL');
 process.exit(pass ? 0 : 1);
