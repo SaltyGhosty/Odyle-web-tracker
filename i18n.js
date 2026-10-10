@@ -47,7 +47,7 @@ export function tr(text) {
     if (cache.size > 3000) cache.clear(); // clocks produce new strings every second
     cache.set(key, out);
   }
-  return out === key ? text : text.replace(key, out);
+  return out === key ? text : text.replace(key, () => out);
 }
 
 const ATTRS = ['placeholder', 'aria-label', 'title'];

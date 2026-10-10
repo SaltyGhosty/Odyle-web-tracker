@@ -753,7 +753,7 @@
   const saveTasks = items => save(() => db.doc(my.tasks).set({ items }));
   const todayKey = () => new Date(Date.now() - new Date().getTimezoneOffset() * 60_000).toISOString().slice(0, 10);
   async function bumpStats(delta) {
-    if (!my || ui.readOnly) return;
+    if (!my || ui.readOnly || state.stats === null) return; // not loaded yet: never overwrite real stats
     state.stats = bumped(state.stats, todayKey(), delta);
     await save(() => db.doc(my.stats).set(state.stats));
   }
@@ -1023,19 +1023,26 @@
     e.preventDefault();
     const text = $('feedback-text').value.trim().slice(0, 1000);
     if (!text) { $('feedback-state').textContent = 'Escribe algo antes de enviar.'; return; }
-    if (!db) return;
-    const ok = await save(() => db.collection('feedback').doc().set({ uid: myUid || null, at: Date.now(), text }));
-    if (ok) { $('feedback-text').value = ''; $('feedback-state').textContent = '¡Gracias! Tu sugerencia se ha enviado.'; }
+    if (!db || !myUid) return;
+    // one doc per person (feedback/<uid>, writable only by them); the owner reads them all
+    try {
+      const ref = db.doc('feedback/' + myUid);
+      const cur = await ref.get();
+      const items = cur.exists && Array.isArray(cur.data().items) ? cur.data().items : [];
+      await write(() => ref.set({ items: [...items, { at: Date.now(), text }].slice(-20) }));
+      $('feedback-text').value = ''; $('feedback-state').textContent = '¡Gracias! Tu sugerencia se ha enviado.';
+    } catch { $('feedback-state').textContent = 'No se pudo enviar ahora; inténtalo más tarde.'; }
   });
   async function loadInbox() {
     if (!db || !user || !(await user.isOwner().catch(() => false))) return;
     try {
-      const docs = (await db.collection('feedback').get()).docs.map(d => d.data()).filter(f => typeof f.text === 'string').sort((a, b) => b.at - a.at).slice(0, 50);
+      const docs = (await db.collection('feedback').get()).docs
+        .flatMap(d => Array.isArray(d.data()?.items) ? d.data().items : [])
+        .filter(f => f && typeof f.text === 'string' && Number.isFinite(f.at)).sort((a, b) => b.at - a.at).slice(0, 50);
       $('feedback-inbox').hidden = docs.length === 0;
       $('feedback-list').replaceChildren(...docs.map(f => el('li', {}, el('span', {}, `${dateFmt.format(new Date(f.at))} · ${f.text}`))));
     } catch {}
   }
-  $('menu-btn').addEventListener('click', () => { if (ui.menuOpen) loadInbox(); });
 
   function exportData() {
     return {
@@ -1067,17 +1074,21 @@
   $('import-confirm').addEventListener('click', async () => {
     const d = pendingImport; if (!d || !my) return;
     pendingImport = null; $('import-confirm').hidden = true; $('import-state').textContent = 'Importando…';
-    const okChar = c => c && typeof c.id === 'string' && typeof c.name === 'string' && Number.isFinite(c.energy) && Number.isFinite(c.recordedAt);
+    const ID = /^[A-Za-z0-9_\-.~:@+]{1,200}$/;
+    const okChar = c => c && typeof c.id === 'string' && ID.test(c.id) && c.id !== '.' && c.id !== '..' && typeof c.name === 'string' && Number.isFinite(c.energy) && Number.isFinite(c.recordedAt);
+    const incoming = d.characters.filter(okChar);
+    if (!incoming.length && d.characters.length) { $('import-state').textContent = 'Ese archivo no es una copia válida de esta página.'; return; }
     try {
-      for (const c of state.characters) if (!d.characters.some(x => x.id === c.id)) await write(() => db.doc(my.characters + '/' + c.id).delete());
-      for (const c of d.characters.filter(okChar)) { const { id, ...rest } = c; await write(() => db.doc(my.characters + '/' + id).set(rest)); }
+      // write everything first; delete characters missing from the copy only at the end
+      for (const c of incoming) { const { id, ...rest } = c; await write(() => db.doc(my.characters + '/' + id).set(rest)); }
       if (Array.isArray(d.presets)) await write(() => db.doc(my.presets).set({ items: d.presets }));
       if (d.prefs && typeof d.prefs === 'object') await write(() => db.doc(my.prefs).set(d.prefs));
       if (Array.isArray(d.tasks)) await write(() => db.doc(my.tasks).set({ items: d.tasks }));
       if (d.stats && typeof d.stats === 'object') await write(() => db.doc(my.stats).set(d.stats));
-      for (const [id, doc] of Object.entries(d.progress || {})) if (doc && typeof doc === 'object') await write(() => db.doc(my.progress + '/' + id).set(doc));
-      for (const [id, pts] of Object.entries(d.cp || {})) if (Array.isArray(pts)) await write(() => db.doc(my.cp + '/' + id).set({ points: pts.slice(-200) }));
+      for (const [id, doc] of Object.entries(d.progress || {})) if (ID.test(id) && doc && typeof doc === 'object') await write(() => db.doc(my.progress + '/' + id).set(doc));
+      for (const [id, pts] of Object.entries(d.cp || {})) if (ID.test(id) && Array.isArray(pts)) await write(() => db.doc(my.cp + '/' + id).set({ points: pts.slice(-200) }));
       if (d.availability) await write(() => db.doc(my.member).update({ availability: d.availability }));
+      for (const c of state.characters) if (!incoming.some(x => x.id === c.id)) await write(() => db.doc(my.characters + '/' + c.id).delete());
       $('import-state').textContent = 'Datos importados.';
     } catch { $('import-state').textContent = 'La importación se detuvo a medias; vuelve a intentarlo.'; }
   });
@@ -1413,6 +1424,7 @@
   function openMenu() {
     ui.menuOpen = true;
     reveal($('drawer'), 'open'); reveal($('scrim'), 'open');
+    loadInbox();
     $('menu-btn').setAttribute('aria-expanded', 'true');
     $('add-name').focus({ preventScroll: true });
   }
@@ -1645,12 +1657,9 @@
       if (user && ids.length) { try { const ps = await user.profiles(ids); for (const id of ids) state.names[id] = ps[id]?.name || ''; } catch {} }
       render();
     }, () => {});
-    let visitMarked = false;
     if (my) db.doc(my.stats).onSnapshot(snap => {
       state.stats = snap.exists ? { ...EMPTY_STATS, ...snap.data() } : { ...EMPTY_STATS };
       render();
-      if (!visitMarked && !ui.readOnly && !state.stats.daysLog?.[todayKey()]) { visitMarked = true; setTimeout(() => bumpStats({}), 0); }
-      visitMarked = true;
     }, onError);
     if (my) db.doc(my.tasks).onSnapshot(snap => {
       const items = snap.exists && Array.isArray(snap.data().items) ? snap.data().items : null;

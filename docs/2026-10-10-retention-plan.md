@@ -11,7 +11,7 @@
 ## Restricciones globales
 - Todo lo de los planes anteriores. Sin enlaces a otras páginas.
 - Reinicio diario 07:00 UTC; semanal miércoles 07:00 UTC (events.js).
-- Capacidades al publicar: `{db:{rules:[{path:'members',read:'view',write:'owner'},{path:'members/{self}',write:'interact'},{path:'feedback',read:'owner',write:'interact'}]}, user:{scopes:['profile']}, downloads:true}`.
+- Capacidades al publicar: `{db:{rules:[{path:'members',read:'view',write:'owner'},{path:'members/{self}',write:'interact'},{path:'feedback',read:'owner',write:'owner'},{path:'feedback/{self}',write:'interact'}]}, user:{scopes:['profile']}, downloads:true}`.
 - Conveniencias por dispositivo (modo ligero, idioma) en `localStorage` con try/catch; lo que debe seguir al usuario (facción, tareas, disponibilidad) en `db`.
 
 ---
