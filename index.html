@@ -117,6 +117,8 @@
     </div>
   </form>
 
+  <p class="empty" id="nodata" hidden>No se pueden cargar los datos aquí</p>
+  <p class="error" id="notice" role="alert" hidden></p>
   <section class="grid" id="cards" aria-label="Personajes"></section>
   <p class="empty" id="empty" hidden>Aún no hay personajes. Añade el primero.</p>
 
@@ -137,28 +139,47 @@
   import { buildView, parseEnergyInput, parseMinutesInput, parseNameInput } from './view.js';
   import { anchorFromCountdown, formatDuration } from './energy.js';
 
-  // In-memory data. Task 4 replaces the loading/saving with db reads and writes.
+  // Data comes only from db snapshots. Writes happen only after a user action.
   const state = { characters: [], schedule: null };
   // Interface-only state: which card is editing/confirming, validation messages.
-  const ui = { adjustOpen: false, editingId: null, confirmId: null, errors: {} };
+  // noDb: no db in this view. readOnly: viewer cannot write (or a write was refused).
+  const ui = { adjustOpen: false, editingId: null, confirmId: null, errors: {}, noDb: false, readOnly: false };
 
-  let nextOrder = 1;
-  let nextId = 1;
+  let db = null;
+  let user = null;
 
-  // ---- Actions (the only functions that change data) ----
-  function addCharacter(name) {
-    state.characters.push({ id: 'c' + nextId++, name, energy: 0, recordedAt: Date.now(), order: nextOrder++ });
+  // ---- Actions (the only functions that write data), one write at a time ----
+  let queue = Promise.resolve();
+  const sleep = ms => new Promise(r => setTimeout(r, ms));
+  function write(fn) {
+    const run = queue.then(async () => {
+      try { await fn(); }
+      catch (e) {
+        if (e && e.code === 'unavailable') { await sleep(500 + Math.random() * 1000); await fn(); }
+        else throw e;
+      }
+    });
+    queue = run.catch(() => {});
+    return run;
   }
-  function updateEnergy(id, value) {
-    const c = state.characters.find(x => x.id === id);
-    if (c) { c.energy = value; c.recordedAt = Date.now(); }
+  // Returns true on success; on failure shows the notice (or goes read-only).
+  async function save(fn) {
+    showNotice('');
+    try { await write(fn); return true; }
+    catch (e) {
+      if (e && e.code === 'invalid_argument') { ui.readOnly = true; showNotice('No tienes permiso para editar. Solo lectura.'); }
+      else showNotice('No se pudo guardar');
+      render();
+      return false;
+    }
   }
-  function resyncTick(minutes) {
-    state.schedule = { anchorMs: anchorFromCountdown(Date.now(), minutes) };
-  }
-  function removeCharacter(id) {
-    state.characters = state.characters.filter(x => x.id !== id);
-  }
+  const addCharacter = name => save(() => db.collection('characters').add({
+    name, energy: 0, recordedAt: Date.now(),
+    order: Math.max(0, ...state.characters.map(c => Number(c.order) || 0)) + 1,
+  }));
+  const updateEnergy = (id, value) => save(() => db.doc('characters/' + id).update({ energy: value, recordedAt: Date.now() }));
+  const resyncTick = minutes => save(() => db.doc('settings/schedule').set({ anchorMs: anchorFromCountdown(Date.now(), minutes) }));
+  const removeCharacter = id => save(() => db.doc('characters/' + id).delete());
 
   // ---- Rendering ----
   const $ = id => document.getElementById(id);
@@ -180,6 +201,7 @@
     p.textContent = msg || '';
     p.hidden = !msg;
   }
+  function showNotice(msg) { showError('notice', msg); }
   function errorLine(id, msg) {
     return el('p', { class: 'error', id, role: 'alert' }, msg);
   }
@@ -202,13 +224,15 @@
     else if (row.isFull) info.append(el('p', { class: 'full-at' }, 'Energía al máximo'));
     card.append(info);
 
-    if (editing) {
+    if (ui.readOnly) {
+      // read-only: no edit controls
+    } else if (editing) {
       const inputId = `energy-${row.id}`;
-      const form = el('form', { novalidate: true, onsubmit: e => {
+      const form = el('form', { novalidate: true, onsubmit: async e => {
         e.preventDefault();
         const r = parseEnergyInput($(inputId).value);
         if (!r.ok) { ui.errors[row.id] = r.error; return render(); }
-        updateEnergy(row.id, r.value);
+        if (!await updateEnergy(row.id, r.value)) return;
         ui.editingId = null; delete ui.errors[row.id]; render();
       } });
       const field = el('div', { class: 'field' },
@@ -224,7 +248,7 @@
     } else if (confirming) {
       card.append(el('p', { class: 'confirm-text' }, `¿Quitar a ${row.name}?`));
       card.append(el('div', { class: 'row' },
-        el('button', { type: 'button', class: 'danger', onclick: () => { removeCharacter(row.id); ui.confirmId = null; render(); } }, 'Sí, quitar'),
+        el('button', { type: 'button', class: 'danger', onclick: async () => { if (!await removeCharacter(row.id)) return; ui.confirmId = null; render(); } }, 'Sí, quitar'),
         el('button', { type: 'button', onclick: () => { ui.confirmId = null; render(); } }, 'Cancelar')));
     } else {
       card.append(el('div', { class: 'row' },
@@ -241,7 +265,12 @@
       ? 'Falta la hora de recarga'
       : `Próxima recarga en ${formatDuration(view.nextTickInMs)}`;
 
-    $('adjust-form').hidden = !ui.adjustOpen;
+    const locked = ui.noDb || ui.readOnly;
+    $('nodata').hidden = !ui.noDb;
+    $('adjust-toggle').hidden = locked;
+    $('add-form').hidden = locked;
+    $('next-tick').hidden = ui.noDb;
+    $('adjust-form').hidden = locked || !ui.adjustOpen;
     $('adjust-toggle').setAttribute('aria-expanded', String(ui.adjustOpen));
 
     // Keep focus and caret across repaints (the 30 s timer repaints too).
@@ -254,7 +283,7 @@
     for (const input of cards.querySelectorAll('input')) draft.set(input.id, input.value);
     cards.replaceChildren(...view.rows.map(cardNode));
     for (const input of cards.querySelectorAll('input')) if (draft.has(input.id)) input.value = draft.get(input.id);
-    $('empty').hidden = view.rows.length > 0;
+    $('empty').hidden = ui.noDb || view.rows.length > 0 || ui.readOnly;
     cards.hidden = view.rows.length === 0;
 
     if (focusId && document.activeElement !== $(focusId)) {
@@ -275,24 +304,24 @@
     if (ui.adjustOpen) $('adjust-minutes').focus();
   });
   $('adjust-cancel').addEventListener('click', () => { ui.adjustOpen = false; showError('adjust-error', ''); render(); });
-  $('adjust-form').addEventListener('submit', e => {
+  $('adjust-form').addEventListener('submit', async e => {
     e.preventDefault();
     const r = parseMinutesInput($('adjust-minutes').value);
     $('adjust-minutes').setAttribute('aria-invalid', String(!r.ok));
     if (!r.ok) return showError('adjust-error', r.error);
     showError('adjust-error', '');
-    resyncTick(r.value);
+    if (!await resyncTick(r.value)) return;
     $('adjust-minutes').value = '';
     ui.adjustOpen = false;
     render();
   });
-  $('add-form').addEventListener('submit', e => {
+  $('add-form').addEventListener('submit', async e => {
     e.preventDefault();
     const r = parseNameInput($('add-name').value);
     $('add-name').setAttribute('aria-invalid', String(!r.ok));
     if (!r.ok) return showError('add-error', r.error);
     showError('add-error', '');
-    addCharacter(r.value);
+    if (!await addCharacter(r.value)) return;
     $('add-name').value = '';
     render();
   });
@@ -300,4 +329,26 @@
   render();
   // Only repaints from memory; writes nothing.
   setInterval(render, 30_000);
+
+  // ---- Connect to db (one subscription each, never from render) ----
+  try {
+    db = await window.claude.use('db');
+    user = await window.claude.use('user');
+  } catch { db = null; }
+  if (!db) {
+    ui.noDb = true;
+    render();
+  } else {
+    if (user?.can('data.write') === false) ui.readOnly = true;
+    render();
+    const onError = () => { ui.noDb = true; render(); };
+    db.collection('characters').onSnapshot(snap => {
+      state.characters = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+      render();
+    }, onError);
+    db.doc('settings/schedule').onSnapshot(snap => {
+      state.schedule = snap.exists ? snap.data() : null;
+      render();
+    }, onError);
+  }
 </script>

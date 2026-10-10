@@ -3,6 +3,27 @@
 import { createRequire } from 'node:module';
 const require = createRequire('/opt/npm-tools/node_modules/');
 const { chromium } = require('playwright');
+
+// In-memory stand-in for window.claude (db + user), injected before the page loads.
+const STUB = () => {
+  const docs = new Map(); const subs = new Set(); let n = 0;
+  const notify = () => subs.forEach(f => f());
+  const snapDoc = (path) => ({ id: path.split('/').pop(), exists: docs.has(path), data: () => docs.get(path) });
+  const doc = path => ({
+    update: async d => { docs.set(path, { ...docs.get(path), ...d }); notify(); },
+    set: async d => { docs.set(path, { ...d }); notify(); },
+    delete: async () => { docs.delete(path); notify(); },
+    onSnapshot(next) { const f = () => next(snapDoc(path)); subs.add(f); setTimeout(f); return () => subs.delete(f); },
+  });
+  const collection = name => ({
+    add: async d => { const id = 'c' + (++n); docs.set(name + '/' + id, { ...d }); notify(); return doc(name + '/' + id); },
+    onSnapshot(next) {
+      const f = () => next({ docs: [...docs.keys()].filter(k => k.startsWith(name + '/')).map(snapDoc) });
+      subs.add(f); setTimeout(f); return () => subs.delete(f);
+    },
+  });
+  window.claude = { use: async name => name === 'db' ? { doc, collection } : { can: () => true } };
+};
 const BASE = process.env.BASE || 'http://localhost:8123/index.html';
 const browser = await chromium.launch();
 const errors = [];
@@ -12,6 +33,7 @@ for (const [label, width, height] of [['mobile', 390, 844], ['desktop', 1280, 80
     const page = await ctx.newPage();
     page.on('console', m => { if (m.type() === 'error') errors.push(`${label}/${scheme}: ${m.text()}`); });
     page.on('pageerror', e => errors.push(`${label}/${scheme}: ${e.message}`));
+    if (!process.env.NO_STUB) await page.addInitScript(STUB);
     await page.goto(BASE);
     const shot = n => page.screenshot({ path: `dev/screens/${label}-${scheme}-${n}.png`, fullPage: true });
     await shot('1-empty');
