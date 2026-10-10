@@ -239,6 +239,7 @@
   import { buildView, parseEnergyInput, parseMinutesInput, parseNameInput, parseClassInput } from './view.js';
   import { anchorFromCountdown, formatDuration, nextTickAt, TICK_MS, MAX } from './energy.js';
   import { CLASSES, classById } from './classes.js';
+  import { paths, planMigration } from './store.js';
   import { formatClock, detectGains, rollValue, becameFull, sceneOptions } from './motion.js';
 
   // Data comes only from db snapshots. Writes happen only after a user action.
@@ -249,6 +250,7 @@
 
   let db = null;
   let user = null;
+  let my = null; // paths(myUid): this viewer's own part of the db
 
   // ---- Motion setup: the 3D scene loads in the background; flat orbs until it is ready ----
   const reduceMotion = matchMedia('(prefers-reduced-motion: reduce)').matches;
@@ -299,8 +301,8 @@
   }
   // The ref is minted once so a retried set cannot create a duplicate.
   const addCharacter = (name, classId) => {
-    if (!db) { showNotice('No se pudo guardar'); return Promise.resolve(false); }
-    const ref = db.collection('characters').doc();
+    if (!db || !my) { showNotice('No se pudo guardar'); return Promise.resolve(false); }
+    const ref = db.collection(my.characters).doc();
     const data = {
       name, classId, energy: 0, recordedAt: Date.now(),
       order: Math.max(0, ...state.characters.map(c => Number(c.order) || 0)) + 1,
@@ -308,9 +310,9 @@
     return save(() => ref.set(data));
   };
   const updateCharacter = (id, value, classId) =>
-    save(() => db.doc('characters/' + id).update({ energy: value, recordedAt: Date.now(), classId }), id);
+    save(() => db.doc(my.characters + '/' + id).update({ energy: value, recordedAt: Date.now(), classId }), id);
   const resyncTick = minutes => save(() => db.doc('settings/schedule').set({ anchorMs: anchorFromCountdown(Date.now(), minutes) }));
-  const removeCharacter = id => save(() => db.doc('characters/' + id).delete(), id);
+  const removeCharacter = id => save(() => db.doc(my.characters + '/' + id).delete(), id);
 
   // ---- Rendering ----
   const $ = id => document.getElementById(id);
@@ -614,21 +616,42 @@
     db = await window.claude.use('db');
     user = await window.claude.use('user');
   } catch { db = null; }
+  let myUid = null;
+  try { myUid = user ? await user.id() : null; } catch { myUid = null; }
   if (!db) {
     ui.noDb = true; ui.loaded = true;
     render();
   } else {
     try { if (user && (await user.can('data.write')) === false) ui.readOnly = true; } catch {}
+    if (!myUid) ui.readOnly = true; // no identity → no own part to write
+    my = myUid ? paths(myUid) : null;
     render();
+    if (my && !ui.readOnly) await joinAndMigrate();
     const onError = () => { ui.noDb = true; ui.loaded = true; render(); };
-    db.collection('characters').onSnapshot(snap => {
+    if (my) db.collection(my.characters).onSnapshot(snap => {
       state.characters = snap.docs.map(d => ({ id: d.id, ...d.data() }));
       ui.loaded = true;
       render();
     }, onError);
+    else { ui.loaded = true; render(); }
     db.doc('settings/schedule').onSnapshot(snap => {
       state.schedule = snap.exists ? snap.data() : null;
       render();
     }, onError);
+  }
+
+  // Register this viewer as a member, and (owner only, once) move the characters kept in the
+  // old shared 'characters' collection into the owner's own part, intact, then remove the old docs.
+  async function joinAndMigrate() {
+    try {
+      const memberRef = db.doc(my.member);
+      if (!(await memberRef.get()).exists) await write(() => memberRef.set({ joinedAt: Date.now() }));
+      if (!(user && await user.isOwner())) return;
+      const old = (await db.collection('characters').get()).docs.map(d => ({ id: d.id, data: d.data() }));
+      if (!old.length) return;
+      const have = new Set((await db.collection(my.characters).get()).docs.map(d => d.id));
+      for (const d of planMigration(old, have)) await write(() => db.doc(my.characters + '/' + d.id).set(d.data));
+      for (const d of old) await write(() => db.doc('characters/' + d.id).delete());
+    } catch { showNotice('No se pudieron preparar tus datos; vuelve a cargar la página'); }
   }
 </script>

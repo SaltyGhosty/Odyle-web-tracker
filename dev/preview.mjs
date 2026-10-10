@@ -9,26 +9,42 @@ const THREE_SRC = readFileSync(new URL('../node_modules/three/build/three.module
 
 // In-memory stand-in for window.claude (db + user), injected before the page loads.
 const STUB = () => {
+  // Nested-path in-memory store: docs keyed by full path; a collection's docs are keys whose parent is it.
   const docs = new Map(); const subs = new Set(); let n = 0;
   const seed = window.__SEED;
-  if (seed) { for (const [id, d] of Object.entries(seed.characters)) docs.set('characters/' + id, d); docs.set('settings/schedule', seed.schedule); }
+  if (seed) {
+    for (const [id, d] of Object.entries(seed.characters || {})) docs.set((seed.charPath || 'characters') + '/' + id, d);
+    if (seed.schedule) docs.set('settings/schedule', seed.schedule);
+    for (const [path, d] of Object.entries(seed.docs || {})) docs.set(path, d);
+  }
+  window.__docs = docs;
+  const me = (seed && seed.me) || 'u_me';
   const notify = () => subs.forEach(f => f());
-  const snapDoc = (path) => ({ id: path.split('/').pop(), exists: docs.has(path), data: () => docs.get(path) });
+  const parentOf = k => k.slice(0, k.lastIndexOf('/'));
+  const snapDoc = path => ({ id: path.split('/').pop(), exists: docs.has(path), data: () => docs.get(path) });
+  const query = name => ({ docs: [...docs.keys()].filter(k => parentOf(k) === name).map(snapDoc) });
   const doc = path => ({
-    update: async d => { docs.set(path, { ...docs.get(path), ...d }); notify(); },
+    id: path.split('/').pop(), path,
+    get: async () => snapDoc(path),
+    update: async d => { if (!docs.has(path)) throw { code: 'invalid_argument' }; docs.set(path, { ...docs.get(path), ...d }); notify(); },
     set: async d => { docs.set(path, { ...d }); notify(); },
     delete: async () => { docs.delete(path); notify(); },
     onSnapshot(next) { const f = () => next(snapDoc(path)); subs.add(f); setTimeout(f, seed ? 400 : 0); return () => subs.delete(f); },
+    collection: sub => collection(path + '/' + sub),
   });
   const collection = name => ({
-    doc: () => doc(name + '/c' + (++n)),
+    path: name,
+    doc: id => doc(name + '/' + (id || 'c' + (++n))),
     add: async d => { const id = 'c' + (++n); docs.set(name + '/' + id, { ...d }); notify(); return doc(name + '/' + id); },
-    onSnapshot(next) {
-      const f = () => next({ docs: [...docs.keys()].filter(k => k.startsWith(name + '/')).map(snapDoc) });
-      subs.add(f); setTimeout(f); return () => subs.delete(f);
-    },
+    get: async () => query(name),
+    onSnapshot(next) { const f = () => next(query(name)); subs.add(f); setTimeout(f); return () => subs.delete(f); },
   });
-  window.claude = { use: async name => name === 'db' ? { doc, collection } : { can: async () => true } };
+  const canWrite = !(seed && seed.readOnly);
+  const names = (seed && seed.names) || {};
+  window.claude = { use: async name => name === 'db' ? { doc, collection } : {
+    can: async () => canWrite, isOwner: async () => !(seed && seed.notOwner), id: async () => me,
+    profiles: async ids => Object.fromEntries(ids.map(i => [i, { id: i, name: names[i] || '' }])),
+  } };
 };
 const BASE = process.env.BASE || 'http://localhost:8123/index.html';
 const browser = await chromium.launch({ args: ['--use-angle=swiftshader', '--enable-unsafe-swiftshader'] });
@@ -175,6 +191,31 @@ for (const [label, width, height] of [['mobile', 390, 844], ['desktop', 1280, 80
   if (await btn.isVisible()) await btn.tap();
   await page.waitForTimeout(300);
   check('ios: denied → button disabled and says so', await btn.isDisabled() && (await btn.textContent()) === 'Movimiento no disponible');
+  await ctx.close();
+}
+// Migration: old shared 'characters' move into members/u_me/characters, once, intact.
+{
+  const ctx = await browser.newContext({ viewport: { width: 1280, height: 800 }, colorScheme: 'dark' });
+  const page = await ctx.newPage();
+  await page.route(THREE_URL, r => r.fulfill({ contentType: 'text/javascript', body: THREE_SRC }));
+  page.on('pageerror', e => errors.push(`migration: ${e.message}`));
+  await page.addInitScript(() => {
+    window.__SEED = { characters: {
+      a: { name: 'SaltyGhosty', classId: 'asesino', energy: 240, recordedAt: 1791650525520, order: 1 },
+      b: { name: 'PraiseTheSun', classId: 'clerigo', energy: 105, recordedAt: 1791650497208, order: 2 },
+      c: { name: 'Shutaruku', classId: 'gladiador', energy: 195, recordedAt: 1791650300768, order: 3 } },
+      schedule: { anchorMs: 1791649842425 } };
+  });
+  await page.addInitScript(STUB);
+  await page.goto(BASE);
+  await page.waitForTimeout(1500);
+  const st = await page.evaluate(() => Object.fromEntries([...window.__docs].filter(([k]) => /characters/.test(k))));
+  check('migration: moved into members/u_me/characters intact',
+    st['members/u_me/characters/a']?.name === 'SaltyGhosty' && st['members/u_me/characters/a']?.recordedAt === 1791650525520 &&
+    st['members/u_me/characters/b']?.classId === 'clerigo' && st['members/u_me/characters/c']?.energy === 195);
+  check('migration: old collection emptied', !Object.keys(st).some(k => k.startsWith('characters/')));
+  check('migration: 3 cards still shown', await page.locator('article.card').count() === 3);
+  check('migration: member doc written', await page.evaluate(() => window.__docs.has('members/u_me')));
   await ctx.close();
 }
 await browser.close();
