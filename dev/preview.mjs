@@ -16,13 +16,14 @@ const STUB = () => {
     onSnapshot(next) { const f = () => next(snapDoc(path)); subs.add(f); setTimeout(f); return () => subs.delete(f); },
   });
   const collection = name => ({
+    doc: () => doc(name + '/c' + (++n)),
     add: async d => { const id = 'c' + (++n); docs.set(name + '/' + id, { ...d }); notify(); return doc(name + '/' + id); },
     onSnapshot(next) {
       const f = () => next({ docs: [...docs.keys()].filter(k => k.startsWith(name + '/')).map(snapDoc) });
       subs.add(f); setTimeout(f); return () => subs.delete(f);
     },
   });
-  window.claude = { use: async name => name === 'db' ? { doc, collection } : { can: () => true } };
+  window.claude = { use: async name => name === 'db' ? { doc, collection } : { can: async () => true } };
 };
 const BASE = process.env.BASE || 'http://localhost:8123/index.html';
 const browser = await chromium.launch();

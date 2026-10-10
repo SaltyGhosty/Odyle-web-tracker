@@ -5,7 +5,9 @@ const FULL_TEXT = 'Lleno';
 
 // schedule: {anchorMs} or null when no recharge time has been stored yet.
 export function buildView(characters, schedule, nowMs) {
-  const anchorMs = schedule ? schedule.anchorMs : null;
+  const anchorMs = schedule && Number.isFinite(schedule.anchorMs) ? schedule.anchorMs : null;
+  characters = characters.filter(c => c && typeof c.name === 'string'
+    && Number.isFinite(c.energy) && Number.isFinite(c.recordedAt));
   const nextTickInMs = anchorMs === null ? null : nextTickAt(anchorMs, nowMs) - nowMs;
   const sorted = [...characters].sort((a, b) =>
     a.order - b.order || a.name.localeCompare(b.name, 'es'));

@@ -18,7 +18,7 @@ export function nextTickAt(anchorMs, nowMs) {
 
 export function currentEnergy(char, anchorMs, nowMs) {
   if (char.energy >= MAX) return char.energy;
-  return Math.min(MAX, char.energy + REGEN * ticksBetween(anchorMs, char.recordedAt, nowMs));
+  return Math.min(MAX, char.energy + REGEN * Math.max(0, ticksBetween(anchorMs, char.recordedAt, nowMs)));
 }
 
 // Epoch ms when energy reaches MAX, or null if already full.

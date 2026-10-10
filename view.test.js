@@ -38,3 +38,10 @@ test('parseNameInput', () => {
   assert.equal(parseNameInput('   ').ok, false);
   assert.equal(parseNameInput('x'.repeat(25)).ok, false);
 });
+test('ignora documentos mal formados y un horario sin anchorMs', () => {
+  const bad = [{id:'x', name:5, energy:1, recordedAt:R, order:1}, {id:'y', name:'Y', energy:NaN, recordedAt:R, order:1},
+    {id:'z', name:'Z', energy:1, recordedAt:undefined, order:1}, {id:'ok', name:'Ok', energy:10, recordedAt:R, order:1}];
+  assert.deepEqual(buildView(bad, {anchorMs:A}, R).rows.map(r => r.id), ['ok']);
+  const v = buildView(bad, {}, R);
+  assert.equal(v.nextTickInMs, null);
+});

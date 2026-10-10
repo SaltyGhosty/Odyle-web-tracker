@@ -27,3 +27,4 @@ test('formatDuration', () => {
   assert.equal(formatDuration(2*H + 5*60_000), '2h 5m');
   assert.equal(formatDuration(120*H + 37*60_000), '5d 0h 37m');
 });
+test('recordedAt en el futuro (reloj distinto) no reduce la energía', () => assert.equal(currentEnergy({energy:225, recordedAt:A + 1}, A, A - 1), 225));

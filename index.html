@@ -143,7 +143,7 @@
   const state = { characters: [], schedule: null };
   // Interface-only state: which card is editing/confirming, validation messages.
   // noDb: no db in this view. readOnly: viewer cannot write (or a write was refused).
-  const ui = { adjustOpen: false, editingId: null, confirmId: null, errors: {}, noDb: false, readOnly: false };
+  const ui = { adjustOpen: false, editingId: null, confirmId: null, errors: {}, noDb: false, readOnly: false, loaded: false };
 
   let db = null;
   let user = null;
@@ -163,23 +163,31 @@
     return run;
   }
   // Returns true on success; on failure shows the notice (or goes read-only).
-  async function save(fn) {
+  // targetId: document being updated/deleted; if it is gone, invalid_argument is not a permission refusal.
+  async function save(fn, targetId = null) {
     showNotice('');
     try { await write(fn); return true; }
     catch (e) {
-      if (e && e.code === 'invalid_argument') { ui.readOnly = true; showNotice('No tienes permiso para editar. Solo lectura.'); }
+      const gone = targetId !== null && !state.characters.some(c => c.id === targetId);
+      if (e && e.code === 'invalid_argument' && !gone) { ui.readOnly = true; showNotice('No tienes permiso para editar. Solo lectura.'); }
       else showNotice('No se pudo guardar');
       render();
       return false;
     }
   }
-  const addCharacter = name => save(() => db.collection('characters').add({
-    name, energy: 0, recordedAt: Date.now(),
-    order: Math.max(0, ...state.characters.map(c => Number(c.order) || 0)) + 1,
-  }));
-  const updateEnergy = (id, value) => save(() => db.doc('characters/' + id).update({ energy: value, recordedAt: Date.now() }));
+  // The ref is minted once so a retried set cannot create a duplicate.
+  const addCharacter = name => {
+    if (!db) { showNotice('No se pudo guardar'); return Promise.resolve(false); }
+    const ref = db.collection('characters').doc();
+    const data = {
+      name, energy: 0, recordedAt: Date.now(),
+      order: Math.max(0, ...state.characters.map(c => Number(c.order) || 0)) + 1,
+    };
+    return save(() => ref.set(data));
+  };
+  const updateEnergy = (id, value) => save(() => db.doc('characters/' + id).update({ energy: value, recordedAt: Date.now() }), id);
   const resyncTick = minutes => save(() => db.doc('settings/schedule').set({ anchorMs: anchorFromCountdown(Date.now(), minutes) }));
-  const removeCharacter = id => save(() => db.doc('characters/' + id).delete());
+  const removeCharacter = id => save(() => db.doc('characters/' + id).delete(), id);
 
   // ---- Rendering ----
   const $ = id => document.getElementById(id);
@@ -224,8 +232,8 @@
     else if (row.isFull) info.append(el('p', { class: 'full-at' }, 'Energía al máximo'));
     card.append(info);
 
-    if (ui.readOnly) {
-      // read-only: no edit controls
+    if (ui.readOnly || ui.noDb) {
+      // read-only or stale: no edit controls
     } else if (editing) {
       const inputId = `energy-${row.id}`;
       const form = el('form', { novalidate: true, onsubmit: async e => {
@@ -252,7 +260,7 @@
         el('button', { type: 'button', onclick: () => { ui.confirmId = null; render(); } }, 'Cancelar')));
     } else {
       card.append(el('div', { class: 'row' },
-        el('button', { type: 'button', class: 'primary', onclick: () => { ui.editingId = row.id; ui.confirmId = null; render(); } }, 'Actualizar'),
+        el('button', { type: 'button', class: 'primary', onclick: () => { ui.editingId = row.id; ui.confirmId = null; render(); $('energy-' + row.id)?.select(); } }, 'Actualizar'),
         el('button', { type: 'button', onclick: () => { ui.confirmId = row.id; ui.editingId = null; render(); } }, 'Quitar')));
     }
     return card;
@@ -267,8 +275,8 @@
 
     const locked = ui.noDb || ui.readOnly;
     $('nodata').hidden = !ui.noDb;
-    $('adjust-toggle').hidden = locked;
-    $('add-form').hidden = locked;
+    $('adjust-toggle').hidden = locked || !db;
+    $('add-form').hidden = locked || !ui.loaded;
     $('next-tick').hidden = ui.noDb;
     $('adjust-form').hidden = locked || !ui.adjustOpen;
     $('adjust-toggle').setAttribute('aria-expanded', String(ui.adjustOpen));
@@ -283,7 +291,8 @@
     for (const input of cards.querySelectorAll('input')) draft.set(input.id, input.value);
     cards.replaceChildren(...view.rows.map(cardNode));
     for (const input of cards.querySelectorAll('input')) if (draft.has(input.id)) input.value = draft.get(input.id);
-    $('empty').hidden = ui.noDb || view.rows.length > 0 || ui.readOnly;
+    $('empty').hidden = ui.noDb || view.rows.length > 0 || !ui.loaded;
+    $('empty').textContent = ui.readOnly ? 'Aún no hay personajes.' : 'Aún no hay personajes. Añade el primero.';
     cards.hidden = view.rows.length === 0;
 
     if (focusId && document.activeElement !== $(focusId)) {
@@ -329,6 +338,7 @@
   render();
   // Only repaints from memory; writes nothing.
   setInterval(render, 30_000);
+  document.addEventListener('visibilitychange', () => { if (!document.hidden) render(); });
 
   // ---- Connect to db (one subscription each, never from render) ----
   try {
@@ -336,14 +346,15 @@
     user = await window.claude.use('user');
   } catch { db = null; }
   if (!db) {
-    ui.noDb = true;
+    ui.noDb = true; ui.loaded = true;
     render();
   } else {
-    if (user?.can('data.write') === false) ui.readOnly = true;
+    try { if (user && (await user.can('data.write')) === false) ui.readOnly = true; } catch {}
     render();
-    const onError = () => { ui.noDb = true; render(); };
+    const onError = () => { ui.noDb = true; ui.loaded = true; render(); };
     db.collection('characters').onSnapshot(snap => {
       state.characters = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+      ui.loaded = true;
       render();
     }, onError);
     db.doc('settings/schedule').onSnapshot(snap => {
