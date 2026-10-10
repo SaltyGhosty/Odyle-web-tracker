@@ -155,6 +155,14 @@
     font-weight: 500; font-size: 1rem; background: var(--glass);
   }
 
+  /* ---- Summary and waste warning ---- */
+  .summary { gap: 4px; }
+  .sum-total { display: flex; align-items: baseline; gap: 8px; }
+  .sum-num { font-size: 2rem; font-weight: 600; color: var(--gold-bright); font-variant-numeric: tabular-nums; }
+  .sum-label, .sum-next, .hint { color: var(--muted); font-size: .875rem; margin: 0; }
+  .sum-tip { margin: 0; font-weight: 600; }
+  .waste { margin: 0; color: #ffb35c; font-size: .8125rem; font-weight: 600; }
+
   /* ---- Event timers ---- */
   .events summary { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 12px; cursor: pointer; list-style: none; }
   .events summary::-webkit-details-marker { display: none; }
@@ -246,6 +254,12 @@
     <button type="button" id="menu-btn" class="menu-btn" aria-label="Menú" aria-expanded="false" aria-controls="drawer" hidden>☰</button>
   </header>
 
+  <section class="panel summary" id="summary" aria-label="Resumen" hidden>
+    <div class="sum-total"><span class="sum-num" id="sum-total"></span><span class="sum-label">de OD en total</span></div>
+    <p class="sum-tip" id="sum-tip"></p>
+    <p class="sum-next" id="sum-next"></p>
+  </section>
+
   <details class="panel events" id="events">
     <summary><h2>Eventos</h2><span class="events-next" id="events-next"></span></summary>
     <ul class="event-list" id="event-list"></ul>
@@ -289,6 +303,17 @@
     </form>
   </section>
 
+  <form class="panel" id="prefs-form" novalidate>
+    <h2>Horas de descanso</h2>
+    <p class="hint">Te aviso si un personaje se va a llenar mientras duermes o trabajas.</p>
+    <div class="row">
+      <div class="field"><label for="quiet-start">Desde</label><input type="time" id="quiet-start" value="00:00"></div>
+      <div class="field"><label for="quiet-end">Hasta</label><input type="time" id="quiet-end" value="08:00"></div>
+    </div>
+    <button type="submit" class="primary">Guardar</button>
+    <p class="error" id="prefs-error" role="alert" hidden></p>
+  </form>
+
   <form class="panel" id="adjust-form" novalidate>
     <h2>Ajustar recarga</h2>
     <div class="field">
@@ -312,10 +337,11 @@
   import { paths, planMigration } from './store.js';
   import { applyDelta, parsePreset, parseExtraInput } from './spend.js';
   import { EVENTS, nextOccurrence } from './events.js';
+  import { summary, wasteWarning } from './planner.js';
   import { formatClock, detectGains, rollValue, becameFull, sceneOptions } from './motion.js';
 
   // Data comes only from db snapshots. Writes happen only after a user action.
-  const state = { characters: [], schedule: null, presets: [] };
+  const state = { characters: [], schedule: null, presets: [], prefs: { quietStart: '00:00', quietEnd: '08:00' } };
   // Interface-only state: which card is editing/confirming, validation messages.
   // noDb: no db in this view. readOnly: viewer cannot write (or a write was refused).
   const ui = { menuOpen: false, editingId: null, extraId: null, confirmId: null, errors: {}, noDb: false, readOnly: false, loaded: false };
@@ -520,6 +546,8 @@
     const info = el('div', { class: 'info' });
     info.append(el('p', { class: 'full-in' }, row.isFull ? 'Energía al máximo' : (row.fullAtMs === null ? row.fullInText : `Lleno en ${row.fullInText}`)));
     if (row.fullAtMs !== null) info.append(el('p', { class: 'full-at' }, dateFmt.format(new Date(row.fullAtMs))));
+    const waste = row.isFull ? 'Estás perdiendo 15 de OD cada 3 h' : wasteText(row);
+    if (waste) info.append(el('p', { class: 'waste' }, waste));
     panel.append(info);
 
     if (ui.readOnly || ui.noDb) {
@@ -585,6 +613,21 @@
   }
 
   // Header clock: text + ring every second, no data work.
+  function wasteText(row) {
+    const w = wasteWarning(row.fullAtMs, Date.now(), { start: state.prefs.quietStart, end: state.prefs.quietEnd }, new Date().getTimezoneOffset());
+    return w ? `Perderás ${w.lossOD} de OD si no juegas antes de las ${timeFmt.format(new Date(w.deadlineMs))}` : '';
+  }
+  function paintSummary(rows) {
+    const box = $('summary');
+    box.hidden = rows.length === 0;
+    if (!rows.length) return;
+    const s = summary(rows, Date.now());
+    $('sum-total').textContent = String(s.total);
+    $('sum-tip').textContent = s.tip;
+    $('sum-tip').hidden = !s.tip;
+    $('sum-next').textContent = s.nextFull ? `Se llena primero: ${s.nextFull.name} · ${dateFmt.format(new Date(s.nextFull.fullAtMs))}` : '';
+  }
+
   // Event timers: sorted by what happens next; running events first, in gold.
   const timeFmt = new Intl.DateTimeFormat('es', { hour: '2-digit', minute: '2-digit' });
   const dayFmt = new Intl.DateTimeFormat('es', { weekday: 'short', hour: '2-digit', minute: '2-digit' });
@@ -650,6 +693,7 @@
     $('empty').hidden = ui.noDb || view.rows.length > 0 || !ui.loaded;
     $('empty').textContent = ui.readOnly ? 'Aún no hay personajes.' : 'Aún no hay personajes. Añade el primero.';
     cards.hidden = view.rows.length === 0;
+    paintSummary(view.rows);
 
     orbList = view.rows.map(r => ({
       id: r.id, el: cards.querySelector(`[data-orb="${CSS.escape(r.id)}"]`), tick: null,
@@ -721,6 +765,14 @@
       el('button', { type: 'button', 'aria-label': `Quitar ${p.name}`, onclick: () => savePresets(state.presets.filter(x => x.id !== p.id)) }, '✕')))
       : [el('li', { class: 'muted' }, 'Aún no hay botones. Crea uno, p. ej. "Mazmorra" con coste 40.')]));
   }
+  const TIME = /^([01]\d|2[0-3]):[0-5]\d$/;
+  $('prefs-form').addEventListener('submit', async e => {
+    e.preventDefault();
+    const quietStart = $('quiet-start').value, quietEnd = $('quiet-end').value;
+    if (!TIME.test(quietStart) || !TIME.test(quietEnd) || quietStart === quietEnd) return showError('prefs-error', 'Elige dos horas distintas');
+    showError('prefs-error', '');
+    await save(() => db.doc(my.prefs).set({ quietStart, quietEnd }));
+  });
   $('preset-form').addEventListener('submit', async e => {
     e.preventDefault();
     const r = parsePreset($('preset-name').value, $('preset-cost').value);
@@ -820,6 +872,14 @@
       render();
     }, onError);
     else { ui.loaded = true; render(); }
+    if (my) db.doc(my.prefs).onSnapshot(snap => {
+      const d = snap.exists ? snap.data() : {};
+      const ok = v => typeof v === 'string' && /^([01]\d|2[0-3]):[0-5]\d$/.test(v);
+      state.prefs = { quietStart: ok(d.quietStart) ? d.quietStart : '00:00', quietEnd: ok(d.quietEnd) ? d.quietEnd : '08:00' };
+      if (document.activeElement !== $('quiet-start')) $('quiet-start').value = state.prefs.quietStart;
+      if (document.activeElement !== $('quiet-end')) $('quiet-end').value = state.prefs.quietEnd;
+      render();
+    }, onError);
     if (my) db.doc(my.presets).onSnapshot(snap => {
       const items = snap.exists && Array.isArray(snap.data().items) ? snap.data().items : [];
       state.presets = items.filter(p => p && typeof p.name === 'string' && Number.isFinite(p.cost));

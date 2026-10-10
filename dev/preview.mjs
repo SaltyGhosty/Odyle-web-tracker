@@ -196,14 +196,25 @@ for (const [label, width, height] of [['mobile', 390, 844], ['desktop', 1280, 80
         s1: { name: 'Semilla', classId: 'gladiador', energy: 100, recordedAt: now - 7 * 3600_000, order: 1 },
         s2: { name: 'Casi', classId: 'clerigo', energy: 825, recordedAt: now - 1000, order: 2 },
         s3: { name: 'Lleno', classId: 'asesino', energy: 840, recordedAt: now - 1000, order: 3 } },
-      schedule: { anchorMs: now + 4000 } };
+      schedule: { anchorMs: now + 9000 },
+      // rest window around "now" (local clock) so the waste warning is deterministic
+      docs: { 'members/u_me/settings/prefs': (() => { const f = ms => new Date(ms).toTimeString().slice(0, 5); return { quietStart: f(now - 3600_000), quietEnd: f(now + 5 * 3600_000) }; })() } };
   });
   await page.addInitScript(STUB);
   await page.goto(BASE);
   await page.waitForTimeout(1800);
   check('seeded: no false +N on load', await page.locator('.gain').count() === 0);
+  check('summary: tip about the full character', ((await page.locator('#summary').textContent().catch(() => '')) || '').includes('Lleno está lleno'));
+  check('summary: total energy', ((await page.locator('#summary').textContent().catch(() => '')) || '').includes('1795'));
+  check('waste: full card says it is losing energy', (await page.locator('article[data-id=s3]').textContent()).includes('Estás perdiendo 15 de OD cada 3 h'));
+  check('waste: card filling during rest hours warns', (await page.locator('article[data-id=s2]').textContent()).includes('Perderás 15 de OD'));
+  await page.click('#menu-btn');
+  check('drawer: rest hours fields', await page.locator('#quiet-start').isVisible() && await page.locator('#quiet-end').isVisible());
+  await page.keyboard.press('Escape');
   check('seeded: class icon and name shown', await page.locator('.cls-icon').count() === 3 && (await page.locator('article[data-id=s1] .cls-name').textContent()) === 'Gladiador');
   const above = async id => {
+    await page.evaluate(i => { document.querySelector(`article[data-id=${i}] .orb-slot`).scrollIntoView({ block: 'center' }); }, id);
+    await page.waitForTimeout(150);
     const box = await page.locator(`article[data-id=${id}] .orb-slot`).boundingBox();
     const buf = await page.screenshot();
     const fs = await import('node:fs'); fs.writeFileSync('dev/screens/_tmp.png', buf);
@@ -213,7 +224,7 @@ for (const [label, width, height] of [['mobile', 390, 844], ['desktop', 1280, 80
   };
   check('seeded: already-full character gets no beam on load', (await above('s3')) < 300);
   await page.evaluate(() => { Object.defineProperty(document, 'hidden', { configurable: true, get: () => true }); });
-  await page.waitForTimeout(4000);
+  await page.waitForTimeout(8000);
   await page.evaluate(() => { Object.defineProperty(document, 'hidden', { configurable: true, get: () => false }); document.dispatchEvent(new Event('visibilitychange')); });
   await page.waitForTimeout(200);
   check('seeded: +15 shown after returning from background', (await page.locator('.gain').allTextContents()).join() === '+15,+15');
