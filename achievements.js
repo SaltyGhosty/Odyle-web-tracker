@@ -3,18 +3,21 @@
 
 export const ACHIEVEMENTS = [
   { id: 'spend-1', name: 'Primer gasto', desc: 'Gasta energía por primera vez', test: s => s.spendCount >= 1 },
-  { id: 'spend-10', name: 'Habitual', desc: '10 gastos registrados', test: s => s.spendCount >= 10 },
+  { id: 'spend-5', name: 'Calentando', desc: '5 gastos registrados', test: s => s.spendCount >= 5 },
+  { id: 'spend-25', name: 'Habitual', desc: '25 gastos registrados', test: s => s.spendCount >= 25 },
   { id: 'spend-100', name: 'Veterano del Abismo', desc: '100 gastos registrados', test: s => s.spendCount >= 100 },
-  { id: 'spend-500', name: 'Incansable', desc: '500 gastos registrados', test: s => s.spendCount >= 500 },
-  { id: 'od-1000', name: 'Mil de Odyle', desc: 'Gasta 1.000 de OD en total', test: s => s.spentTotal >= 1000 },
-  { id: 'od-10000', name: 'Río de Odyle', desc: 'Gasta 10.000 de OD en total', test: s => s.spentTotal >= 10000 },
-  { id: 'streak-3', name: 'Constante', desc: 'Racha de 3 días', test: s => s.bestStreak >= 3 },
-  { id: 'streak-7', name: 'Semana perfecta', desc: 'Racha de 7 días', test: s => s.bestStreak >= 7 },
-  { id: 'streak-30', name: 'Daeva disciplinado', desc: 'Racha de 30 días', test: s => s.bestStreak >= 30 },
+  { id: 'od-300', name: 'Primeros pasos', desc: 'Gasta 300 de OD en total', test: s => s.spentTotal >= 300 },
+  { id: 'od-1500', name: 'Mil de Odyle', desc: 'Gasta 1.500 de OD en total', test: s => s.spentTotal >= 1500 },
+  { id: 'od-5000', name: 'Río de Odyle', desc: 'Gasta 5.000 de OD en total', test: s => s.spentTotal >= 5000 },
+  { id: 'streak-2', name: 'Vuelvo mañana', desc: 'Racha de 2 días', test: s => s.bestStreak >= 2 },
+  { id: 'streak-5', name: 'Constante', desc: 'Racha de 5 días', test: s => s.bestStreak >= 5 },
+  { id: 'streak-14', name: 'Daeva disciplinado', desc: 'Racha de 14 días', test: s => s.bestStreak >= 14 },
   { id: 'full-day', name: 'Día completo', desc: 'Completa todas las diarias de un personaje', test: s => s.fullDays >= 1 },
-  { id: 'cp-100k', name: '100K de poder', desc: 'Un personaje con 100.000 de PC', test: (s, cp) => cp >= 100_000 },
-  { id: 'cp-500k', name: '500K de poder', desc: 'Un personaje con 500.000 de PC', test: (s, cp) => cp >= 500_000 },
-  { id: 'cp-1m', name: 'Leyenda de Atreia', desc: 'Un personaje con 1.000.000 de PC', test: (s, cp) => cp >= 1_000_000 },
+  { id: 'full-day-7', name: 'Semana redonda', desc: 'Completa todas las diarias 7 veces', test: s => s.fullDays >= 7 },
+  { id: 'cp-25k', name: 'Daeva en marcha', desc: 'Un personaje con 25.000 de PC', test: (s, cp) => cp >= 25_000 },
+  { id: 'cp-75k', name: 'Guerrero probado', desc: 'Un personaje con 75.000 de PC', test: (s, cp) => cp >= 75_000 },
+  { id: 'cp-150k', name: 'Élite de Atreia', desc: 'Un personaje con 150.000 de PC', test: (s, cp) => cp >= 150_000 },
+  { id: 'cp-300k', name: 'Leyenda de Atreia', desc: 'Un personaje con 300.000 de PC', test: (s, cp) => cp >= 300_000 },
 ];
 
 export const EMPTY_STATS = { daysLog: {}, spentTotal: 0, spendCount: 0, tasksDone: 0, fullDays: 0, bestStreak: 0 };
