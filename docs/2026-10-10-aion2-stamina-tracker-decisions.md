@@ -39,3 +39,13 @@ see at a glance how much each one has and when they will be full.
 ## Open questions
 
 1. How to host and sync the page (approach choice pending).
+
+## Objetivo futuro (10/10/2026): sitio propio con ingresos
+
+El usuario quiere **publicar la página en su propio dominio** y **monetizarla con PayPal (donaciones) o publicidad**.
+
+Implicaciones a tener en cuenta en todo lo que se construya:
+- Hoy los datos y la identidad dependen de las capacidades `db` y `user` de claude.ai; fuera de claude.ai no existen. El despliegue necesitará un backend propio (p. ej. Render —ya conectado— con Postgres, o Firebase/Supabase) y un sistema de cuentas.
+- Mantener el acceso a datos aislado en pocas funciones (`store.js` y las escrituras de `index.html`) para que cambiar de backend sea sustituir un adaptador, no reescribir la página.
+- Publicidad (p. ej. AdSense) y botón de PayPal requieren dominio propio, política de privacidad y aviso de cookies (UE/Italia: consentimiento previo).
+- Aion 2 es una marca de NCSOFT: sitio de fans sin logos ni arte oficial (los iconos y runas actuales son dibujos propios), con un aviso de "sitio no oficial".
