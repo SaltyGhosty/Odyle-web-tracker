@@ -160,6 +160,17 @@
     font-weight: 500; font-size: 1rem; background: var(--glass);
   }
 
+  /* ---- Task list ---- */
+  .tasks-box { display: flex; flex-direction: column; gap: 4px; border-top: 1px solid rgba(169, 179, 200, .15); padding-top: 8px; }
+  .task-row { display: flex; align-items: center; justify-content: space-between; gap: 8px; font-size: .875rem; }
+  .task-row.done .task-name { color: var(--muted); text-decoration: line-through; }
+  .task-row .kind { color: var(--muted); font-size: .7rem; text-transform: uppercase; letter-spacing: .08em; margin-left: 6px; }
+  .task-row input[type=checkbox] { width: 20px; height: 20px; min-height: 0; accent-color: var(--gold); }
+  .stepper { display: flex; align-items: center; gap: 6px; font-variant-numeric: tabular-nums; }
+  .stepper button { min-height: 30px; padding: 2px 10px; }
+  button.tasks-btn { padding: 6px 12px; min-height: 34px; font-size: .8125rem; }
+  .task-warn { margin: 0; color: #ffb35c; font-size: .8125rem; font-weight: 600; }
+
   /* ---- First-run guide ---- */
   .guide-steps { margin: 0; padding: 0; list-style: none; display: flex; flex-direction: column; gap: 8px; counter-reset: step; }
   .guide-steps li { display: flex; align-items: center; gap: 10px; counter-increment: step; }
@@ -394,6 +405,19 @@
     <button type="submit" class="primary">Añadir</button>
   </form>
 
+  <section class="panel" id="tasks-panel" aria-labelledby="tasks-title">
+    <h2 id="tasks-title">Lista de tareas</h2>
+    <p class="hint">Las diarias se reinician a las 09:00 (hora de verano de Europa central) y las semanales los miércoles.</p>
+    <ul class="preset-list" id="task-list"></ul>
+    <form id="task-form" class="row" novalidate>
+      <div class="field"><label for="task-name">Tarea</label><input id="task-name" maxlength="60" autocomplete="off" placeholder="Mazmorra de emergencia"></div>
+      <div class="field narrow"><label for="task-kind">Tipo</label><select id="task-kind"><option value="daily">Diaria</option><option value="weekly">Semanal</option></select></div>
+      <div class="field narrow"><label for="task-max">Veces</label><input id="task-max" inputmode="numeric" value="1"></div>
+      <button type="submit" class="primary offset">Añadir</button>
+      <p class="error" id="task-error" role="alert" hidden></p>
+    </form>
+  </section>
+
   <section class="panel" id="presets-panel" aria-labelledby="presets-title">
     <h2 id="presets-title">Botones de gasto</h2>
     <ul class="preset-list" id="preset-list"></ul>
@@ -464,14 +488,15 @@
   import { dailySpent, staleEvents } from './spend.js';
   import { renderForecast, renderHistory, renderCp, CHART_COLORS } from './charts.js';
   import { createSound } from './sound.js';
+  import { DEFAULT_TASKS, progressFor, withCount, parseTask, nextDailyReset } from './tasks.js';
   const sound = createSound();
   import { formatClock, detectGains, rollValue, becameFull, sceneOptions } from './motion.js';
 
   // Data comes only from db snapshots. Writes happen only after a user action.
-  const state = { characters: [], cpHist: new Map(), hiddenMembers: 0, others: new Map(), names: {}, schedule: null, presets: [], events: [], prefs: { quietStart: '00:00', quietEnd: '08:00', favEvents: [], faction: 'elyos' } };
+  const state = { characters: [], tasks: DEFAULT_TASKS, progress: new Map(), cpHist: new Map(), hiddenMembers: 0, others: new Map(), names: {}, schedule: null, presets: [], events: [], prefs: { quietStart: '00:00', quietEnd: '08:00', favEvents: [], faction: 'elyos' } };
   // Interface-only state: which card is editing/confirming, validation messages.
   // noDb: no db in this view. readOnly: viewer cannot write (or a write was refused).
-  const ui = { pop: null, notesId: null, menuOpen: false, editingId: null, extraId: null, confirmId: null, errors: {}, noDb: false, readOnly: false, loaded: false };
+  const ui = { pop: null, notesId: null, tasksOpen: new Set(), menuOpen: false, editingId: null, extraId: null, confirmId: null, errors: {}, noDb: false, readOnly: false, loaded: false };
 
   let db = null;
   let user = null;
@@ -603,6 +628,46 @@
     }
     return ok;
   }
+  // ---- Task list on each own card ----
+  function tasksBlock(row) {
+    const now = Date.now();
+    const prog = progressFor(state.progress.get(row.id), state.tasks, now);
+    const total = state.tasks.reduce((a, t) => a + t.max, 0);
+    const done = state.tasks.reduce((a, t) => a + prog[t.id], 0);
+    const pendingDaily = state.tasks.filter(t => t.kind === 'daily' && prog[t.id] < t.max).length;
+    const left = nextDailyReset(now) - now;
+    const wrap = el('div', { class: 'tasks-wrap' });
+    const open = ui.tasksOpen.has(row.id);
+    wrap.append(el('button', { type: 'button', class: 'tasks-btn', 'aria-expanded': String(open),
+      onclick: () => { open ? ui.tasksOpen.delete(row.id) : ui.tasksOpen.add(row.id); ui.pop = row.id; render(); } },
+      `Tareas ${done}/${total} ${open ? '▴' : '▾'}`));
+    if (pendingDaily && left < 2 * 3_600_000) wrap.append(el('p', { class: 'task-warn' }, `Quedan ${pendingDaily} diarias · reinicio en ${formatDuration(left)}`));
+    if (open) {
+      const box = el('div', { class: `tasks-box ${ui.pop === row.id ? 'pop' : ''}` });
+      for (const t of state.tasks) {
+        const n = prog[t.id];
+        const name = el('span', { class: 'task-name' }, t.name, el('span', { class: 'kind' }, t.kind === 'daily' ? 'diaria' : 'semanal'));
+        const control = t.max === 1
+          ? el('input', { type: 'checkbox', checked: n >= 1, 'aria-label': t.name, onchange: e => setTask(row.id, t, e.target.checked ? 1 : 0) })
+          : el('span', { class: 'stepper' },
+              el('button', { type: 'button', 'aria-label': `Quitar una: ${t.name}`, disabled: n <= 0, onclick: () => setTask(row.id, t, n - 1) }, '−'),
+              `${n}/${t.max}`,
+              el('button', { type: 'button', 'aria-label': `Añadir una: ${t.name}`, disabled: n >= t.max, onclick: () => setTask(row.id, t, n + 1) }, '+'));
+        box.append(el('div', { class: `task-row ${n >= t.max ? 'done' : ''}` }, name, control));
+      }
+      wrap.append(box);
+    }
+    return wrap;
+  }
+  async function setTask(charId, task, count) {
+    const before = progressFor(state.progress.get(charId), state.tasks, Date.now())[task.id];
+    const next = withCount(state.progress.get(charId), task, count, Date.now());
+    state.progress.set(charId, next); render();
+    await save(() => db.doc(my.progress + '/' + charId).set(next));
+    if (count > before) bumpStats({ tasksDone: count - before });
+  }
+  const saveTasks = items => save(() => db.doc(my.tasks).set({ items }));
+  let bumpStats = () => {}; // replaced by the stats module (task 4)
   const saveNotes = (id, text) => save(() => db.doc(my.characters + '/' + id).update({ notes: String(text).slice(0, 500) }), id);
   function parseCp(s) {
     const t = String(s).trim().replace(/[.\s]/g, '');
@@ -810,6 +875,7 @@
       panel.append(el('div', { class: 'spend-row' },
         ...state.presets.map(p => el('button', { type: 'button', class: 'spend', disabled: busy.has(row.id), onclick: () => spend(row, p) }, `${p.name} −${p.cost}`)),
         el('button', { type: 'button', class: 'extra', disabled: busy.has(row.id), onclick: () => { ui.pop = row.id; ui.extraId = row.id; ui.editingId = ui.confirmId = ui.notesId = null; delete ui.errors[row.id]; render(); $('extra-' + row.id)?.focus(); } }, '+ Extra')));
+      panel.append(tasksBlock(row));
       panel.append(el('div', { class: 'row' },
         el('button', { type: 'button', class: 'primary', onclick: () => { ui.pop = row.id; ui.editingId = row.id; ui.confirmId = ui.extraId = ui.notesId = null; delete ui.errors[row.id]; render(); $('energy-' + row.id)?.select(); } }, 'Actualizar'),
         el('button', { type: 'button', class: 'notes', onclick: () => { ui.pop = row.id; ui.notesId = row.id; ui.editingId = ui.extraId = ui.confirmId = null; render(); $('notes-' + row.id)?.focus(); } }, 'Notas'),
@@ -973,6 +1039,7 @@
     $('menu-btn').hidden = locked || !db || !ui.loaded;
     if ($('menu-btn').hidden && ui.menuOpen) closeMenu();
     paintPresets();
+    paintTaskList();
     $('clock').hidden = ui.noDb;
 
     // Keep focus and caret across repaints (timers repaint too).
@@ -1145,6 +1212,24 @@
       el('button', { type: 'button', id: `preset-del-${p.id}`, 'aria-label': `Quitar ${p.name}`, onclick: () => savePresets(state.presets.filter(x => x.id !== p.id)) }, '✕')))
       : [el('li', { class: 'muted' }, 'Aún no hay botones. Crea uno, p. ej. "Mazmorra" con coste 40.')]));
   }
+  let paintedTasks = '';
+  function paintTaskList() {
+    const key = JSON.stringify(state.tasks);
+    if (key === paintedTasks) return;
+    paintedTasks = key;
+    $('task-list').replaceChildren(...state.tasks.map(t => el('li', {},
+      el('span', {}, `${t.name} · ${t.kind === 'daily' ? 'diaria' : 'semanal'}${t.max > 1 ? ` ×${t.max}` : ''}`),
+      el('button', { type: 'button', id: `task-del-${t.id}`, 'aria-label': `Quitar ${t.name}`, onclick: () => saveTasks(state.tasks.filter(x => x.id !== t.id)) }, '✕'))));
+  }
+  $('task-form').addEventListener('submit', async e => {
+    e.preventDefault();
+    const r = parseTask($('task-name').value, $('task-max').value);
+    if (!r.ok) return showError('task-error', r.error);
+    showError('task-error', '');
+    const kind = $('task-kind').value === 'weekly' ? 'weekly' : 'daily';
+    if (!await saveTasks([...state.tasks, { id: 't' + Date.now().toString(36), kind, ...r.value }])) return;
+    $('task-name').value = ''; $('task-max').value = '1';
+  });
   const TIME = /^([01]\d|2[0-3]):[0-5]\d$/;
   $('prefs-form').addEventListener('submit', async e => {
     e.preventDefault();
@@ -1255,8 +1340,8 @@
     }, onError);
     else { ui.loaded = true; render(); }
     // Legion: every member's characters (read-only for everyone but their owner).
-    // A view may hold 64 subscriptions; the page keeps 7 of its own, so at most 57 other members.
-    const MAX_OTHERS = 64 - 7;
+    // A view may hold 64 subscriptions; the page keeps 9 of its own, so at most 55 other members.
+    const MAX_OTHERS = 64 - 9;
     const memberSubs = new Map();
     db.collection('members').onSnapshot(async snap => {
       const all = snap.docs.map(d => d.id).filter(id => id !== myUid);
@@ -1274,6 +1359,15 @@
       if (user && ids.length) { try { const ps = await user.profiles(ids); for (const id of ids) state.names[id] = ps[id]?.name || ''; } catch {} }
       render();
     }, () => {});
+    if (my) db.doc(my.tasks).onSnapshot(snap => {
+      const items = snap.exists && Array.isArray(snap.data().items) ? snap.data().items : null;
+      state.tasks = items ? items.filter(t => t && typeof t.name === 'string' && (t.kind === 'daily' || t.kind === 'weekly') && Number.isInteger(t.max)) : DEFAULT_TASKS;
+      render();
+    }, onError);
+    if (my) db.collection(my.progress).onSnapshot(snap => {
+      state.progress = new Map(snap.docs.map(d => [d.id, d.data()]));
+      render();
+    }, onError);
     if (my) db.collection(my.cp).onSnapshot(snap => {
       state.cpHist = new Map(snap.docs.map(d => [d.id, (Array.isArray(d.data().points) ? d.data().points : [])
         .filter(p => Number.isFinite(p?.at) && Number.isFinite(p?.cp)).sort((a, b) => a.at - b.at)]));

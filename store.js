@@ -9,6 +9,9 @@ export function paths(uid) {
     prefs: member + '/settings/prefs',
     events: member + '/events',
     cp: member + '/cp', // one doc per character: {points:[{at, cp}]}
+    tasks: member + '/settings/tasks',
+    progress: member + '/progress', // one doc per character
+    stats: member + '/settings/stats',
   };
 }
 
