@@ -160,6 +160,19 @@
     font-weight: 500; font-size: 1rem; background: var(--glass);
   }
 
+  /* ---- Week report & achievements ---- */
+  .week-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+  .week-stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: 10px; }
+  .stat { border: 1px solid var(--line); border-radius: 12px; padding: 10px 12px; }
+  .stat b { display: block; font-size: 1.4rem; color: var(--gold-bright); font-variant-numeric: tabular-nums; }
+  .stat span { color: var(--muted); font-size: .8125rem; }
+  h3.sub { margin: 4px 0 0; font-size: .875rem; color: var(--muted); letter-spacing: .08em; text-transform: uppercase; }
+  .achievements { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 8px; }
+  .ach { border: 1px solid var(--line); border-radius: 10px; padding: 8px 10px; font-size: .8125rem; opacity: .45; }
+  .ach.done { opacity: 1; border-color: var(--gold); box-shadow: 0 0 12px color-mix(in srgb, var(--gold) 25%, transparent); }
+  .ach strong { display: block; color: var(--fg); }
+  .ach span { color: var(--muted); }
+
   /* ---- Task list ---- */
   .tasks-box { display: flex; flex-direction: column; gap: 4px; border-top: 1px solid rgba(169, 179, 200, .15); padding-top: 8px; }
   .task-row { display: flex; align-items: center; justify-content: space-between; gap: 8px; font-size: .875rem; }
@@ -378,6 +391,13 @@
     <ul class="legend" id="cp-legend"></ul>
   </section>
 
+  <section class="panel week" id="week-panel" aria-labelledby="week-title" hidden>
+    <div class="week-head"><h2 id="week-title">Tu semana</h2><button type="button" id="week-download">Descargar imagen</button></div>
+    <div class="week-stats" id="week-stats"></div>
+    <h3 class="sub">Logros</h3>
+    <ul class="achievements" id="achievements"></ul>
+  </section>
+
   <section class="panel chart-panel" id="history-panel" aria-labelledby="history-title" hidden>
     <h2 id="history-title">Historial de gasto</h2>
     <svg id="history" class="chart" role="img" aria-label="OD gastada cada día, últimos 7 días"></svg>
@@ -489,11 +509,12 @@
   import { renderForecast, renderHistory, renderCp, CHART_COLORS } from './charts.js';
   import { createSound } from './sound.js';
   import { DEFAULT_TASKS, progressFor, withCount, parseTask, nextDailyReset } from './tasks.js';
+  import { EMPTY_STATS, bumped, unlocked, streak, weekTotals } from './achievements.js';
   const sound = createSound();
   import { formatClock, detectGains, rollValue, becameFull, sceneOptions } from './motion.js';
 
   // Data comes only from db snapshots. Writes happen only after a user action.
-  const state = { characters: [], tasks: DEFAULT_TASKS, progress: new Map(), cpHist: new Map(), hiddenMembers: 0, others: new Map(), names: {}, schedule: null, presets: [], events: [], prefs: { quietStart: '00:00', quietEnd: '08:00', favEvents: [], faction: 'elyos' } };
+  const state = { characters: [], stats: null, tasks: DEFAULT_TASKS, progress: new Map(), cpHist: new Map(), hiddenMembers: 0, others: new Map(), names: {}, schedule: null, presets: [], events: [], prefs: { quietStart: '00:00', quietEnd: '08:00', favEvents: [], faction: 'elyos' } };
   // Interface-only state: which card is editing/confirming, validation messages.
   // noDb: no db in this view. readOnly: viewer cannot write (or a write was refused).
   const ui = { pop: null, notesId: null, tasksOpen: new Set(), menuOpen: false, editingId: null, extraId: null, confirmId: null, errors: {}, noDb: false, readOnly: false, loaded: false };
@@ -660,14 +681,23 @@
     return wrap;
   }
   async function setTask(charId, task, count) {
-    const before = progressFor(state.progress.get(charId), state.tasks, Date.now())[task.id];
+    const allDaily = p => state.tasks.filter(t => t.kind === 'daily').every(t => p[t.id] >= t.max);
+    const beforeAll = progressFor(state.progress.get(charId), state.tasks, Date.now());
+    const before = beforeAll[task.id];
     const next = withCount(state.progress.get(charId), task, count, Date.now());
     state.progress.set(charId, next); render();
     await save(() => db.doc(my.progress + '/' + charId).set(next));
-    if (count > before) bumpStats({ tasksDone: count - before });
+    const afterAll = progressFor(next, state.tasks, Date.now());
+    const completedDay = state.tasks.some(t => t.kind === 'daily') && !allDaily(beforeAll) && allDaily(afterAll);
+    if (count > before) bumpStats({ tasks: count - before, fullDays: completedDay ? 1 : 0 });
   }
   const saveTasks = items => save(() => db.doc(my.tasks).set({ items }));
-  let bumpStats = () => {}; // replaced by the stats module (task 4)
+  const todayKey = () => new Date(Date.now() - new Date().getTimezoneOffset() * 60_000).toISOString().slice(0, 10);
+  async function bumpStats(delta) {
+    if (!my || ui.readOnly) return;
+    state.stats = bumped(state.stats, todayKey(), delta);
+    await save(() => db.doc(my.stats).set(state.stats));
+  }
   const saveNotes = (id, text) => save(() => db.doc(my.characters + '/' + id).update({ notes: String(text).slice(0, 500) }), id);
   function parseCp(s) {
     const t = String(s).trim().replace(/[.\s]/g, '');
@@ -684,13 +714,15 @@
     return el('p', { class: 'cp-line' }, 'PC ', el('strong', {}, cpFmt.format(row.cp)),
       delta > 0 ? el('span', { class: 'up' }, ` · +${cpFmt.format(delta)} esta semana`) : null);
   }
-  function spend(row, preset) {
-    return changeEnergy(row.id, r => {
+  async function spend(row, preset) {
+    const ok = await changeEnergy(row.id, r => {
       const d = applyDelta(r.energy, -preset.cost);
       if (!d.ok) { ui.errors[row.id] = d.error; render(); return null; }
       delete ui.errors[row.id];
       return { energy: d.energy, event: { kind: 'spend', amount: preset.cost, presetId: preset.id }, label: `Gastaste ${preset.cost} en ${r.name}` };
     });
+    if (ok) bumpStats({ spent: preset.cost, spends: 1 });
+    return ok;
   }
   const addExtra = (row, value) => changeEnergy(row.id, r => {
     const d = applyDelta(r.energy, value);
@@ -918,6 +950,61 @@
     if (!$('history-panel').hidden) renderHistory($('history'), dailySpent(state.events, now, new Date().getTimezoneOffset()));
   }
 
+  // "Tu semana": totals, combat power gain, streak and achievements.
+  function weekData(rows) {
+    const stats = { ...EMPTY_STATS, ...(state.stats || {}) };
+    const wk = weekTotals(stats.daysLog, todayKey());
+    const weekAgo = Date.now() - 7 * 86_400_000;
+    let cpGain = 0, maxCp = 0;
+    for (const c of state.characters) {
+      if (Number.isFinite(c.cp)) maxCp = Math.max(maxCp, c.cp);
+      const pts = state.cpHist.get(c.id) || [];
+      const base = [...pts].reverse().find(p => p.at <= weekAgo) || pts.find(p => p.at > weekAgo);
+      if (base && Number.isFinite(c.cp)) cpGain += Math.max(0, c.cp - base.cp);
+    }
+    return { stats, wk, cpGain, streakNow: streak(stats.daysLog, todayKey()), list: unlocked(stats, maxCp) };
+  }
+  function paintWeek(rows) {
+    $('week-panel').hidden = !my || rows.length === 0;
+    if ($('week-panel').hidden) return;
+    const d = weekData(rows);
+    const stat = (v, label) => el('div', { class: 'stat' }, el('b', {}, v), el('span', {}, label));
+    $('week-stats').replaceChildren(
+      stat(cpFmt.format(d.wk.spent), 'OD gastada (7 días)'),
+      stat(String(d.wk.tasks), 'tareas hechas'),
+      stat('+' + cpFmt.format(d.cpGain), 'poder de combate'),
+      stat(`${d.streakNow} ${d.streakNow === 1 ? 'día' : 'días'}`, 'racha actual'));
+    $('achievements').replaceChildren(...d.list.map(a => el('li', { class: `ach ${a.done ? 'done' : ''}` },
+      el('strong', {}, (a.done ? '🏅 ' : '🔒 ') + a.name), el('span', {}, a.desc))));
+  }
+  $('week-download').addEventListener('click', async () => {
+    const d = weekData(buildView(state.characters, state.schedule, Date.now()).rows);
+    const css = getComputedStyle(document.documentElement);
+    const c = document.createElement('canvas'); c.width = 1080; c.height = 1080;
+    const g = c.getContext('2d');
+    const grad = g.createLinearGradient(0, 0, 0, 1080);
+    grad.addColorStop(0, css.getPropertyValue('--bg-2').trim()); grad.addColorStop(1, css.getPropertyValue('--bg').trim());
+    g.fillStyle = grad; g.fillRect(0, 0, 1080, 1080);
+    const gold = css.getPropertyValue('--gold-bright').trim(), fg = css.getPropertyValue('--fg').trim(), muted = css.getPropertyValue('--muted').trim();
+    g.fillStyle = gold; g.font = '700 72px Cinzel, Georgia, serif'; g.fillText('Mi semana en Aion 2', 80, 160);
+    g.fillStyle = muted; g.font = '500 32px Figtree, sans-serif'; g.fillText($('subtitle').textContent, 80, 215);
+    const lines = [[cpFmt.format(d.wk.spent), 'de OD gastada'], [String(d.wk.tasks), 'tareas hechas'],
+      ['+' + cpFmt.format(d.cpGain), 'de poder de combate'], [String(d.streakNow), d.streakNow === 1 ? 'día de racha' : 'días de racha']];
+    lines.forEach(([v, l], i) => {
+      g.fillStyle = gold; g.font = '700 96px Figtree, sans-serif'; g.fillText(v, 80, 380 + i * 150);
+      const w = g.measureText(v).width;
+      g.fillStyle = fg; g.font = '500 40px Figtree, sans-serif'; g.fillText(l, 100 + w, 380 + i * 150);
+    });
+    const got = d.list.filter(a => a.done).length;
+    g.fillStyle = muted; g.font = '500 34px Figtree, sans-serif'; g.fillText(`🏅 ${got} de ${d.list.length} logros`, 80, 1000);
+    try {
+      const downloads = await window.claude.use('downloads');
+      if (!downloads) throw new Error('unavailable');
+      const blob = await new Promise(r => c.toBlob(r, 'image/png'));
+      await downloads.save({ filename: 'mi-semana-aion2.png', data: blob });
+    } catch (e) { if (!e || e.code !== 'declined') showNotice('No se pudo descargar la imagen aquí'); }
+  });
+
   // First-run guide: shown until the viewer has a character, has set its energy and the recharge time.
   function paintGuide(rows) {
     const s1 = rows.length > 0;
@@ -1059,6 +1146,7 @@
     cards.hidden = view.rows.length === 0;
     paintSummary(view.rows);
     paintGuide(view.rows);
+    paintWeek(view.rows);
     paintCharts(view.rows);
 
     // Other members: read-only groups with their own orbs; ids are prefixed with the member id.
@@ -1340,8 +1428,8 @@
     }, onError);
     else { ui.loaded = true; render(); }
     // Legion: every member's characters (read-only for everyone but their owner).
-    // A view may hold 64 subscriptions; the page keeps 9 of its own, so at most 55 other members.
-    const MAX_OTHERS = 64 - 9;
+    // A view may hold 64 subscriptions; the page keeps 10 of its own, so at most 54 other members.
+    const MAX_OTHERS = 64 - 10;
     const memberSubs = new Map();
     db.collection('members').onSnapshot(async snap => {
       const all = snap.docs.map(d => d.id).filter(id => id !== myUid);
@@ -1359,6 +1447,13 @@
       if (user && ids.length) { try { const ps = await user.profiles(ids); for (const id of ids) state.names[id] = ps[id]?.name || ''; } catch {} }
       render();
     }, () => {});
+    let visitMarked = false;
+    if (my) db.doc(my.stats).onSnapshot(snap => {
+      state.stats = snap.exists ? { ...EMPTY_STATS, ...snap.data() } : { ...EMPTY_STATS };
+      render();
+      if (!visitMarked && !ui.readOnly && !state.stats.daysLog?.[todayKey()]) { visitMarked = true; setTimeout(() => bumpStats({}), 0); }
+      visitMarked = true;
+    }, onError);
     if (my) db.doc(my.tasks).onSnapshot(snap => {
       const items = snap.exists && Array.isArray(snap.data().items) ? snap.data().items : null;
       state.tasks = items ? items.filter(t => t && typeof t.name === 'string' && (t.kind === 'daily' || t.kind === 'weekly') && Number.isInteger(t.max)) : DEFAULT_TASKS;
