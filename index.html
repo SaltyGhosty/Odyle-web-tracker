@@ -188,8 +188,9 @@
   /* ---- Event timers ---- */
   .events summary { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 12px; cursor: pointer; list-style: none; }
   .events summary::-webkit-details-marker { display: none; }
-  .events summary::after { content: "▾"; margin-left: auto; color: var(--muted); }
-  .events[open] summary::after { content: "▴"; }
+  .events summary::after { content: "▾"; margin-left: auto; color: var(--muted); transition: transform .25s ease; }
+  .events[open] summary::after { transform: rotate(180deg); }
+  .events { overflow: hidden; }
   .events-next { color: var(--sky); font-size: .875rem; font-variant-numeric: tabular-nums; }
   .event-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 2px; }
   @media (min-width: 860px) { .event-list { grid-template-columns: repeat(2, minmax(0, 1fr)); column-gap: 24px; } }
@@ -229,6 +230,20 @@
     box-shadow: 0 8px 30px rgba(0, 0, 0, .5);
   }
   .toast span { overflow-wrap: anywhere; }
+
+  /* ---- Open/close animations (instant with reduced motion) ---- */
+  .drawer { transform: translateX(100%); transition: transform .28s cubic-bezier(.2, .7, .2, 1); }
+  .drawer.open { transform: none; }
+  .scrim { opacity: 0; transition: opacity .28s ease; }
+  .scrim.open { opacity: 1; }
+  .toast { opacity: 0; transform: translate(-50%, 16px); transition: opacity .22s ease, transform .22s ease; }
+  .toast.show { opacity: 1; transform: translate(-50%, 0); }
+  .pop { animation: pop .22s ease-out both; }
+  @keyframes pop { from { opacity: 0; transform: translateY(-4px); } to { opacity: 1; transform: none; } }
+  @media (prefers-reduced-motion: reduce) {
+    .drawer, .scrim, .toast, .events summary::after { transition: none; }
+    .pop { animation: none; }
+  }
 
   /* ---- Motion (only when allowed) ---- */
   @media (prefers-reduced-motion: no-preference) {
@@ -391,7 +406,7 @@
   const state = { characters: [], others: new Map(), names: {}, schedule: null, presets: [], events: [], prefs: { quietStart: '00:00', quietEnd: '08:00' } };
   // Interface-only state: which card is editing/confirming, validation messages.
   // noDb: no db in this view. readOnly: viewer cannot write (or a write was refused).
-  const ui = { menuOpen: false, editingId: null, extraId: null, confirmId: null, errors: {}, noDb: false, readOnly: false, loaded: false };
+  const ui = { pop: null, menuOpen: false, editingId: null, extraId: null, confirmId: null, errors: {}, noDb: false, readOnly: false, loaded: false };
 
   let db = null;
   let user = null;
@@ -485,14 +500,14 @@
   function showUndo(entry, text) {
     undo = entry;
     $('toast-text').textContent = text;
-    $('toast').hidden = false;
+    reveal($('toast'), 'show');
     clearTimeout(undoTimer);
-    undoTimer = setTimeout(() => { undo = null; $('toast').hidden = true; }, 8000);
+    undoTimer = setTimeout(() => { undo = null; conceal($('toast'), 'show'); }, 8000);
   }
   async function undoLast() {
     const u = undo;
     if (!u) return;
-    undo = null; clearTimeout(undoTimer); $('toast').hidden = true;
+    undo = null; clearTimeout(undoTimer); conceal($('toast'), 'show');
     await save(() => db.doc(my.characters + '/' + u.charId).update(u.prev), u.charId);
     if (u.eventId) await save(() => db.doc(my.events + '/' + u.eventId).delete());
   }
@@ -618,7 +633,7 @@
     } else if (editing) {
       const inputId = `energy-${row.id}`;
       const classId = `class-${row.id}`;
-      const form = el('form', { novalidate: true, onsubmit: async e => {
+      const form = el('form', { class: ui.pop === row.id ? 'pop' : '', novalidate: true, onsubmit: async e => {
         e.preventDefault();
         const r = parseEnergyInput($(inputId).value);
         if (!r.ok) { ui.errors[row.id] = r.error; return render(); }
@@ -641,7 +656,7 @@
       panel.append(form);
     } else if (ui.extraId === row.id) {
       const inputId = `extra-${row.id}`;
-      const form = el('form', { novalidate: true, onsubmit: async e => {
+      const form = el('form', { class: ui.pop === row.id ? 'pop' : '', novalidate: true, onsubmit: async e => {
         e.preventDefault();
         const r = parseExtraInput($(inputId).value);
         if (!r.ok) { ui.errors[row.id] = r.error; return render(); }
@@ -658,7 +673,7 @@
         el('button', { type: 'button', onclick: () => { ui.extraId = null; delete ui.errors[row.id]; render(); } }, 'Cancelar')));
       panel.append(form);
     } else if (confirming) {
-      panel.append(el('p', { class: 'confirm-text' }, `¿Quitar a ${row.name}?`));
+      panel.append(el('p', { class: `confirm-text ${ui.pop === row.id ? 'pop' : ''}` }, `¿Quitar a ${row.name}?`));
       panel.append(el('div', { class: 'row' },
         el('button', { type: 'button', class: 'danger', onclick: async () => { if (!await removeCharacter(row.id)) return; ui.confirmId = null; render(); } }, 'Sí, quitar'),
         el('button', { type: 'button', onclick: () => { ui.confirmId = null; render(); } }, 'Cancelar')));
@@ -666,10 +681,10 @@
       if (err) panel.append(errorLine(`err-${row.id}`, err));
       panel.append(el('div', { class: 'spend-row' },
         ...state.presets.map(p => el('button', { type: 'button', class: 'spend', disabled: busy.has(row.id), onclick: () => spend(row, p) }, `${p.name} −${p.cost}`)),
-        el('button', { type: 'button', class: 'extra', disabled: busy.has(row.id), onclick: () => { ui.extraId = row.id; ui.editingId = ui.confirmId = null; delete ui.errors[row.id]; render(); $('extra-' + row.id)?.focus(); } }, '+ Extra')));
+        el('button', { type: 'button', class: 'extra', disabled: busy.has(row.id), onclick: () => { ui.pop = row.id; ui.extraId = row.id; ui.editingId = ui.confirmId = null; delete ui.errors[row.id]; render(); $('extra-' + row.id)?.focus(); } }, '+ Extra')));
       panel.append(el('div', { class: 'row' },
-        el('button', { type: 'button', class: 'primary', onclick: () => { ui.editingId = row.id; ui.confirmId = ui.extraId = null; delete ui.errors[row.id]; render(); $('energy-' + row.id)?.select(); } }, 'Actualizar'),
-        el('button', { type: 'button', class: 'remove', onclick: () => { ui.confirmId = row.id; ui.editingId = ui.extraId = null; render(); } }, 'Quitar')));
+        el('button', { type: 'button', class: 'primary', onclick: () => { ui.pop = row.id; ui.editingId = row.id; ui.confirmId = ui.extraId = null; delete ui.errors[row.id]; render(); $('energy-' + row.id)?.select(); } }, 'Actualizar'),
+        el('button', { type: 'button', class: 'remove', onclick: () => { ui.pop = row.id; ui.confirmId = row.id; ui.editingId = ui.extraId = null; render(); } }, 'Quitar')));
     }
     card.append(panel);
     return card;
@@ -776,7 +791,8 @@
     const cards = $('cards');
     const draft = new Map();
     for (const input of cards.querySelectorAll('input, select')) draft.set(input.id, input.value);
-    cards.replaceChildren(...view.rows.map(cardNode));
+    cards.replaceChildren(...view.rows.map((r, i) => cardNode(r, i)));
+    ui.pop = null; // pop-in plays once, not on later repaints
     for (const input of cards.querySelectorAll('input, select')) if (draft.has(input.id)) input.value = draft.get(input.id);
     $('empty').hidden = ui.noDb || view.rows.length > 0 || !ui.loaded;
     $('empty').textContent = ui.readOnly ? 'Aún no hay personajes.' : 'Aún no hay personajes. Añádelo desde el menú ☰.';
@@ -834,19 +850,53 @@
   // ---- Events ----
   $('add-class').replaceWith(classSelect('add-class', null));
   if (matchMedia('(min-width: 860px)').matches) $('events').open = true;
+  // Show/hide with a CSS transition: unhide, then add the class next frame; on hide, remove the
+  // class and hide once the transition is over (immediately with reduced motion).
+  const ANIM_MS = reduceMotion ? 0 : 300;
+  const hideTimers = new WeakMap();
+  function reveal(node, cls) {
+    clearTimeout(hideTimers.get(node));
+    node.hidden = false;
+    node.getBoundingClientRect(); // commit the start state
+    node.classList.add(cls);
+  }
+  function conceal(node, cls) {
+    node.classList.remove(cls);
+    hideTimers.set(node, setTimeout(() => { node.hidden = true; }, ANIM_MS));
+  }
+
   // Hamburger drawer: Esc / scrim / ✕ close it; focus moves in and back to ☰; Tab stays inside.
   function openMenu() {
     ui.menuOpen = true;
-    $('drawer').hidden = false; $('scrim').hidden = false;
+    reveal($('drawer'), 'open'); reveal($('scrim'), 'open');
     $('menu-btn').setAttribute('aria-expanded', 'true');
-    $('add-name').focus();
+    $('add-name').focus({ preventScroll: true });
   }
   function closeMenu() {
     ui.menuOpen = false;
-    $('drawer').hidden = true; $('scrim').hidden = true;
+    conceal($('drawer'), 'open'); conceal($('scrim'), 'open');
     $('menu-btn').setAttribute('aria-expanded', 'false');
     if (!$('menu-btn').hidden) $('menu-btn').focus();
   }
+
+  // Events panel: animate the height when opening/closing instead of jumping.
+  $('events').querySelector('summary').addEventListener('click', e => {
+    const box = $('events');
+    if (reduceMotion || !box.animate) return; // native instant toggle
+    e.preventDefault();
+    const summaryH = box.querySelector('summary').offsetHeight + parseFloat(getComputedStyle(box).paddingTop) * 2;
+    const from = box.offsetHeight;
+    if (!box.open) {
+      box.open = true;
+      const to = box.offsetHeight;
+      box.animate([{ height: from + 'px' }, { height: to + 'px' }], { duration: 260, easing: 'cubic-bezier(.2,.7,.2,1)' });
+      $('event-list').animate([{ opacity: 0 }, { opacity: 1 }], { duration: 260 });
+    } else {
+      const a = box.animate([{ height: from + 'px' }, { height: summaryH + 'px' }], { duration: 220, easing: 'ease-in' });
+      $('event-list').animate([{ opacity: 1 }, { opacity: 0 }], { duration: 200, fill: 'forwards' });
+      a.onfinish = () => { box.open = false; };
+    }
+  });
   $('menu-btn').addEventListener('click', () => ui.menuOpen ? closeMenu() : openMenu());
   $('drawer-close').addEventListener('click', closeMenu);
   $('scrim').addEventListener('click', closeMenu);
@@ -862,6 +912,8 @@
   });
   $('undo').addEventListener('click', undoLast);
   $('sound-toggle').checked = sound.enabled();
+  // after a reload, audio can only start after a gesture: wake it on the first tap if sound is on
+  document.addEventListener('pointerdown', () => { if (sound.enabled()) sound.setEnabled(true); }, { once: true });
   $('sound-toggle').addEventListener('change', e => { sound.setEnabled(e.target.checked); if (e.target.checked) sound.chime(); });
 
   let paintedPresets = '';
