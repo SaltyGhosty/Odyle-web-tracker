@@ -160,6 +160,14 @@
     font-weight: 500; font-size: 1rem; background: var(--glass);
   }
 
+  /* ---- First-run guide ---- */
+  .guide-steps { margin: 0; padding: 0; list-style: none; display: flex; flex-direction: column; gap: 8px; counter-reset: step; }
+  .guide-steps li { display: flex; align-items: center; gap: 10px; counter-increment: step; }
+  .guide-steps li::before { content: counter(step); width: 26px; height: 26px; flex: none; border-radius: 50%; display: grid; place-items: center;
+    border: 1px solid var(--gold); color: var(--gold-bright); font-weight: 700; font-size: .8125rem; }
+  .guide-steps li.done::before { content: "✓"; background: var(--gold); color: var(--on-gold); }
+  .guide-steps li.done button { text-decoration: line-through; opacity: .6; }
+
   /* ---- Legion ---- */
   .group-title { font-size: 1rem; color: var(--muted); letter-spacing: .08em; text-transform: uppercase; margin: 4px 0 -8px; }
   .legion { display: flex; flex-direction: column; gap: 20px; }
@@ -334,6 +342,15 @@
   <section class="grid" id="cards" aria-label="Personajes"></section>
   <section class="legion" id="legion" aria-label="Legión"></section>
   <p class="empty" id="empty" hidden>Aún no hay personajes. Añádelo desde el menú ☰.</p>
+
+  <section class="panel guide" id="guide" aria-labelledby="guide-title" hidden>
+    <h2 id="guide-title">Empieza en 3 pasos</h2>
+    <ol class="guide-steps">
+      <li id="step-1"><button type="button" data-step="1">Añade tu personaje</button></li>
+      <li id="step-2"><button type="button" data-step="2">Pon su energía actual</button></li>
+      <li id="step-3"><button type="button" data-step="3">Ajusta cuánto falta para la recarga</button></li>
+    </ol>
+  </section>
 
   <section class="panel chart-panel" id="forecast-panel" aria-labelledby="forecast-title" hidden>
     <h2 id="forecast-title">Próximos 7 días</h2>
@@ -835,6 +852,26 @@
     if (!$('history-panel').hidden) renderHistory($('history'), dailySpent(state.events, now, new Date().getTimezoneOffset()));
   }
 
+  // First-run guide: shown until the viewer has a character, has set its energy and the recharge time.
+  function paintGuide(rows) {
+    const s1 = rows.length > 0;
+    const s2 = state.characters.some(c => c.energy > 0);
+    const s3 = !!(state.schedule && Number.isFinite(state.schedule.anchorMs));
+    const show = ui.loaded && my && !ui.readOnly && !(s1 && s2 && s3);
+    $('guide').hidden = !show;
+    [s1, s2, s3].forEach((d, i) => $('step-' + (i + 1)).classList.toggle('done', d));
+  }
+  $('guide').addEventListener('click', e => {
+    const b = e.target.closest('[data-step]'); if (!b) return;
+    const step = b.dataset.step;
+    if (step === '1') { openMenu(); $('add-name').focus(); }
+    else if (step === '2') {
+      const first = buildView(state.characters, state.schedule, Date.now()).rows[0];
+      if (!first) { openMenu(); return; }
+      ui.pop = first.id; ui.editingId = first.id; render(); $('energy-' + first.id)?.select();
+    } else { openMenu(); $('adjust-minutes').focus(); $('adjust-minutes').scrollIntoView({ block: 'center' }); }
+  });
+
   function paintSummary(rows) {
     const box = $('summary');
     box.hidden = rows.length === 0;
@@ -954,6 +991,7 @@
     $('empty').textContent = ui.readOnly ? 'Aún no hay personajes.' : 'Aún no hay personajes. Añádelo desde el menú ☰.';
     cards.hidden = view.rows.length === 0;
     paintSummary(view.rows);
+    paintGuide(view.rows);
     paintCharts(view.rows);
 
     // Other members: read-only groups with their own orbs; ids are prefixed with the member id.
