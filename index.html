@@ -410,15 +410,29 @@
   // Every energy change writes the character and one event (the spend log), and can be undone for 8 s.
   let undo = null;
   let undoTimer = 0;
-  async function changeEnergy(row, energy, event, extra = {}) {
-    const before = state.characters.find(c => c.id === row.id);
-    if (!before) return false;
+  // busy: characters with a write in flight; cleared when the snapshot shows our write (or after 4 s),
+  // so a double tap can't spend twice from the same stale value.
+  const busy = new Map();
+  const freshRow = id => buildView(state.characters, state.schedule, Date.now()).rows.find(r => r.id === id);
+  async function changeEnergy(id, compute, extra = {}) {
+    if (busy.has(id)) return false;
+    const row = freshRow(id);
+    const before = state.characters.find(c => c.id === id);
+    if (!row || !before) return false;
+    const plan = compute(row);
+    if (!plan) return false;
+    const { energy, event, label } = plan;
     const prev = { energy: before.energy, recordedAt: before.recordedAt, classId: before.classId ?? null };
     const at = Date.now();
-    if (!await save(() => db.doc(my.characters + '/' + row.id).update({ energy, recordedAt: at, ...extra }), row.id)) return false;
+    busy.set(id, at);
+    setTimeout(() => { if (busy.get(id) === at) { busy.delete(id); render(); } }, 4000);
+    render();
+    if (!await save(() => db.doc(my.characters + '/' + id).update({ energy, recordedAt: at, ...extra }), id)) { busy.delete(id); render(); return false; }
     const evRef = db.collection(my.events).doc();
-    await save(() => evRef.set({ at, characterId: row.id, presetId: null, ...event }));
-    showUndo({ charId: row.id, prev, eventId: evRef.id }, event.label);
+    let eventId = evRef.id;
+    try { await write(() => evRef.set({ at, characterId: id, presetId: null, ...event })); }
+    catch { eventId = null; showNotice('Se guardó la energía, pero no se pudo registrar en el historial'); }
+    showUndo({ charId: id, prev, eventId }, label);
     return true;
   }
   function showUndo(entry, text) {
@@ -433,20 +447,22 @@
     if (!u) return;
     undo = null; clearTimeout(undoTimer); $('toast').hidden = true;
     await save(() => db.doc(my.characters + '/' + u.charId).update(u.prev), u.charId);
-    await save(() => db.doc(my.events + '/' + u.eventId).delete());
+    if (u.eventId) await save(() => db.doc(my.events + '/' + u.eventId).delete());
   }
-  const updateCharacter = (row, value, classId) =>
-    changeEnergy(row, value, { kind: 'set', amount: value - row.energy, label: `${row.name}: energía puesta en ${value}` }, { classId });
+  const updateCharacter = (row, value, classId) => changeEnergy(row.id, r => ({
+    energy: value, event: { kind: 'set', amount: value - r.energy }, label: `${r.name}: energía puesta en ${value}` }), { classId });
   function spend(row, preset) {
-    const r = applyDelta(row.energy, -preset.cost);
-    if (!r.ok) { ui.errors[row.id] = r.error; render(); return; }
-    delete ui.errors[row.id];
-    changeEnergy(row, r.energy, { kind: 'spend', amount: preset.cost, presetId: preset.id, label: `Gastaste ${preset.cost} en ${row.name}` });
+    return changeEnergy(row.id, r => {
+      const d = applyDelta(r.energy, -preset.cost);
+      if (!d.ok) { ui.errors[row.id] = d.error; render(); return null; }
+      delete ui.errors[row.id];
+      return { energy: d.energy, event: { kind: 'spend', amount: preset.cost, presetId: preset.id }, label: `Gastaste ${preset.cost} en ${r.name}` };
+    });
   }
-  async function addExtra(row, value) {
-    const r = applyDelta(row.energy, value);
-    return r.ok && changeEnergy(row, r.energy, { kind: 'extra', amount: value, label: `+${value} de energía extra en ${row.name}` });
-  }
+  const addExtra = (row, value) => changeEnergy(row.id, r => {
+    const d = applyDelta(r.energy, value);
+    return d.ok ? { energy: d.energy, event: { kind: 'extra', amount: value }, label: `+${value} de energía extra en ${r.name}` } : null;
+  });
   const savePresets = items => save(() => db.doc(my.presets).set({ items }));
   const resyncTick = minutes => save(() => db.doc('settings/schedule').set({ anchorMs: anchorFromCountdown(Date.now(), minutes) }));
   const removeCharacter = id => save(() => db.doc(my.characters + '/' + id).delete(), id);
@@ -602,8 +618,8 @@
     } else {
       if (err) panel.append(errorLine(`err-${row.id}`, err));
       panel.append(el('div', { class: 'spend-row' },
-        ...state.presets.map(p => el('button', { type: 'button', class: 'spend', onclick: () => spend(row, p) }, `${p.name} −${p.cost}`)),
-        el('button', { type: 'button', class: 'extra', onclick: () => { ui.extraId = row.id; ui.editingId = ui.confirmId = null; delete ui.errors[row.id]; render(); $('extra-' + row.id)?.focus(); } }, '+ Extra')));
+        ...state.presets.map(p => el('button', { type: 'button', class: 'spend', disabled: busy.has(row.id), onclick: () => spend(row, p) }, `${p.name} −${p.cost}`)),
+        el('button', { type: 'button', class: 'extra', disabled: busy.has(row.id), onclick: () => { ui.extraId = row.id; ui.editingId = ui.confirmId = null; delete ui.errors[row.id]; render(); $('extra-' + row.id)?.focus(); } }, '+ Extra')));
       panel.append(el('div', { class: 'row' },
         el('button', { type: 'button', class: 'primary', onclick: () => { ui.editingId = row.id; ui.confirmId = ui.extraId = null; delete ui.errors[row.id]; render(); $('energy-' + row.id)?.select(); } }, 'Actualizar'),
         el('button', { type: 'button', class: 'remove', onclick: () => { ui.confirmId = row.id; ui.editingId = ui.extraId = null; render(); } }, 'Quitar')));
@@ -691,7 +707,7 @@
     cards.replaceChildren(...view.rows.map(cardNode));
     for (const input of cards.querySelectorAll('input, select')) if (draft.has(input.id)) input.value = draft.get(input.id);
     $('empty').hidden = ui.noDb || view.rows.length > 0 || !ui.loaded;
-    $('empty').textContent = ui.readOnly ? 'Aún no hay personajes.' : 'Aún no hay personajes. Añade el primero.';
+    $('empty').textContent = ui.readOnly ? 'Aún no hay personajes.' : 'Aún no hay personajes. Añádelo desde el menú ☰.';
     cards.hidden = view.rows.length === 0;
     paintSummary(view.rows);
 
@@ -753,16 +769,21 @@
     if (e.key !== 'Tab') return;
     const f = [...$('drawer').querySelectorAll('button, input, select')].filter(x => !x.disabled && x.offsetParent !== null);
     if (!f.length) return;
+    if (!$('drawer').contains(document.activeElement)) { e.preventDefault(); f[0].focus(); return; }
     if (e.shiftKey && document.activeElement === f[0]) { e.preventDefault(); f.at(-1).focus(); }
     else if (!e.shiftKey && document.activeElement === f.at(-1)) { e.preventDefault(); f[0].focus(); }
   });
   $('undo').addEventListener('click', undoLast);
 
+  let paintedPresets = '';
   function paintPresets() {
+    const key = JSON.stringify(state.presets);
+    if (key === paintedPresets) return; // keep focus on the list's buttons across repaints
+    paintedPresets = key;
     const list = $('preset-list');
     list.replaceChildren(...(state.presets.length ? state.presets.map(p => el('li', {},
       el('span', {}, `${p.name} · ${p.cost}`),
-      el('button', { type: 'button', 'aria-label': `Quitar ${p.name}`, onclick: () => savePresets(state.presets.filter(x => x.id !== p.id)) }, '✕')))
+      el('button', { type: 'button', id: `preset-del-${p.id}`, 'aria-label': `Quitar ${p.name}`, onclick: () => savePresets(state.presets.filter(x => x.id !== p.id)) }, '✕')))
       : [el('li', { class: 'muted' }, 'Aún no hay botones. Crea uno, p. ej. "Mazmorra" con coste 40.')]));
   }
   const TIME = /^([01]\d|2[0-3]):[0-5]\d$/;
@@ -868,6 +889,7 @@
     const onError = () => { ui.noDb = true; ui.loaded = true; render(); };
     if (my) db.collection(my.characters).onSnapshot(snap => {
       state.characters = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+      for (const c of state.characters) if (busy.get(c.id) === c.recordedAt) busy.delete(c.id);
       ui.loaded = true;
       render();
     }, onError);

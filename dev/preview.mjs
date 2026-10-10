@@ -19,7 +19,8 @@ const STUB = () => {
   }
   window.__docs = docs;
   const me = (seed && seed.me) || 'u_me';
-  const notify = () => subs.forEach(f => f());
+  const notify = () => { const d = seed && seed.delay; d ? setTimeout(() => subs.forEach(f => f()), d) : subs.forEach(f => f()); };
+  window.__notify = () => subs.forEach(f => f());
   const parentOf = k => k.slice(0, k.lastIndexOf('/'));
   const snapDoc = path => ({ id: path.split('/').pop(), exists: docs.has(path), data: () => docs.get(path) });
   const query = name => ({ docs: [...docs.keys()].filter(k => parentOf(k) === name).map(snapDoc) });
@@ -27,7 +28,7 @@ const STUB = () => {
     id: path.split('/').pop(), path,
     get: async () => snapDoc(path),
     update: async d => { if (!docs.has(path)) throw { code: 'invalid_argument' }; docs.set(path, { ...docs.get(path), ...d }); notify(); },
-    set: async d => { docs.set(path, { ...d }); notify(); },
+    set: async d => { if (seed && seed.failEvents && path.includes('/events/')) throw { code: 'invalid_argument' }; docs.set(path, { ...d }); notify(); },
     delete: async () => { docs.delete(path); notify(); },
     onSnapshot(next) { const f = () => next(snapDoc(path)); subs.add(f); setTimeout(f, seed ? 400 : 0); return () => subs.delete(f); },
     collection: sub => collection(path + '/' + sub),
@@ -264,6 +265,45 @@ for (const [label, width, height] of [['mobile', 390, 844], ['desktop', 1280, 80
   check('events: Shugo shows "En curso" at 18:05 UTC', shugo.includes('En curso'));
   const daily = await page.locator('.event-row[data-event=daily]').textContent().catch(() => '');
   check('events: daily reset counts down', daily.includes('Empieza en'));
+  await ctx.close();
+}
+// Phase A fixes: double tap, failed event write, menu focus across repaints, empty-page hint.
+{
+  const mk = async (seedFn) => {
+    const ctx = await browser.newContext({ viewport: { width: 1280, height: 800 }, colorScheme: 'dark' });
+    const page = await ctx.newPage();
+    await page.route(THREE_URL, r => r.fulfill({ contentType: 'text/javascript', body: THREE_SRC }));
+    page.on('pageerror', e => errors.push(`fixesA: ${e.message}`));
+    await page.addInitScript(seedFn);
+    await page.addInitScript(STUB);
+    await page.goto(BASE);
+    await page.waitForTimeout(1500);
+    return { ctx, page };
+  };
+  const base = (extra) => `(() => { const now = Date.now(); window.__SEED = Object.assign({ charPath: 'members/u_me/characters',
+    characters: { a: { name: 'Uno', classId: 'asesino', energy: 612, recordedAt: now, order: 1 } }, schedule: { anchorMs: now + 3600000 },
+    docs: { 'members/u_me': { joinedAt: 1 }, 'members/u_me/settings/presets': { items: [{ id: 'p1', name: 'Mazmorra', cost: 40 }] } } }, ${extra}); })()`;
+  let { ctx, page } = await mk(base('{ delay: 300 }'));
+  await page.dblclick('article[data-id=a] button.spend');
+  await page.waitForTimeout(1500);
+  const evs = await page.evaluate(() => [...window.__docs.keys()].filter(k => k.includes('/events/')).length);
+  check('double tap: one spend logged and −40 once', evs === 1 && (await page.locator('article[data-id=a] .num').textContent()) === '572');
+  await ctx.close();
+  ({ ctx, page } = await mk(base('{ failEvents: true }')));
+  await page.click('article[data-id=a] button.spend');
+  await page.waitForTimeout(1000);
+  const notice = (await page.locator('#notice').textContent()) || '';
+  check('failed event write: page stays editable and says the log failed', await page.locator('article[data-id=a] button.spend').count() === 1 && notice.includes('historial'));
+  await ctx.close();
+  ({ ctx, page } = await mk(base('{}')));
+  await page.click('#menu-btn');
+  await page.focus('#preset-del-p1').catch(() => {});
+  await page.evaluate(() => window.__notify());
+  await page.waitForTimeout(300);
+  check('menu: focus survives a repaint', await page.evaluate(() => document.activeElement?.id === 'preset-del-p1'));
+  await ctx.close();
+  ({ ctx, page } = await mk(`(() => { window.__SEED = { charPath: 'members/u_me/characters', characters: {}, schedule: null, docs: { 'members/u_me': { joinedAt: 1 } } }; })()`));
+  check('empty page points to the ☰ menu', ((await page.locator('#empty').textContent()) || '').includes('☰'));
   await ctx.close();
 }
 // Migration: old shared 'characters' move into members/u_me/characters, once, intact.
