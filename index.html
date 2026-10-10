@@ -381,6 +381,34 @@
   .wall-list .w-head { flex: 1; }
   .wall-list button { padding: 2px 8px; min-height: 28px; font-size: .75rem; }
 
+  /* ---- AI assistant ---- */
+  .sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+  .ai-fab { position: fixed; z-index: 8; right: 16px; bottom: 16px; border-radius: 999px; padding: 10px 16px; font-weight: 600;
+    background: var(--glass-strong); border-color: var(--gold); color: var(--gold-bright); box-shadow: 0 0 20px rgba(232, 184, 90, .3);
+    -webkit-backdrop-filter: blur(10px); backdrop-filter: blur(10px); }
+  .ai-panel { position: fixed; z-index: 9; right: 16px; bottom: 70px; width: min(400px, calc(100vw - 32px)); height: min(560px, calc(100vh - 100px));
+    display: flex; flex-direction: column; gap: 8px; padding: 12px; border-radius: 16px; border: 1px solid var(--line);
+    background: var(--glass-strong); -webkit-backdrop-filter: blur(14px); backdrop-filter: blur(14px); box-shadow: 0 12px 40px rgba(0, 0, 0, .55);
+    opacity: 0; transform: translateY(12px) scale(.98); transform-origin: bottom right; transition: opacity .22s ease, transform .22s ease; }
+  .ai-panel.open { opacity: 1; transform: none; }
+  @media (prefers-reduced-motion: reduce) { .ai-panel { transition: none; } }
+  .ai-head { display: flex; align-items: center; gap: 6px; }
+  .ai-head h2 { flex: 1; margin: 0; }
+  .ai-head button { padding: 4px 10px; min-height: 32px; }
+  .ai-log { flex: 1; overflow-y: auto; display: flex; flex-direction: column; gap: 8px; padding-right: 4px; }
+  .ai-msg { margin: 0; padding: 8px 12px; border-radius: 12px; font-size: .875rem; line-height: 1.5; max-width: 92%; overflow-wrap: anywhere; }
+  .ai-msg.user { align-self: flex-end; background: rgba(124, 200, 255, .14); border: 1px solid rgba(124, 200, 255, .35); white-space: pre-wrap; }
+  .ai-msg.bot { align-self: flex-start; background: rgba(255, 255, 255, .05); border: 1px solid var(--line); }
+  .ai-msg.bot p { margin: 0 0 6px; } .ai-msg.bot p:last-child { margin: 0; }
+  .ai-msg.bot ul { margin: 0 0 6px; padding-left: 18px; }
+  .ai-msg.err { color: var(--danger); border-color: var(--danger); }
+  .ai-msg.wait { color: var(--muted); font-style: italic; }
+  .ai-quick { display: flex; flex-wrap: wrap; gap: 6px; }
+  .ai-quick button { padding: 4px 10px; min-height: 30px; font-size: .75rem; border-radius: 999px; }
+  .ai-form { display: flex; gap: 6px; align-items: flex-end; }
+  .ai-form textarea { min-height: 44px; max-height: 120px; flex: 1; }
+  body.toast-up .ai-fab { bottom: 84px; }
+
   /* ---- Custom timers ---- */
   .timer-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
   .timer-list:empty { display: none; }
@@ -691,6 +719,29 @@
   <button type="button" id="alert-close" aria-label="Cerrar aviso">✕</button>
 </div>
 
+<button type="button" id="ai-fab" class="ai-fab" aria-expanded="false" aria-controls="ai-panel" hidden>✦ Asistente</button>
+<section id="ai-panel" class="ai-panel" role="dialog" aria-labelledby="ai-title" hidden>
+  <div class="ai-head">
+    <h2 id="ai-title">Asistente</h2>
+    <button type="button" id="ai-clear" aria-label="Nueva conversación" title="Nueva conversación">↺</button>
+    <button type="button" id="ai-close" aria-label="Cerrar asistente">✕</button>
+  </div>
+  <div class="ai-log" id="ai-log" aria-live="polite">
+    <p class="ai-msg bot intro">Hola, soy tu asistente. Conozco tus personajes, su energía, tus tareas, los eventos y el calendario de la legión. Pregúntame lo que quieras.</p>
+  </div>
+  <div class="ai-quick" id="ai-quick">
+    <button type="button" data-q="¿Qué hago hoy?">¿Qué hago hoy?</button>
+    <button type="button" data-q="¿Con quién juego primero?">¿Con quién juego primero?</button>
+    <button type="button" data-q="¿Voy a desperdiciar OD esta semana?">¿Voy a desperdiciar OD esta semana?</button>
+  </div>
+  <form id="ai-form" class="ai-form" novalidate>
+    <label for="ai-input" class="sr-only">Mensaje para el asistente</label>
+    <textarea id="ai-input" rows="2" maxlength="1000" placeholder="Escribe tu pregunta…"></textarea>
+    <button type="submit" class="primary" id="ai-send">Enviar</button>
+    <button type="button" id="ai-stop" hidden>Detener</button>
+  </form>
+</section>
+
 <div id="keys-help" class="keys-help" role="dialog" aria-modal="true" aria-labelledby="keys-title" hidden>
   <div class="panel">
     <div class="drawer-head"><h2 id="keys-title">Atajos de teclado</h2><button type="button" id="keys-close" aria-label="Cerrar">✕</button></div>
@@ -842,14 +893,14 @@
   function showUndo(entry, text) {
     undo = entry;
     $('toast-text').textContent = text;
-    reveal($('toast'), 'show');
+    reveal($('toast'), 'show'); document.body.classList.add('toast-up');
     clearTimeout(undoTimer);
-    undoTimer = setTimeout(() => { undo = null; conceal($('toast'), 'show'); }, 8000);
+    undoTimer = setTimeout(() => { undo = null; (conceal($('toast'), 'show'), document.body.classList.remove('toast-up')); }, 8000);
   }
   async function undoLast() {
     const u = undo;
     if (!u) return;
-    undo = null; clearTimeout(undoTimer); conceal($('toast'), 'show');
+    undo = null; clearTimeout(undoTimer); (conceal($('toast'), 'show'), document.body.classList.remove('toast-up'));
     await save(() => db.doc(my.characters + '/' + u.charId).update(u.prev), u.charId);
     if (u.eventId) await save(() => db.doc(my.events + '/' + u.eventId).delete());
   }
@@ -2138,6 +2189,141 @@
     $('online-panel').scrollIntoView({ block: 'start', behavior: reduceMotion ? 'auto' : 'smooth' });
   });
 
+  // ---- AI assistant (Claude via `sample`). The chat lives in this page only; each call sends the
+  // instructions + a fresh summary of the viewer's data + the recent turns. Replies are plain text. ----
+  let sample = null, aiCtl = null;
+  const aiTurns = []; // [{role, content}] oldest first; capped
+  const LANG_NAMES = { es: 'Spanish', en: 'English', it: 'Italian', pt: 'Portuguese' };
+  const iso = ms => ms == null ? null : new Date(ms).toLocaleString(LOCALE, { weekday: 'short', day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
+  function aiContext() {
+    const now = Date.now();
+    const rows = buildView(state.characters, state.schedule, now).rows;
+    const anchor = state.schedule && Number.isFinite(state.schedule.anchorMs) ? state.schedule.anchorMs : null;
+    const cost = state.presets[0]?.cost ?? 40;
+    const eod = new Date(); eod.setHours(23, 59, 59, 999);
+    const byId = new Map(state.characters.map(c => [c.id, c]));
+    const characters = rows.map(r => {
+      const c = byId.get(r.id) || {};
+      const prog = progressFor(state.progress.get(r.id), state.tasks, now);
+      const runs = runsToday(r.energy, cost, anchor, now, eod.getTime());
+      const waste = wasteWarning(r.fullAtMs, now, { start: state.prefs.quietStart, end: state.prefs.quietEnd }, new Date().getTimezoneOffset());
+      return { name: r.name, class: classById(r.classId)?.name || null, energy: r.energy, max: r.max, full: r.isFull, fullAt: iso(r.fullAtMs),
+        dungeonsNow: runs.now, dungeonsByMidnight: runs.byMidnight, wasteWarning: waste ? { lossOD: waste.lossOD, playBefore: iso(waste.deadlineMs) } : null,
+        combatPower: Number.isFinite(c.cp) ? c.cp : null, combatPowerGoal: c.cpGoal || null,
+        pendingTasks: state.tasks.filter(t => prog[t.id] < t.max).map(t => `${t.name} (${t.kind}, ${prog[t.id]}/${t.max})`),
+        notes: typeof c.notes === 'string' ? c.notes.slice(0, 200) : '' };
+    });
+    const fav = new Set(state.prefs.favEvents);
+    const events = EVENTS.map(e => ({ e, o: nextOccurrence(e, now) })).sort((a, b) => a.o.startMs - b.o.startMs).slice(0, 10)
+      .map(({ e, o }) => ({ name: e.name, running: o.active, starts: iso(o.startMs), ends: iso(o.endMs), favourite: fav.has(e.id) }));
+    const calendar = state.calendar.filter(c => c.at + c.durationMin * 60_000 > now).sort((a, b) => a.at - b.at).slice(0, 8)
+      .map(c => ({ title: c.title, starts: iso(c.at), minutes: c.durationMin, myAnswer: c.rsvp?.[myUid] || 'none', going: Object.values(c.rsvp || {}).filter(v => v === 'yes').length }));
+    const stats = { ...EMPTY_STATS, ...(state.stats || {}) };
+    return {
+      now: iso(now), nextRecharge: anchor === null ? null : iso(nextTickAt(anchor, now)),
+      rules: 'Odyle energy (OD): +15 every 3 hours for every character at the same moment, maximum 840; energy above 840 is lost.',
+      spendButtons: state.presets.map(p => `${p.name}: ${p.cost} OD`), characters, events, legionCalendar: calendar,
+      timers: state.timers.filter(t => t.endsAt > now).map(t => ({ name: t.name, ends: iso(t.endsAt) })),
+      week: { odSpent: weekTotals(stats.daysLog, todayKey()).spent, streakDays: streak(stats.daysLog, todayKey()) },
+      onlineNow: peers.filter(p => p.kind === 'viewer' && !p.isMe).length,
+    };
+  }
+  function aiInstructions() {
+    return `You are the assistant inside "Energía Odyle", an unofficial fan-made tracker for the game Aion 2. ` +
+      `The player's current data is below as JSON (times are in the player's local time). ` +
+      `Answer in ${LANG_NAMES[LANG] || 'Spanish'}, briefly and concretely (a few short sentences or a short list), using the data: name characters, give numbers and times. ` +
+      `Recommend what to do first, who to play to avoid wasting OD, which tasks and events matter. ` +
+      `If something is not in the data or you are not sure about a game fact, say so instead of inventing it. Do not include links. ` +
+      `Use plain text; you may use "- " for list items and **bold**.\n\nDATA:\n${JSON.stringify(aiContext())}`;
+  }
+  // Minimal safe rendering: paragraphs, "- " lists and **bold**, all as text nodes.
+  function aiRender(node, text) {
+    node.replaceChildren();
+    let list = null;
+    const inline = (parent, line) => line.split(/(\*\*[^*]+\*\*)/).forEach(part => {
+      if (/^\*\*[^*]+\*\*$/.test(part)) parent.append(el('strong', {}, part.slice(2, -2))); else if (part) parent.append(part);
+    });
+    for (const raw of text.split('\n')) {
+      const line = raw.trim();
+      if (!line) { list = null; continue; }
+      const m = line.match(/^(?:[-*•]|\d+[.)])\s+(.*)$/);
+      if (m) { if (!list) { list = el('ul'); node.append(list); } const li = el('li'); inline(li, m[1]); list.append(li); }
+      else { list = null; const p = el('p'); inline(p, line.replace(/^#+\s*/, '')); node.append(p); }
+    }
+  }
+  const aiScroll = () => { const log = $('ai-log'); log.scrollTop = log.scrollHeight; };
+  function aiBusy(on) {
+    $('ai-send').hidden = on; $('ai-stop').hidden = !on;
+    for (const b of $('ai-quick').querySelectorAll('button')) b.disabled = on;
+  }
+  const AI_ERRORS = {
+    rate_limited: 'Demasiadas preguntas seguidas o límite de uso alcanzado. Prueba más tarde.',
+    session_expired: 'Tu sesión ha caducado; vuelve a iniciar sesión.',
+    refused: 'No puedo responder a eso. Prueba a preguntarlo de otra forma.',
+    empty_completion: 'No obtuve respuesta. Prueba a reformular la pregunta.',
+    prompt_too_large: 'La conversación es demasiado larga. Empieza una nueva con ↺.',
+  };
+  const AI_HIDE = new Set(['not_granted', 'sampling_disabled', 'not_declared', 'capability_disabled', 'capability_removed']);
+  async function aiAsk(question) {
+    const q = String(question).trim().slice(0, 1000);
+    if (!q || !sample || aiCtl) return;
+    $('ai-quick').hidden = true;
+    $('ai-log').append(el('p', { class: 'ai-msg user', translate: 'no' }, q));
+    const out = el('div', { class: 'ai-msg bot wait', translate: 'no' }, tr('Pensando…'));
+    $('ai-log').append(out); aiScroll();
+    aiTurns.push({ role: 'user', content: q });
+    while (aiTurns.length > 12) aiTurns.shift();
+    while (aiTurns[0] && aiTurns[0].role !== 'user') aiTurns.shift();
+    aiCtl = new AbortController();
+    aiBusy(true);
+    let shownText = '';
+    try {
+      const res = await sample([{ role: 'user', content: aiInstructions() }, ...aiTurns], {
+        signal: aiCtl.signal, cache: false,
+        onText: ({ text }) => { shownText = text; out.classList.remove('wait'); aiRender(out, text); aiScroll(); },
+      });
+      shownText = res.text;
+      out.classList.remove('wait'); aiRender(out, res.text);
+      aiTurns.push({ role: 'assistant', content: res.text });
+    } catch (e) {
+      const code = e && e.code;
+      out.classList.remove('wait');
+      if (code === 'cancelled') {
+        if (e.text || shownText) { aiRender(out, e.text || shownText); aiTurns.push({ role: 'assistant', content: e.text || shownText }); }
+        else out.remove();
+      } else if (AI_HIDE.has(code)) {
+        sample = null; out.classList.add('err'); out.textContent = tr('El asistente no está disponible aquí.');
+        $('ai-fab').hidden = true;
+      } else {
+        if (code !== 'refused' && (e.text || shownText)) aiRender(out, e.text || shownText); else out.replaceChildren();
+        out.append(el('p', { class: 'ai-msg err' }, tr(AI_ERRORS[code] || 'No se pudo obtener respuesta. Inténtalo de nuevo.')));
+      }
+    } finally {
+      aiCtl = null; aiBusy(false); aiScroll();
+    }
+  }
+  function aiOpen(open) {
+    $('ai-fab').setAttribute('aria-expanded', String(open));
+    if (open) { reveal($('ai-panel'), 'open'); $('ai-input').focus({ preventScroll: true }); aiScroll(); }
+    else { conceal($('ai-panel'), 'open'); $('ai-fab').focus({ preventScroll: true }); }
+  }
+  $('ai-fab').addEventListener('click', () => aiOpen($('ai-panel').hidden));
+  $('ai-close').addEventListener('click', () => aiOpen(false));
+  $('ai-stop').addEventListener('click', () => aiCtl?.abort());
+  $('ai-clear').addEventListener('click', () => {
+    aiCtl?.abort(); aiTurns.length = 0;
+    $('ai-log').replaceChildren($('ai-log').querySelector('.intro'));
+    $('ai-quick').hidden = false;
+  });
+  $('ai-quick').addEventListener('click', e => { const b = e.target.closest('[data-q]'); if (b) aiAsk(tr(b.dataset.q)); });
+  $('ai-form').addEventListener('submit', e => { e.preventDefault(); const v = $('ai-input').value; if (!v.trim()) return; $('ai-input').value = ''; aiAsk(v); });
+  $('ai-input').addEventListener('keydown', e => { if (e.key === 'Enter' && !e.shiftKey && !e.isComposing) { e.preventDefault(); $('ai-form').requestSubmit(); } });
+  $('ai-panel').addEventListener('keydown', e => { if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); aiOpen(false); } });
+  async function connectAssistant() {
+    try { sample = await window.claude.use('sample'); } catch { sample = null; }
+    $('ai-fab').hidden = !sample;
+  }
+
   DESKTOP.addEventListener('change', applyLayout);
   applyLayout(); // after every top-level declaration: it renders
   render();
@@ -2264,6 +2450,7 @@
   }
 
   connectRoom(); // after db/user: presence carries this viewer's id
+  connectAssistant();
 
   // Register this viewer as a member, and (owner only, once) move the characters kept in the
   // old shared 'characters' collection into the owner's own part, intact, then remove the old docs.

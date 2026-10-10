@@ -56,7 +56,10 @@ export function tr(text) {
 const origText = new WeakMap(), setText = new WeakMap();
 const origAttr = new WeakMap(), setAttr = new WeakMap();
 const ATTRS = ['placeholder', 'aria-label', 'title'];
+// Content marked translate="no" (e.g. the assistant's replies) is left as written.
+const skip = n => { const e = n.nodeType === 1 ? n : n.parentElement; return !!(e && e.closest('[translate="no"]')); };
 function translateText(n) {
+  if (skip(n)) return;
   if (setText.get(n) !== n.nodeValue) origText.set(n, n.nodeValue); // the page wrote new Spanish text
   const t = tr(origText.get(n));
   setText.set(n, t);
@@ -77,6 +80,7 @@ function translateAttrs(n) {
 function translateNode(n) {
   if (n.nodeType === 3) return translateText(n);
   if (n.nodeType !== 1 || n.tagName === 'SCRIPT' || n.tagName === 'STYLE' || n.tagName === 'TEXTAREA') return;
+  if (n.getAttribute('translate') === 'no') return;
   translateAttrs(n);
   for (const c of n.childNodes) translateNode(c);
 }
