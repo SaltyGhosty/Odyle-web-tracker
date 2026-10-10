@@ -155,6 +155,12 @@
     font-weight: 500; font-size: 1rem; background: var(--glass);
   }
 
+  /* ---- Legion ---- */
+  .group-title { font-size: 1rem; color: var(--muted); letter-spacing: .08em; text-transform: uppercase; margin: 4px 0 -8px; }
+  .legion { display: flex; flex-direction: column; gap: 20px; }
+  .legion:empty { display: none; }
+  .legion .member h2 { margin-bottom: 12px; }
+
   /* ---- Charts ---- */
   .chart-wrap { position: relative; }
   .chart { width: 100%; height: auto; display: block; overflow: visible; }
@@ -271,9 +277,9 @@
   </header>
 
   <section class="panel summary" id="summary" aria-label="Resumen" hidden>
-    <div class="sum-total"><span class="sum-num" id="sum-total"></span><span class="sum-label">de OD en total</span></div>
     <p class="sum-tip" id="sum-tip"></p>
     <p class="sum-next" id="sum-next"></p>
+    <p class="sum-next" id="sum-legion" hidden></p>
   </section>
 
   <details class="panel events" id="events">
@@ -283,7 +289,9 @@
 
   <p class="empty" id="nodata" hidden>No se pueden cargar los datos aquí</p>
   <p class="error" id="notice" role="alert" hidden></p>
+  <h2 class="group-title" id="mine-title" hidden>Tus personajes</h2>
   <section class="grid" id="cards" aria-label="Personajes"></section>
+  <section class="legion" id="legion" aria-label="Legión"></section>
   <p class="empty" id="empty" hidden>Aún no hay personajes. Añádelo desde el menú ☰.</p>
 
   <section class="panel chart-panel" id="forecast-panel" aria-labelledby="forecast-title" hidden>
@@ -373,7 +381,7 @@
   import { formatClock, detectGains, rollValue, becameFull, sceneOptions } from './motion.js';
 
   // Data comes only from db snapshots. Writes happen only after a user action.
-  const state = { characters: [], schedule: null, presets: [], events: [], prefs: { quietStart: '00:00', quietEnd: '08:00' } };
+  const state = { characters: [], others: new Map(), names: {}, schedule: null, presets: [], events: [], prefs: { quietStart: '00:00', quietEnd: '08:00' } };
   // Interface-only state: which card is editing/confirming, validation messages.
   // noDb: no db in this view. readOnly: viewer cannot write (or a write was refused).
   const ui = { menuOpen: false, editingId: null, extraId: null, confirmId: null, errors: {}, noDb: false, readOnly: false, loaded: false };
@@ -560,7 +568,7 @@
 
   const seen = new Set();
 
-  function cardNode(row, index) {
+  function cardNode(row, index, readonly = false) {
     const editing = ui.editingId === row.id;
     const confirming = ui.confirmId === row.id;
     const err = ui.errors[row.id];
@@ -594,12 +602,12 @@
     const info = el('div', { class: 'info' });
     info.append(el('p', { class: 'full-in' }, row.isFull ? 'Energía al máximo' : (row.fullAtMs === null ? row.fullInText : `Lleno en ${row.fullInText}`)));
     if (row.fullAtMs !== null) info.append(el('p', { class: 'full-at' }, dateFmt.format(new Date(row.fullAtMs))));
-    const waste = row.isFull ? 'Estás perdiendo 15 de OD cada 3 h' : wasteText(row);
+    const waste = readonly ? '' : row.isFull ? 'Estás perdiendo 15 de OD cada 3 h' : wasteText(row);
     if (waste) info.append(el('p', { class: 'waste' }, waste));
     panel.append(info);
 
-    if (ui.readOnly || ui.noDb) {
-      // read-only or stale: no edit controls
+    if (readonly || ui.readOnly || ui.noDb) {
+      // someone else's character, read-only viewer, or stale: no edit controls
     } else if (editing) {
       const inputId = `energy-${row.id}`;
       const classId = `class-${row.id}`;
@@ -688,9 +696,12 @@
     box.hidden = rows.length === 0;
     if (!rows.length) return;
     const s = summary(rows, Date.now());
-    $('sum-total').textContent = String(s.total);
     $('sum-tip').textContent = s.tip;
     $('sum-tip').hidden = !s.tip;
+    const need = state.presets[0]?.cost ?? 40;
+    const everyone = [...rows, ...[...state.others.values()].flatMap(m => buildView(m.characters, state.schedule, Date.now()).rows)];
+    $('sum-legion').hidden = state.others.size === 0;
+    $('sum-legion').textContent = `Listos para mazmorra en la legión: ${everyone.filter(r => r.energy >= need).length} personajes con ${need} o más de OD`;
     $('sum-next').textContent = s.nextFull ? `Se llena primero: ${s.nextFull.name} · ${dateFmt.format(new Date(s.nextFull.fullAtMs))}` : '';
   }
 
@@ -762,8 +773,21 @@
     paintSummary(view.rows);
     paintCharts(view.rows);
 
-    orbList = view.rows.map(r => ({
-      id: r.id, el: cards.querySelector(`[data-orb="${CSS.escape(r.id)}"]`), tick: null,
+    // Other members: read-only groups with their own orbs; ids are prefixed with the member id.
+    const otherRows = [];
+    const groups = [];
+    for (const [uid, m] of state.others) {
+      const v = buildView(m.characters, state.schedule, Date.now());
+      if (!v.rows.length) continue;
+      const rows = v.rows.map(r => ({ ...r, id: uid + '~' + r.id }));
+      otherRows.push(...rows);
+      groups.push(el('section', { class: 'member' }, el('h2', {}, state.names[uid] || 'Alguien'),
+        el('div', { class: 'grid' }, ...rows.map((r, i) => cardNode(r, i, true)))));
+    }
+    $('legion').replaceChildren(...groups);
+    $('mine-title').hidden = !groups.length || !view.rows.length;
+    orbList = [...view.rows, ...otherRows].map(r => ({
+      id: r.id, el: document.querySelector(`[data-orb="${CSS.escape(r.id)}"]`), tick: null,
       percent: r.percent, color: r.color, state: r.isFull ? 'full' : r.nearFull ? 'near' : 'normal',
     }));
     paintClock(); // fills the new cards' timers and the orbs' rune progress
@@ -945,6 +969,22 @@
       render();
     }, onError);
     else { ui.loaded = true; render(); }
+    // Legion: every member's characters (read-only for everyone but their owner). Max 60 members.
+    const memberSubs = new Map();
+    db.collection('members').onSnapshot(async snap => {
+      const ids = snap.docs.map(d => d.id).filter(id => id !== myUid).slice(0, 60);
+      for (const [id, unsub] of memberSubs) if (!ids.includes(id)) { unsub(); memberSubs.delete(id); state.others.delete(id); }
+      for (const id of ids) {
+        if (memberSubs.has(id)) continue;
+        state.others.set(id, { characters: [] });
+        memberSubs.set(id, db.collection(paths(id).characters).onSnapshot(cs => {
+          state.others.set(id, { characters: cs.docs.map(d => ({ id: d.id, ...d.data() })) });
+          render();
+        }, () => {}));
+      }
+      if (user && ids.length) { try { const ps = await user.profiles(ids); for (const id of ids) state.names[id] = ps[id]?.name || ''; } catch {} }
+      render();
+    }, () => {});
     if (my) db.collection(my.events).onSnapshot(snap => {
       state.events = snap.docs.map(d => ({ id: d.id, ...d.data() })).filter(e => Number.isFinite(e.at) && Number.isFinite(e.amount));
       render();
