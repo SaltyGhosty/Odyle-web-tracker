@@ -403,7 +403,7 @@
   import { formatClock, detectGains, rollValue, becameFull, sceneOptions } from './motion.js';
 
   // Data comes only from db snapshots. Writes happen only after a user action.
-  const state = { characters: [], others: new Map(), names: {}, schedule: null, presets: [], events: [], prefs: { quietStart: '00:00', quietEnd: '08:00' } };
+  const state = { characters: [], hiddenMembers: 0, others: new Map(), names: {}, schedule: null, presets: [], events: [], prefs: { quietStart: '00:00', quietEnd: '08:00' } };
   // Interface-only state: which card is editing/confirming, validation messages.
   // noDb: no db in this view. readOnly: viewer cannot write (or a write was refused).
   const ui = { pop: null, menuOpen: false, editingId: null, extraId: null, confirmId: null, errors: {}, noDb: false, readOnly: false, loaded: false };
@@ -695,6 +695,7 @@
     const w = wasteWarning(row.fullAtMs, Date.now(), { start: state.prefs.quietStart, end: state.prefs.quietEnd }, new Date().getTimezoneOffset());
     return w ? `Perderás ${w.lossOD} de OD si no juegas antes de las ${timeFmt.format(new Date(w.deadlineMs))}` : '';
   }
+  const MAX_SHOWN_TEXT = (shown, total) => `${shown} de ${total} miembros de la legión`;
   function paintCharts(rows) {
     const anchor = state.schedule && Number.isFinite(state.schedule.anchorMs) ? state.schedule.anchorMs : null;
     const now = Date.now();
@@ -811,6 +812,7 @@
       groups.push(el('section', { class: 'member' }, el('h2', {}, state.names[uid] || 'Alguien'),
         el('div', { class: 'grid' }, ...rows.map((r, i) => cardNode(r, i, true)))));
     }
+    if (state.hiddenMembers > 0) groups.push(el('p', { class: 'hint' }, `Mostrando ${MAX_SHOWN_TEXT(state.others.size, state.others.size + state.hiddenMembers)}`));
     $('legion').replaceChildren(...groups);
     $('mine-title').hidden = !groups.length || !view.rows.length;
     orbList = [...view.rows, ...otherRows].map(r => ({
@@ -886,6 +888,7 @@
     e.preventDefault();
     const summaryH = box.querySelector('summary').offsetHeight + parseFloat(getComputedStyle(box).paddingTop) * 2;
     const from = box.offsetHeight;
+    $('event-list').getAnimations().forEach(x => x.cancel());
     if (!box.open) {
       box.open = true;
       const to = box.offsetHeight;
@@ -893,8 +896,8 @@
       $('event-list').animate([{ opacity: 0 }, { opacity: 1 }], { duration: 260 });
     } else {
       const a = box.animate([{ height: from + 'px' }, { height: summaryH + 'px' }], { duration: 220, easing: 'ease-in' });
-      $('event-list').animate([{ opacity: 1 }, { opacity: 0 }], { duration: 200, fill: 'forwards' });
-      a.onfinish = () => { box.open = false; };
+      const fade = $('event-list').animate([{ opacity: 1 }, { opacity: 0 }], { duration: 200, fill: 'forwards' });
+      a.onfinish = () => { box.open = false; fade.cancel(); };
     }
   });
   $('menu-btn').addEventListener('click', () => ui.menuOpen ? closeMenu() : openMenu());
@@ -1035,10 +1038,14 @@
       render();
     }, onError);
     else { ui.loaded = true; render(); }
-    // Legion: every member's characters (read-only for everyone but their owner). Max 60 members.
+    // Legion: every member's characters (read-only for everyone but their owner).
+    // A view may hold 64 subscriptions; the page keeps 6 of its own, so at most 58 other members.
+    const MAX_OTHERS = 64 - 6;
     const memberSubs = new Map();
     db.collection('members').onSnapshot(async snap => {
-      const ids = snap.docs.map(d => d.id).filter(id => id !== myUid).slice(0, 60);
+      const all = snap.docs.map(d => d.id).filter(id => id !== myUid);
+      const ids = all.slice(0, MAX_OTHERS);
+      state.hiddenMembers = all.length - ids.length;
       for (const [id, unsub] of memberSubs) if (!ids.includes(id)) { unsub(); memberSubs.delete(id); state.others.delete(id); }
       for (const id of ids) {
         if (memberSubs.has(id)) continue;
@@ -1046,7 +1053,7 @@
         memberSubs.set(id, db.collection(paths(id).characters).onSnapshot(cs => {
           state.others.set(id, { characters: cs.docs.map(d => ({ id: d.id, ...d.data() })) });
           render();
-        }, () => {}));
+        }, () => { memberSubs.delete(id); state.others.delete(id); render(); })); // retried on the next members snapshot
       }
       if (user && ids.length) { try { const ps = await user.profiles(ids); for (const id of ids) state.names[id] = ps[id]?.name || ''; } catch {} }
       render();
