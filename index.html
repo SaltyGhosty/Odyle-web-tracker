@@ -107,7 +107,14 @@
 
   /* ---- Character cards: orb (canvas-drawn) + glass panel ---- */
   .grid { display: grid; gap: 20px; grid-template-columns: minmax(0, 1fr); }
-  @media (min-width: 860px) { .grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+  /* one character per row; on wide screens the panel splits into details (left) and actions (right) */
+  .c-main, .c-side { display: flex; flex-direction: column; gap: 12px; min-width: 0; }
+  .c-side:empty { display: none; }
+  @media (min-width: 760px) {
+    .card .panel { flex-direction: row; align-items: flex-start; gap: 28px; }
+    .c-main { flex: 1 1 0; }
+    .c-side { flex: 1.15 1 0; }
+  }
   .card { display: grid; grid-template-columns: 1fr; justify-items: center; gap: 0; position: relative; }
   .orb-col { display: flex; flex-direction: column; align-items: center; gap: 2px; margin-bottom: 8px; z-index: 2; }
   .orb-slot { width: 150px; height: 150px; position: relative; }
@@ -1231,6 +1238,10 @@
         el('button', { type: 'button', class: 'notes', onclick: () => { ui.pop = row.id; ui.notesId = row.id; ui.editingId = ui.extraId = ui.confirmId = null; render(); $('notes-' + row.id)?.focus(); } }, 'Notas'),
         el('button', { type: 'button', class: 'remove', onclick: () => { ui.pop = row.id; ui.confirmId = row.id; ui.editingId = ui.extraId = ui.notesId = null; render(); } }, 'Quitar')));
     }
+    // split into details and actions (side by side on wide screens)
+    const main = el('div', { class: 'c-main' }), side = el('div', { class: 'c-side' });
+    for (const n of [...panel.children]) (n.matches('.spend-row, .tasks-wrap, form, .row, .confirm-text, .error') ? side : main).append(n);
+    panel.append(main, side);
     card.append(panel);
     return card;
   }
