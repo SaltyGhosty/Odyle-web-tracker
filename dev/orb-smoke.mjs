@@ -32,6 +32,13 @@ const ring = { b: band(290), c: band(470) };
 lit.push(ring.c > ring.b * 1.15); // was ~1.01 before the ring existed
 console.log('ring brightness', ring);
 console.log(JSON.stringify({ scene: ok, errors, px, lit }));
+// Tilt toward a pointer below orb C (11 runes lit): nothing may touch the slot's bottom edge.
+await page.mouse.move(470, 395);
+await page.waitForTimeout(2500);
+await page.screenshot({ path: 'dev/screens/orb-tilt.png' });
+const edge = JSON.parse(ex('python3', ['-c', 'import json;from PIL import Image;im=Image.open("dev/screens/orb-tilt.png").convert("RGB");print(max(sum(im.getpixel((x,y))) for x in range(400,540) for y in (198,199)))']).toString());
+console.log('slot bottom edge brightness', edge);
+lit.push(edge < 200);
 await browser.close();
 const pass = beamPx > 300 && noBeamPx < 300 && ok === true && errors.length === 0 && lit.every(Boolean);
 console.log(pass ? 'PASS' : 'FAIL');

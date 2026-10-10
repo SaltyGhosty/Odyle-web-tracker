@@ -160,6 +160,23 @@ for (const [label, width, height] of [['mobile', 390, 844], ['desktop', 1280, 80
   await page.screenshot({ path: 'dev/screens/seeded.png' });
   await ctx.close();
 }
+// iOS-style permission denied: the motion button must not stay as a dead control.
+{
+  const ctx = await browser.newContext({ viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true, colorScheme: 'dark' });
+  const page = await ctx.newPage();
+  await page.route(THREE_URL, r => r.fulfill({ contentType: 'text/javascript', body: THREE_SRC }));
+  page.on('pageerror', e => errors.push(`ios: ${e.message}`));
+  await page.addInitScript(() => { window.DeviceOrientationEvent = window.DeviceOrientationEvent || function () {}; window.DeviceOrientationEvent.requestPermission = async () => 'denied'; });
+  await page.addInitScript(STUB);
+  await page.goto(BASE);
+  await page.waitForTimeout(1500);
+  const btn = page.locator('#motion-btn');
+  check('ios: motion button offered', await btn.isVisible());
+  if (await btn.isVisible()) await btn.tap();
+  await page.waitForTimeout(300);
+  check('ios: denied → button disabled and says so', await btn.isDisabled() && (await btn.textContent()) === 'Movimiento no disponible');
+  await ctx.close();
+}
 await browser.close();
 const real = errors.filter(e => !/fonts\.g|ERR_TUNNEL|ERR_CONNECTION|net::/.test(e));
 console.log('console/page errors:', real.length ? real : 'none');

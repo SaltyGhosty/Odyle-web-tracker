@@ -1,6 +1,7 @@
 // One WebGL canvas behind the page: ether particles full screen, plus one Odyle orb
 // drawn inside each card's slot (scissor/viewport per slot, a single GL context).
 import * as THREE from 'https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js';
+import { wrapY, orientationTilt, pointerTilt } from './motion.js';
 
 const GOLD = new THREE.Color('#e8b85a');
 const SKY = new THREE.Color('#7cc8ff');
@@ -173,7 +174,6 @@ const CLOUD_VS = `
     vUv = uv; vSeed = aSeed;
     vec4 wp = modelMatrix * vec4(position, 1.0);
     wp.x += sin(uTime * 0.03 + aSeed * 10.0) * 2.0;
-    wp.y = mod(wp.y - uCamY + 12.0, 24.0) - 12.0 + uCamY;
     gl_Position = projectionMatrix * viewMatrix * wp;
   }`;
 const CLOUD_FS = `
@@ -238,13 +238,20 @@ export function createScene(canvas, { particles = 300, feathers = 20, clouds = 5
   const cloudU = { uTime: { value: 0 }, uCamY: { value: 0 }, uSky: { value: SKY } };
   const cloudMat = new THREE.ShaderMaterial({ vertexShader: CLOUD_VS, fragmentShader: CLOUD_FS, uniforms: cloudU,
     transparent: true, depthWrite: false, blending: THREE.AdditiveBlending });
+  // Clouds sit around z −9 (view ≈ ±11 units tall there); each centre wraps within ±16 of the
+  // camera so a 9-unit-tall cloud is fully off-screen before it jumps to the other end.
+  const CLOUD_HALF = 16;
+  const cloudMeshes = [];
   for (let i = 0; i < clouds; i++) {
     const g = new THREE.PlaneGeometry(16, 9);
     g.setAttribute('aSeed', new THREE.BufferAttribute(new Float32Array(4).fill(Math.random()), 1));
     const mesh = new THREE.Mesh(g, cloudMat);
-    mesh.position.set((Math.random() - 0.5) * 20, -12 + (i + Math.random() * 0.5) * (24 / clouds), -14 - Math.random() * 4);
+    const baseY = -CLOUD_HALF + (i + 0.25 + Math.random() * 0.5) * (2 * CLOUD_HALF / clouds);
+    mesh.position.set((Math.random() - 0.5) * 18, baseY, -8 - Math.random() * 2);
+    mesh.userData.baseY = baseY;
     mesh.frustumCulled = false;
     bgScene.add(mesh);
+    cloudMeshes.push(mesh);
   }
   const featherU = { uTime: { value: 0 }, uCamY: { value: 0 }, uGold: { value: GOLD } };
   const fGeo = new THREE.InstancedBufferGeometry().copy(new THREE.PlaneGeometry(0.22, 0.6));
@@ -276,7 +283,7 @@ export function createScene(canvas, { particles = 300, feathers = 20, clouds = 5
   // orbGroup tilts toward the pointer; it holds the liquid, the glass and the rune ring.
   const orbScene = new THREE.Scene();
   const orbCam = new THREE.PerspectiveCamera(35, 1, 0.1, 20);
-  orbCam.position.z = 4.6;
+  orbCam.position.z = 5.1; // room for the tilted rune ring inside the slot
   const orbGroup = new THREE.Group();
   const liquidU = {
     uFill: { value: 0 }, uTime: { value: 0 }, uRipple: { value: 0 }, uGlow: { value: 0 },
@@ -345,18 +352,22 @@ export function createScene(canvas, { particles = 300, feathers = 20, clouds = 5
   const clock = new THREE.Clock();
 
   // Tilt input: pointer position (desktop) or device orientation (phone, once enabled).
-  const pointer = { x: null, y: null };
-  let orientation = null;
-  const onPointer = e => { pointer.x = e.clientX; pointer.y = e.clientY; };
-  const onOrientation = e => { if (e.beta != null && e.gamma != null) orientation = { beta: e.beta, gamma: e.gamma }; };
+  let pointer = null;
+  let orientation = null, orientationBase = null;
+  const onPointer = e => { pointer = { x: e.clientX, y: e.clientY, type: e.pointerType }; };
+  const onPointerGone = () => { pointer = null; };
+  const onOrientation = e => {
+    if (e.beta == null || e.gamma == null) return;
+    orientation = { beta: e.beta, gamma: e.gamma };
+    if (!orientationBase) orientationBase = orientation; // tilt is relative to how the phone was held
+  };
   window.addEventListener('pointermove', onPointer, { passive: true });
+  document.documentElement.addEventListener('pointerleave', onPointerGone);
+  window.addEventListener('blur', onPointerGone);
   const MAX_TILT = 0.35;
-  const clampT = v => Math.max(-MAX_TILT, Math.min(MAX_TILT, v));
   function targetTilt(r) {
-    if (orientation) return { x: clampT((orientation.beta - 45) / 45 * MAX_TILT), y: clampT(orientation.gamma / 45 * MAX_TILT) };
-    if (pointer.x === null) return { x: 0, y: 0 };
-    const cx = r.left + r.width / 2, cy = r.top + r.height / 2;
-    return { x: clampT((pointer.y - cy) / (innerHeight / 2) * MAX_TILT), y: clampT((pointer.x - cx) / (innerWidth / 2) * MAX_TILT) };
+    if (orientation) return orientationTilt(orientation, orientationBase, MAX_TILT);
+    return pointerTilt(pointer, r, innerWidth, innerHeight, MAX_TILT);
   }
 
   function glowFor(state, t) {
@@ -379,6 +390,7 @@ export function createScene(canvas, { particles = 300, feathers = 20, clouds = 5
     // Parallax: the background camera follows the scroll; nearer layers move faster on screen.
     bgCam.position.y = -window.scrollY * 0.004;
     for (const u of [pMat.uniforms, cloudU, featherU]) { u.uTime.value = t; u.uCamY.value = bgCam.position.y; }
+    for (const c of cloudMeshes) c.position.y = wrapY(c.userData.baseY, bgCam.position.y, CLOUD_HALF);
     renderer.render(bgScene, bgCam);
 
     if (beams.size) {
@@ -465,6 +477,8 @@ export function createScene(canvas, { particles = 300, feathers = 20, clouds = 5
       running = false; pause();
       document.removeEventListener('visibilitychange', onVisibility);
       window.removeEventListener('pointermove', onPointer);
+      document.documentElement.removeEventListener('pointerleave', onPointerGone);
+      window.removeEventListener('blur', onPointerGone);
       window.removeEventListener('deviceorientation', onOrientation);
       renderer.dispose();
     },

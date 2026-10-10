@@ -239,7 +239,7 @@
   import { buildView, parseEnergyInput, parseMinutesInput, parseNameInput, parseClassInput } from './view.js';
   import { anchorFromCountdown, formatDuration, nextTickAt, TICK_MS, MAX } from './energy.js';
   import { CLASSES, classById } from './classes.js';
-  import { formatClock, detectGains, rollValue, becameFull } from './motion.js';
+  import { formatClock, detectGains, rollValue, becameFull, sceneOptions } from './motion.js';
 
   // Data comes only from db snapshots. Writes happen only after a user action.
   const state = { characters: [], schedule: null };
@@ -259,7 +259,7 @@
     if (reduceMotion) return;
     try {
       const { createScene } = await import('./orb.js');
-      scene = createScene(document.getElementById('scene'), { particles: innerWidth >= 720 ? 500 : 200 });
+      scene = createScene(document.getElementById('scene'), sceneOptions(innerWidth));
     } catch { scene = null; }
     if (!scene) return;
     animate = true;
@@ -569,7 +569,12 @@
     if (!matchMedia('(pointer: coarse)').matches || !window.DeviceOrientationEvent) return;
     if (typeof DeviceOrientationEvent.requestPermission === 'function') {
       $('motion-btn').hidden = false;
-      $('motion-btn').addEventListener('click', async () => { if (await scene.enableOrientation()) $('motion-btn').hidden = true; });
+      $('motion-btn').addEventListener('click', async () => {
+        if (await scene.enableOrientation()) { $('motion-btn').hidden = true; return; }
+        // Denied: iOS won't ask again, so don't leave a button that does nothing.
+        $('motion-btn').disabled = true;
+        $('motion-btn').textContent = 'Movimiento no disponible';
+      });
     } else scene.enableOrientation();
   }
 

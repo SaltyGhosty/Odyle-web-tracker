@@ -41,3 +41,28 @@ export function runesLit(msLeft, tickMs) {
 export function becameFull(prev, rows, max) {
   return rows.filter(r => { const p = prev.get(r.id); return p && p.energy < max && r.energy >= max; }).map(r => r.id);
 }
+
+// Scene density by viewport width (phones get lighter layers).
+export function sceneOptions(width) {
+  return width >= 720 ? { particles: 500, feathers: 30, clouds: 7 } : { particles: 200, feathers: 14, clouds: 4 };
+}
+
+// Keeps a layer item's centre within ±half of the camera so scrolling never leaves gaps.
+export function wrapY(y, camY, half) {
+  const span = half * 2;
+  return ((((y - camY + half) % span) + span) % span) - half + camY;
+}
+
+const clampTilt = (v, max) => Math.max(-max, Math.min(max, v));
+
+// Phone tilt relative to how the phone was held when tracking started (30° = full tilt).
+export function orientationTilt(e, base, max) {
+  return { x: clampTilt((e.beta - base.beta) / 30 * max, max), y: clampTilt((e.gamma - base.gamma) / 30 * max, max) };
+}
+
+// Mouse/pen tilt toward the pointer; touch is ignored (a finger leaves no hover position).
+export function pointerTilt(pointer, rect, vw, vh, max) {
+  if (!pointer || pointer.type === 'touch') return { x: 0, y: 0 };
+  const cx = rect.left + rect.width / 2, cy = rect.top + rect.height / 2;
+  return { x: clampTilt((pointer.y - cy) / (vh / 2) * max, max), y: clampTilt((pointer.x - cx) / (vw / 2) * max, max) };
+}
