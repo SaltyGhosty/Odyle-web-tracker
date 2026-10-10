@@ -206,6 +206,7 @@ for (const [label, width, height] of [['mobile', 390, 844], ['desktop', 1280, 80
   await page.waitForTimeout(1800);
   check('seeded: no false +N on load', await page.locator('.gain').count() === 0);
   check('summary: tip about the full character', ((await page.locator('#summary').textContent().catch(() => '')) || '').includes('Lleno está lleno'));
+  check('forecast: 3 lines and a legend', await page.locator('#forecast path.series').count() === 3 && await page.locator('#forecast-legend li').count() === 3);
   check('summary: total energy', ((await page.locator('#summary').textContent().catch(() => '')) || '').includes('1795'));
   check('waste: full card says it is losing energy', (await page.locator('article[data-id=s3]').textContent()).includes('Estás perdiendo 15 de OD cada 3 h'));
   check('waste: card filling during rest hours warns', (await page.locator('article[data-id=s2]').textContent()).includes('Perderás 15 de OD'));
@@ -230,7 +231,9 @@ for (const [label, width, height] of [['mobile', 390, 844], ['desktop', 1280, 80
   await page.waitForTimeout(200);
   check('seeded: +15 shown after returning from background', (await page.locator('.gain').allTextContents()).join() === '+15,+15');
   await page.waitForTimeout(1700); // let the floating "+15" fade; the beam lasts ~3 s
-  check('seeded: beam when a character reaches 840', (await above('s2')) > 300);
+  await page.evaluate(() => { document.getElementById('events').open = false; });
+  const lit = await above('s2'), dark = await above('s1'); // same row, only s2 has a beam
+  check('seeded: beam when a character reaches 840', lit > 300 && lit > dark + 80);
   await page.screenshot({ path: 'dev/screens/seeded.png' });
   await ctx.close();
 }
@@ -288,6 +291,8 @@ for (const [label, width, height] of [['mobile', 390, 844], ['desktop', 1280, 80
   await page.waitForTimeout(1500);
   const evs = await page.evaluate(() => [...window.__docs.keys()].filter(k => k.includes('/events/')).length);
   check('double tap: one spend logged and −40 once', evs === 1 && (await page.locator('article[data-id=a] .num').textContent()) === '572');
+  check('history: today\'s bar shows 40', ((await page.locator('#history .bar-label').last().textContent().catch(() => '')) || '') === '40');
+  check('forecast: one line for the character', await page.locator('#forecast path.series').count() === 1);
   await ctx.close();
   ({ ctx, page } = await mk(base('{ failEvents: true }')));
   await page.click('article[data-id=a] button.spend');

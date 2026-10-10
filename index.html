@@ -155,6 +155,22 @@
     font-weight: 500; font-size: 1rem; background: var(--glass);
   }
 
+  /* ---- Charts ---- */
+  .chart-wrap { position: relative; }
+  .chart { width: 100%; height: auto; display: block; overflow: visible; }
+  .chart .grid { stroke: rgba(169, 179, 200, .12); stroke-width: 1; }
+  .chart .cap { stroke: var(--gold); stroke-width: 1; stroke-dasharray: 4 4; opacity: .7; }
+  .chart .axis-line { stroke: rgba(169, 179, 200, .3); }
+  .chart .axis { fill: var(--muted); font-size: 11px; }
+  .chart .series { fill: none; stroke-width: 2; stroke-linejoin: round; }
+  .chart .cross { stroke: rgba(243, 236, 220, .4); stroke-width: 1; }
+  .chart .bar { fill: var(--sky); }
+  .chart .bar-label { fill: var(--fg); font-size: 11px; font-variant-numeric: tabular-nums; }
+  .chart-tip { position: absolute; top: 4px; pointer-events: none; background: var(--glass-strong); border: 1px solid var(--line);
+    border-radius: 8px; padding: 6px 8px; font-size: .75rem; display: flex; flex-direction: column; gap: 2px; }
+  .chart-tip .sw, .legend .sw { display: inline-block; width: 10px; height: 10px; border-radius: 2px; margin-right: 6px; vertical-align: -1px; }
+  .legend { list-style: none; margin: 0; padding: 0; display: flex; flex-wrap: wrap; gap: 4px 16px; font-size: .8125rem; color: var(--fg); }
+
   /* ---- Summary and waste warning ---- */
   .summary { gap: 4px; }
   .sum-total { display: flex; align-items: baseline; gap: 8px; }
@@ -269,6 +285,20 @@
   <p class="error" id="notice" role="alert" hidden></p>
   <section class="grid" id="cards" aria-label="Personajes"></section>
   <p class="empty" id="empty" hidden>Aún no hay personajes. Añádelo desde el menú ☰.</p>
+
+  <section class="panel chart-panel" id="forecast-panel" aria-labelledby="forecast-title" hidden>
+    <h2 id="forecast-title">Próximos 7 días</h2>
+    <div class="chart-wrap">
+      <svg id="forecast" class="chart" role="img" aria-label="Energía prevista de cada personaje los próximos 7 días"></svg>
+      <div class="chart-tip" id="forecast-tip" hidden></div>
+    </div>
+    <ul class="legend" id="forecast-legend"></ul>
+  </section>
+
+  <section class="panel chart-panel" id="history-panel" aria-labelledby="history-title" hidden>
+    <h2 id="history-title">Historial de gasto</h2>
+    <svg id="history" class="chart" role="img" aria-label="OD gastada cada día, últimos 7 días"></svg>
+  </section>
 </div>
 
 <div id="scrim" class="scrim" hidden></div>
@@ -337,11 +367,13 @@
   import { paths, planMigration } from './store.js';
   import { applyDelta, parsePreset, parseExtraInput } from './spend.js';
   import { EVENTS, nextOccurrence } from './events.js';
-  import { summary, wasteWarning } from './planner.js';
+  import { summary, wasteWarning, projectEnergy } from './planner.js';
+  import { dailySpent, staleEvents } from './spend.js';
+  import { renderForecast, renderHistory, CHART_COLORS } from './charts.js';
   import { formatClock, detectGains, rollValue, becameFull, sceneOptions } from './motion.js';
 
   // Data comes only from db snapshots. Writes happen only after a user action.
-  const state = { characters: [], schedule: null, presets: [], prefs: { quietStart: '00:00', quietEnd: '08:00' } };
+  const state = { characters: [], schedule: null, presets: [], events: [], prefs: { quietStart: '00:00', quietEnd: '08:00' } };
   // Interface-only state: which card is editing/confirming, validation messages.
   // noDb: no db in this view. readOnly: viewer cannot write (or a write was refused).
   const ui = { menuOpen: false, editingId: null, extraId: null, confirmId: null, errors: {}, noDb: false, readOnly: false, loaded: false };
@@ -633,6 +665,24 @@
     const w = wasteWarning(row.fullAtMs, Date.now(), { start: state.prefs.quietStart, end: state.prefs.quietEnd }, new Date().getTimezoneOffset());
     return w ? `Perderás ${w.lossOD} de OD si no juegas antes de las ${timeFmt.format(new Date(w.deadlineMs))}` : '';
   }
+  function paintCharts(rows) {
+    const anchor = state.schedule && Number.isFinite(state.schedule.anchorMs) ? state.schedule.anchorMs : null;
+    const now = Date.now();
+    $('forecast-panel').hidden = rows.length === 0 || anchor === null;
+    if (!$('forecast-panel').hidden) {
+      const byId = new Map(state.characters.map(c => [c.id, c]));
+      const series = rows.map((r, i) => ({ name: r.name, color: CHART_COLORS[i % CHART_COLORS.length],
+        points: projectEnergy(byId.get(r.id), anchor, now, 7) }));
+      renderForecast($('forecast'), series, now, $('forecast-tip'));
+      $('forecast-legend').replaceChildren(...series.map(s => {
+        const sw = el('span', { class: 'sw' }); sw.style.background = s.color;
+        return el('li', {}, sw, s.name);
+      }));
+    }
+    $('history-panel').hidden = !my || rows.length === 0;
+    if (!$('history-panel').hidden) renderHistory($('history'), dailySpent(state.events, now, new Date().getTimezoneOffset()));
+  }
+
   function paintSummary(rows) {
     const box = $('summary');
     box.hidden = rows.length === 0;
@@ -710,6 +760,7 @@
     $('empty').textContent = ui.readOnly ? 'Aún no hay personajes.' : 'Aún no hay personajes. Añádelo desde el menú ☰.';
     cards.hidden = view.rows.length === 0;
     paintSummary(view.rows);
+    paintCharts(view.rows);
 
     orbList = view.rows.map(r => ({
       id: r.id, el: cards.querySelector(`[data-orb="${CSS.escape(r.id)}"]`), tick: null,
@@ -894,6 +945,10 @@
       render();
     }, onError);
     else { ui.loaded = true; render(); }
+    if (my) db.collection(my.events).onSnapshot(snap => {
+      state.events = snap.docs.map(d => ({ id: d.id, ...d.data() })).filter(e => Number.isFinite(e.at) && Number.isFinite(e.amount));
+      render();
+    }, onError);
     if (my) db.doc(my.prefs).onSnapshot(snap => {
       const d = snap.exists ? snap.data() : {};
       const ok = v => typeof v === 'string' && /^([01]\d|2[0-3]):[0-5]\d$/.test(v);
@@ -919,6 +974,9 @@
     try {
       const memberRef = db.doc(my.member);
       if (!(await memberRef.get()).exists) await write(() => memberRef.set({ joinedAt: Date.now() }));
+      // keep the spend log small: drop my events older than 30 days
+      const mine = (await db.collection(my.events).get()).docs.map(d => ({ id: d.id, at: d.data().at }));
+      for (const id of staleEvents(mine, Date.now())) await write(() => db.doc(my.events + '/' + id).delete());
       if (!(user && await user.isOwner())) return;
       const old = (await db.collection('characters').get()).docs.map(d => ({ id: d.id, data: d.data() }));
       if (!old.length) return;
