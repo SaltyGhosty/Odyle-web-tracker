@@ -104,11 +104,16 @@
   .grid { display: grid; gap: 20px; grid-template-columns: minmax(0, 1fr); }
   @media (min-width: 860px) { .grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
   .card { display: grid; grid-template-columns: 1fr; justify-items: center; gap: 0; position: relative; }
-  .orb-slot { width: 150px; height: 150px; position: relative; margin-bottom: 8px; z-index: 2; }
+  .orb-col { display: flex; flex-direction: column; align-items: center; gap: 2px; margin-bottom: 8px; z-index: 2; }
+  .orb-slot { width: 150px; height: 150px; position: relative; }
+  .tick-left { margin: 0; font-size: .8rem; font-weight: 600; color: var(--sky); font-variant-numeric: tabular-nums;
+    letter-spacing: .03em; text-shadow: 0 0 8px rgba(124, 200, 255, .6); white-space: nowrap; }
+  .tick-left.full { color: var(--gold-bright); text-shadow: 0 0 8px rgba(255, 217, 138, .6); }
+  .tick-left.missing { color: var(--muted); text-shadow: none; font-weight: 500; }
   .card .panel { width: 100%; }
   @media (min-width: 520px) {
     .card { grid-template-columns: 150px minmax(0, 1fr); align-items: center; justify-items: stretch; }
-    .orb-slot { margin: 0 -26px 0 0; }
+    .orb-col { margin: 0 -26px 0 0; }
     .card .panel { padding: 16px 16px 16px 40px; }
   }
   .card-head { display: flex; align-items: center; gap: 10px; min-width: 0; }
@@ -193,6 +198,7 @@
       </div>
     </div>
     <button type="button" id="adjust-toggle">Ajustar recarga</button>
+    <button type="button" id="motion-btn" hidden>Activar movimiento</button>
   </header>
   <form class="panel" id="adjust-form" hidden novalidate>
     <h2>Ajustar recarga</h2>
@@ -231,9 +237,9 @@
 
 <script type="module">
   import { buildView, parseEnergyInput, parseMinutesInput, parseNameInput, parseClassInput } from './view.js';
-  import { anchorFromCountdown, formatDuration, nextTickAt, TICK_MS } from './energy.js';
+  import { anchorFromCountdown, formatDuration, nextTickAt, TICK_MS, MAX } from './energy.js';
   import { CLASSES, classById } from './classes.js';
-  import { formatClock, detectGains, rollValue } from './motion.js';
+  import { formatClock, detectGains, rollValue, becameFull } from './motion.js';
 
   // Data comes only from db snapshots. Writes happen only after a user action.
   const state = { characters: [], schedule: null };
@@ -260,6 +266,7 @@
     document.body.classList.remove('flat');
     scene.start();
     enableTilt();
+    enableOrientation();
     render();
   }
 
@@ -377,8 +384,10 @@
     const card = el('article', { class: `card ${mood} ${fresh && animate ? 'enter' : ''}`, 'data-id': row.id,
       style: `--c:${row.color};--i:${index}` });
 
-    card.append(el('div', { class: 'orb-slot', 'data-orb': row.id, role: 'img', 'aria-label': `${row.percent}% de energía` },
-      el('div', { class: 'orb-flat', style: `--fill:${row.percent}%` })));
+    card.append(el('div', { class: 'orb-col' },
+      el('div', { class: 'orb-slot', 'data-orb': row.id, role: 'img', 'aria-label': `${row.percent}% de energía` },
+        el('div', { class: 'orb-flat', style: `--fill:${row.percent}%` })),
+      el('p', { class: 'tick-left', 'data-full': row.isFull ? '1' : null })));
 
     const panel = el('div', { class: 'panel' });
     const head = el('div', { class: 'card-head' });
@@ -441,11 +450,20 @@
   }
 
   // Header clock: text + ring every second, no data work.
+  // Also the per-card rune timers ("+15 en hh:mm:ss") and the rune ring progress.
+  let orbList = [];
   function paintClock() {
     const anchor = state.schedule && Number.isFinite(state.schedule.anchorMs) ? state.schedule.anchorMs : null;
+    const left = anchor === null ? null : nextTickAt(anchor, Date.now()) - Date.now();
+    for (const p of document.querySelectorAll('.tick-left')) {
+      const full = p.dataset.full === '1';
+      p.classList.toggle('full', full);
+      p.classList.toggle('missing', !full && anchor === null);
+      p.textContent = full ? 'Lleno' : anchor === null ? 'Falta la hora de recarga' : `+15 en ${formatClock(left)}`;
+    }
+    for (const o of orbList) o.tick = left === null ? null : 1 - left / TICK_MS;
     $('clock').classList.toggle('missing', anchor === null);
     if (anchor === null) { $('next-tick').textContent = 'Falta la hora de recarga'; return; }
-    const left = nextTickAt(anchor, Date.now()) - Date.now();
     $('next-tick').textContent = formatClock(left);
     $('next-tick').setAttribute('aria-label', `en ${formatDuration(left)}`);
     $('ring-arc').setAttribute('stroke-dashoffset', String(163.36 * (1 - left / TICK_MS)));
@@ -480,12 +498,12 @@
     $('empty').textContent = ui.readOnly ? 'Aún no hay personajes.' : 'Aún no hay personajes. Añade el primero.';
     cards.hidden = view.rows.length === 0;
 
-    if (scene) {
-      scene.setOrbs(view.rows.map(r => ({
-        id: r.id, el: cards.querySelector(`[data-orb="${CSS.escape(r.id)}"]`),
-        percent: r.percent, color: r.color, state: r.isFull ? 'full' : r.nearFull ? 'near' : 'normal',
-      })));
-    }
+    orbList = view.rows.map(r => ({
+      id: r.id, el: cards.querySelector(`[data-orb="${CSS.escape(r.id)}"]`), tick: null,
+      percent: r.percent, color: r.color, state: r.isFull ? 'full' : r.nearFull ? 'near' : 'normal',
+    }));
+    paintClock(); // fills the new cards' timers and the orbs' rune progress
+    if (scene) scene.setOrbs(orbList);
 
     // Recharge gains (not manual edits): floating "+N" and an orb ripple.
     const recorded = new Map(state.characters.map(c => [c.id, c.recordedAt]));
@@ -498,6 +516,7 @@
         if (card) card.append(el('span', { class: 'gain', 'aria-hidden': 'true' }, `+${g.gain}`));
         scene.ripple(g.id);
       }
+      if (anchor === lastAnchor) for (const id of becameFull(lastEnergy, now, MAX)) scene.beam(id);
     }
     if (!keepBaseline) lastEnergy = new Map(now.map(r => [r.id, r]));
     lastAnchor = anchor;
@@ -545,6 +564,15 @@
     $('add-class').value = '';
     render();
   });
+  // Phones: orbs follow the device's tilt. iOS needs a tap to grant permission.
+  function enableOrientation() {
+    if (!matchMedia('(pointer: coarse)').matches || !window.DeviceOrientationEvent) return;
+    if (typeof DeviceOrientationEvent.requestPermission === 'function') {
+      $('motion-btn').hidden = false;
+      $('motion-btn').addEventListener('click', async () => { if (await scene.enableOrientation()) $('motion-btn').hidden = true; });
+    } else scene.enableOrientation();
+  }
+
   // Gentle tilt on hover (fine pointers only); delegated because cards are re-created.
   function enableTilt() {
     if (!matchMedia('(pointer: fine)').matches) return;

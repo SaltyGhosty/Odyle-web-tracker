@@ -60,6 +60,13 @@ for (const [label, width, height] of [['mobile', 390, 844], ['desktop', 1280, 80
     }
     const shot = n => page.screenshot({ path: `dev/screens/${label}-${scheme}-${n}.png`, fullPage: true });
     await shot('1-empty');
+    if (label === 'desktop' && scheme === 'dark') {
+      await page.fill('#add-name', 'Sin horario'); await page.click('#add-form button[type=submit]');
+      await page.waitForTimeout(200);
+      check('no schedule: rune timer says so', (await page.evaluate(() => document.querySelector('article.card .tick-left')?.textContent ?? '')) === 'Falta la hora de recarga');
+      await page.click('article.card button:not(.primary)'); await page.click('article.card button.danger');
+      await page.goto(BASE); await page.waitForTimeout(600);
+    }
     // validation errors
     await page.click('#add-form button[type=submit]');
     await shot('2-name-error');
@@ -77,6 +84,8 @@ for (const [label, width, height] of [['mobile', 390, 844], ['desktop', 1280, 80
     await page.selectOption('#add-class', 'asesino').catch(() => {});
     await page.waitForTimeout(900);
     await shot('3-cards');
+    const tl = id => page.evaluate(i => document.querySelector(`article[data-id=${i}] .tick-left`)?.textContent ?? '', id);
+    check(`${label}/${scheme} rune timer text`, /^\+15 en \d\d:\d\d:\d\d$/.test(await tl('c1')) && (await tl('c3')) === 'Lleno');
     const flat = await page.evaluate(() => document.body.classList.contains('flat'));
     check(`${label}/${scheme} flat mode = ${scheme === 'reduce'}`, flat === (scheme === 'reduce'));
     const slots = await page.locator('.orb-slot').count();
@@ -121,19 +130,33 @@ for (const [label, width, height] of [['mobile', 390, 844], ['desktop', 1280, 80
   page.on('pageerror', e => errors.push(`seeded: ${e.message}`));
   await page.addInitScript(() => {
     const now = Date.now();
-    window.__SEED = { characters: { s1: { name: 'Semilla', classId: 'gladiador', energy: 100, recordedAt: now - 7 * 3600_000, order: 1 } },
+    window.__SEED = { characters: {
+        s1: { name: 'Semilla', classId: 'gladiador', energy: 100, recordedAt: now - 7 * 3600_000, order: 1 },
+        s2: { name: 'Casi', classId: 'clerigo', energy: 825, recordedAt: now - 1000, order: 2 },
+        s3: { name: 'Lleno', classId: 'asesino', energy: 840, recordedAt: now - 1000, order: 3 } },
       schedule: { anchorMs: now + 4000 } };
   });
   await page.addInitScript(STUB);
   await page.goto(BASE);
   await page.waitForTimeout(1800);
   check('seeded: no false +N on load', await page.locator('.gain').count() === 0);
-  check('seeded: class icon and name shown', await page.locator('.cls-icon').count() === 1 && (await page.locator('.cls-name').textContent()) === 'Gladiador');
+  check('seeded: class icon and name shown', await page.locator('.cls-icon').count() === 3 && (await page.locator('article[data-id=s1] .cls-name').textContent()) === 'Gladiador');
+  const above = async id => {
+    const box = await page.locator(`article[data-id=${id}] .orb-slot`).boundingBox();
+    const buf = await page.screenshot();
+    const fs = await import('node:fs'); fs.writeFileSync('dev/screens/_tmp.png', buf);
+    const { execFileSync } = await import('node:child_process');
+    const x = Math.round(box.x + box.width / 2), y = Math.max(2, Math.round(box.y - 30));
+    return JSON.parse(execFileSync('python3', ['-c', `import json;from PIL import Image;im=Image.open('dev/screens/_tmp.png').convert('RGB');print(max(sum(im.getpixel((xx,${y}))) for xx in range(${x}-6,${x}+6)))`]).toString());
+  };
+  check('seeded: already-full character gets no beam on load', (await above('s3')) < 300);
   await page.evaluate(() => { Object.defineProperty(document, 'hidden', { configurable: true, get: () => true }); });
   await page.waitForTimeout(4000);
   await page.evaluate(() => { Object.defineProperty(document, 'hidden', { configurable: true, get: () => false }); document.dispatchEvent(new Event('visibilitychange')); });
   await page.waitForTimeout(200);
-  check('seeded: +15 shown after returning from background', (await page.locator('.gain').allTextContents()).join() === '+15');
+  check('seeded: +15 shown after returning from background', (await page.locator('.gain').allTextContents()).join() === '+15,+15');
+  await page.waitForTimeout(1700); // let the floating "+15" fade; the beam lasts ~3 s
+  check('seeded: beam when a character reaches 840', (await above('s2')) > 300);
   await page.screenshot({ path: 'dev/screens/seeded.png' });
   await ctx.close();
 }
