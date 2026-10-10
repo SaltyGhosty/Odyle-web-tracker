@@ -598,3 +598,6 @@ const NEWS2 = {
   pt: { 'Asistente con IA, quién está en línea y "Busco grupo", calendario y muro de la legión, ranking, simulador de ritmo, objetivo de PC, temporizadores propios, modo compacto y atajos de teclado.': 'Assistente com IA, quem está online e "Procuro grupo", calendário e mural da legião, ranking, simulador de ritmo, objetivo de PC, temporizadores próprios, modo compacto e atalhos de teclado.' },
 };
 for (const l of Object.keys(NEWS2)) Object.assign(STRINGS[l], NEWS2[l]);
+Object.assign(STRINGS.en, { 'No tienes permiso para escribir aquí': "You don't have permission to write here" });
+Object.assign(STRINGS.it, { 'No tienes permiso para escribir aquí': 'Non hai il permesso di scrivere qui' });
+Object.assign(STRINGS.pt, { 'No tienes permiso para escribir aquí': 'Você não tem permissão para escrever aqui' });
