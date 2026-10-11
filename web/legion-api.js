@@ -15,7 +15,8 @@
     let data = null;
     try { data = await res.json(); } catch { /* sin cuerpo */ }
     if (!res.ok) throw new Error((data && typeof data.error === 'string' && data.error) || 'No se pudo completar la acción.');
-    if (window.claude && window.claude.__refreshAll) window.claude.__refreshAll();
+    // La página repinta con datos nuevos antes de que la acción termine (el código recién creado no se pierde).
+    if (window.claude && window.claude.__refreshAll) await window.claude.__refreshAll();
     return data || {};
   }
 

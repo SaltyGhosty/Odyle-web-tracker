@@ -78,36 +78,38 @@
   const clone = (v) => JSON.parse(JSON.stringify(v));
   const docSnap = (id, d) => ({ id, exists: !!d, data: () => (d ? clone(d) : undefined) });
 
-  async function runListener(l) {
+  // Una lectura por oyente a la vez; las peticiones que llegan antes de que empiece la siguiente se juntan en una.
+  async function fetchAndDeliver(l) {
     if (l.dead) return;
-    if (l.busy) { l.again = true; return; }
-    l.busy = true;
-    try {
-      let raw;
-      try { raw = await l.fetch(); }
-      catch (e) {
-        if (!l.dead && (!l.started || (e && e.code === 'invalid_argument'))) { l.started = true; if (l.err) l.err(e); }
-        return;
-      }
-      if (l.dead) return;
-      const key = JSON.stringify(raw);
-      if (l.started && key === l.last) return;
-      l.started = true; l.last = key;
-      l.next(l.build(raw));
-    } finally {
-      l.busy = false;
-      if (l.again && !l.dead) { l.again = false; runListener(l); }
+    let raw;
+    try { raw = await l.fetch(); }
+    catch (e) {
+      if (!l.dead && (!l.started || (e && e.code === 'invalid_argument'))) { l.started = true; if (l.err) l.err(e); }
+      return;
     }
+    if (l.dead) return;
+    const key = JSON.stringify(raw);
+    if (l.started && key === l.last) return;
+    l.started = true; l.last = key;
+    l.next(l.build(raw));
   }
-  const refreshAll = () => { for (const l of [...listeners]) runListener(l); };
+  function runListener(l) {
+    if (l.queued) return l.queued;
+    const run = l.chain.then(() => { l.queued = null; return fetchAndDeliver(l); });
+    l.queued = run;
+    l.chain = run.catch(() => {});
+    return run;
+  }
+  // Devuelve una promesa que se cumple cuando todos los oyentes han recibido los datos nuevos.
+  const refreshAll = () => Promise.all([...listeners].map((l) => runListener(l).catch(() => {}))).then(() => undefined);
   let debounce = null;
-  const refreshSoon = () => { clearTimeout(debounce); debounce = setTimeout(refreshAll, 120); };
+  const refreshSoon = () => { clearTimeout(debounce); debounce = setTimeout(() => { refreshAll(); }, 120); };
 
   setInterval(() => { if (document.visibilityState === 'visible') refreshAll(); }, POLL_MS);
   document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') refreshAll(); });
 
   function subscribe(fetchRaw, build, next, err) {
-    const l = { fetch: fetchRaw, build, next, err, last: null, started: false, busy: false, again: false, dead: false };
+    const l = { fetch: fetchRaw, build, next, err, last: null, started: false, dead: false, queued: null, chain: Promise.resolve() };
     listeners.add(l);
     setTimeout(() => runListener(l), 0);
     return () => { l.dead = true; listeners.delete(l); };
