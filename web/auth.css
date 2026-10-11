@@ -65,3 +65,28 @@ p { margin: 0; }
 .links { display: flex; flex-wrap: wrap; gap: 8px 18px; font-size: .875rem; }
 a { color: var(--sky); }
 button.link { background: none; border: 0; padding: 0; min-height: 0; color: var(--sky); font-weight: 500; font-size: .875rem; text-decoration: underline; cursor: pointer; }
+
+/* Selector de idioma: botón hamburguesa con la bandera actual, arriba a la derecha. */
+.auth-top { position: fixed; top: 12px; right: 12px; z-index: 10; }
+.lang-menu { position: relative; }
+.lang-toggle {
+  display: inline-flex; align-items: center; gap: 10px; padding: 8px 12px;
+  background: var(--glass); backdrop-filter: blur(6px);
+}
+.lang-toggle .bars { display: inline-flex; flex-direction: column; gap: 3px; width: 16px; }
+.lang-toggle .bars span { display: block; height: 2px; border-radius: 1px; background: var(--gold); }
+.lang-toggle[aria-expanded="true"] { border-color: var(--gold); }
+.flag { display: block; border-radius: 2px; box-shadow: 0 0 0 1px rgba(255, 255, 255, .18); flex: none; }
+.current-flag { display: inline-flex; }
+.lang-list {
+  position: absolute; top: calc(100% + 6px); right: 0; margin: 0; padding: 6px; list-style: none; min-width: 170px;
+  background: #0c1426; border: 1px solid var(--line); border-radius: 12px; box-shadow: 0 12px 32px rgba(0, 0, 0, .5);
+}
+.lang-list button {
+  display: flex; align-items: center; gap: 10px; width: 100%; border: 0; border-radius: 8px;
+  background: none; text-align: left; font-weight: 500; min-height: 40px; padding: 8px 10px;
+}
+.lang-list button:hover, .lang-list button:focus-visible { background: rgba(232, 184, 90, .12); }
+.lang-list button[aria-checked="true"] { color: var(--gold-bright); }
+.lang-list button[aria-checked="true"]::after { content: "✓"; margin-left: auto; color: var(--gold); }
+@media (max-width: 480px) { .auth { padding-top: 72px; } }

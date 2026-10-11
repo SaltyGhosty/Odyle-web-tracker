@@ -52,7 +52,7 @@ writeFileSync(path.join(OUT, 'app.css'), style[1].replace(/^\n/, ''));
 writeFileSync(path.join(OUT, 'app.js'), script[1].replace(/^\n/, ''));
 
 // ---- páginas y adaptadores ----
-for (const f of ['claude-shim.js', 'legion-api.js', 'auth.html', 'auth.js', 'auth.css']) {
+for (const f of ['claude-shim.js', 'legion-api.js', 'auth.html', 'auth-i18n.js', 'auth.js', 'auth.css']) {
   copyFileSync(need(path.join(ROOT, 'web', f)), path.join(OUT, f));
 }
 

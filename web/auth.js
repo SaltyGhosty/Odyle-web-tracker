@@ -6,6 +6,9 @@
   const panel = document.getElementById('panel');
   const subtitle = document.getElementById('subtitle');
   const params = new URLSearchParams(location.search);
+  // Idioma (web/auth-i18n.js); sin él, todo queda en español.
+  const I18N = window.odyleAuthI18n;
+  const t = I18N ? I18N.t : (s) => s;
 
   // Misma regla que el servidor: solo '/' o '/#etiqueta' (SR-14).
   const safeNext = (n) => (typeof n === 'string' && (n === '/' || /^\/#[a-z0-9-]{0,32}$/.test(n)) ? n : '/');
@@ -31,7 +34,7 @@
         headers: { 'Content-Type': 'application/json', 'X-Odyle-CSRF': '1' },
         body: JSON.stringify(body),
       });
-    } catch { return { ok: false, status: 0, data: { error: 'No se pudo conectar. Inténtalo de nuevo.' } }; }
+    } catch { return { ok: false, status: 0, data: { error: t('No se pudo conectar. Inténtalo de nuevo.') } }; }
     let data = {};
     try { data = await res.json(); } catch { /* sin cuerpo */ }
     return { ok: res.ok, status: res.status, data };
@@ -58,7 +61,7 @@
   const val = (id) => document.getElementById(id).value;
   const passwordFields = (idPrefix, label) => [
     field(idPrefix, label, 'password', { autocomplete: 'new-password', maxlength: '128', minlength: '10' }),
-    field(idPrefix + '2', 'Repite la contraseña', 'password', { autocomplete: 'new-password', maxlength: '128' }),
+    field(idPrefix + '2', t('Repite la contraseña'), 'password', { autocomplete: 'new-password', maxlength: '128' }),
   ];
 
   function render(title, ...nodes) {
@@ -68,101 +71,124 @@
 
   // ---- vistas ----
   function loginView() {
+    currentView = loginView;
     const f = form({
       fields: [
-        field('email', 'Correo electrónico', 'email', { autocomplete: 'username' }),
-        field('password', 'Contraseña', 'password', { autocomplete: 'current-password', maxlength: '128' }),
+        field('email', t('Correo electrónico'), 'email', { autocomplete: 'username' }),
+        field('password', t('Contraseña'), 'password', { autocomplete: 'current-password', maxlength: '128' }),
       ],
-      submit: 'Entrar',
+      submit: t('Entrar'),
       async onSubmit(show) {
         const r = await post('/api/auth/login', { email: val('email'), password: val('password') });
-        if (!r.ok) return show(r.data.error || 'No se pudo entrar');
+        if (!r.ok) return show(t(r.data.error) || t('No se pudo entrar'));
         location.assign(nextParam);
       },
     });
-    const forgot = h('button', { type: 'button', class: 'link', text: '¿Olvidaste tu contraseña?' });
+    const forgot = h('button', { type: 'button', class: 'link', text: t('¿Olvidaste tu contraseña?') });
     forgot.addEventListener('click', forgotView);
-    render('Entrar', f, h('div', { class: 'links' }, h('a', { href: withNext('/registro'), text: 'Crear una cuenta' }), forgot));
+    render(t('Entrar'), f, h('div', { class: 'links' }, h('a', { href: withNext('/registro'), text: t('Crear una cuenta') }), forgot));
   }
 
   function forgotView() {
+    currentView = forgotView;
     const f = form({
-      fields: [h('p', { class: 'hint', text: 'Escribe tu correo y, si existe una cuenta, te enviaremos un enlace para elegir una contraseña nueva.' }),
-        field('email', 'Correo electrónico', 'email', { autocomplete: 'username' })],
-      submit: 'Enviar enlace',
+      fields: [h('p', { class: 'hint', text: t('Escribe tu correo y, si existe una cuenta, te enviaremos un enlace para elegir una contraseña nueva.') }),
+        field('email', t('Correo electrónico'), 'email', { autocomplete: 'username' })],
+      submit: t('Enviar enlace'),
       async onSubmit(show) {
         const r = await post('/api/auth/forgot', { email: val('email') });
-        if (r.ok) return show(r.data.message || 'Si existe una cuenta con ese correo, recibirás un enlace.', 'ok');
-        show(r.data.error || 'No se pudo enviar el enlace'); // p. ej. 503: la recuperación aún no está disponible
+        if (r.ok) return show(t(r.data.message) || t('Si existe una cuenta con ese correo, recibirás un enlace.'), 'ok');
+        show(t(r.data.error) || t('No se pudo enviar el enlace')); // p. ej. 503: la recuperación aún no está disponible
       },
     });
-    render('Recuperar contraseña', f, h('div', { class: 'links' }, h('a', { href: withNext('/login'), text: 'Volver a entrar' })));
+    render(t('Recuperar contraseña'), f, h('div', { class: 'links' }, h('a', { href: withNext('/login'), text: t('Volver a entrar') })));
   }
 
   function registerView() {
+    currentView = registerView;
     const f = form({
-      fields: [field('email', 'Correo electrónico', 'email', { autocomplete: 'username' }), ...passwordFields('password', 'Contraseña (10 a 128 caracteres)')],
-      submit: 'Crear cuenta',
+      fields: [field('email', t('Correo electrónico'), 'email', { autocomplete: 'username' }), ...passwordFields('password', t('Contraseña (10 a 128 caracteres)'))],
+      submit: t('Crear cuenta'),
       async onSubmit(show) {
-        if (val('password') !== val('password2')) return show('Las contraseñas no coinciden');
+        if (val('password') !== val('password2')) return show(t('Las contraseñas no coinciden'));
         const r = await post('/api/auth/register', { email: val('email'), password: val('password') });
-        if (!r.ok) return show(r.data.error || 'No se pudo crear la cuenta');
-        show(r.data.message || 'Cuenta creada.', 'ok');
+        if (!r.ok) return show(t(r.data.error) || t('No se pudo crear la cuenta'));
+        show(t(r.data.message) || t('Cuenta creada.'), 'ok');
         f.querySelector('button').hidden = true;
-        f.append(h('a', { href: withNext('/login'), text: 'Ir a entrar' }));
+        f.append(h('a', { href: withNext('/login'), text: t('Ir a entrar') }));
       },
     });
-    render('Crear cuenta', f, h('div', { class: 'links' }, h('a', { href: withNext('/login'), text: 'Ya tengo cuenta' })));
+    render(t('Crear cuenta'), f, h('div', { class: 'links' }, h('a', { href: withNext('/login'), text: t('Ya tengo cuenta') })));
   }
 
   // Lee el token del fragmento (#t=…) y lo quita de la URL y del historial.
+  // Se lee una sola vez: redibujar la vista (p. ej. al cambiar de idioma) reutiliza el token ya leído.
+  let tokenRead = false, tokenValue = null;
   function takeToken() {
+    if (tokenRead) return tokenValue;
+    tokenRead = true;
     const m = /^#t=([A-Za-z0-9_-]{20,200})$/.exec(location.hash);
     if (location.hash) history.replaceState(null, '', location.pathname + location.search);
-    return m ? m[1] : null;
+    tokenValue = m ? m[1] : null;
+    return tokenValue;
   }
 
   // Verificar exige la contraseña elegida al registrarse: el enlace queda ligado a ella (anti pre-secuestro, SR-20).
   function verifyView() {
+    currentView = verifyView;
     const token = takeToken();
-    const done = (text, kind) => render('Verificar correo', h('p', { class: kind, text }), h('div', { class: 'links' }, h('a', { href: '/login', text: 'Entrar' })));
-    if (!token) return done('El enlace o la contraseña no son válidos', 'error');
+    const done = (text, kind) => render(t('Verificar correo'), h('p', { class: kind, text }), h('div', { class: 'links' }, h('a', { href: '/login', text: t('Entrar') })));
+    if (!token) return done(t('El enlace o la contraseña no son válidos'), 'error');
     const f = form({
       fields: [
-        h('p', { class: 'hint', text: 'Escribe la contraseña que elegiste al registrarte' }),
-        field('password', 'Contraseña', 'password', { autocomplete: 'current-password', maxlength: '128' }),
+        h('p', { class: 'hint', text: t('Escribe la contraseña que elegiste al registrarte') }),
+        field('password', t('Contraseña'), 'password', { autocomplete: 'current-password', maxlength: '128' }),
       ],
-      submit: 'Verificar correo',
+      submit: t('Verificar correo'),
       async onSubmit(show) {
         const r = await post('/api/auth/verify', { token, password: val('password') });
-        if (r.ok) return done(r.data.message || 'Correo verificado', 'ok');
-        show(r.data.error || 'El enlace o la contraseña no son válidos');
+        if (r.ok) return done(t(r.data.message) || t('Correo verificado'), 'ok');
+        show(t(r.data.error) || t('El enlace o la contraseña no son válidos'));
       },
     });
-    render('Verificar correo', f);
+    render(t('Verificar correo'), f);
   }
 
   function resetView() {
+    currentView = resetView;
     const token = takeToken();
     if (!token) {
-      return render('Restablecer contraseña', h('p', { class: 'error', text: 'El enlace no es válido o ha caducado' }),
-        h('div', { class: 'links' }, h('a', { href: '/login', text: 'Volver a entrar' })));
+      return render(t('Restablecer contraseña'), h('p', { class: 'error', text: t('El enlace no es válido o ha caducado') }),
+        h('div', { class: 'links' }, h('a', { href: '/login', text: t('Volver a entrar') })));
     }
     const f = form({
-      fields: passwordFields('password', 'Contraseña nueva (10 a 128 caracteres)'),
-      submit: 'Guardar contraseña',
+      fields: passwordFields('password', t('Contraseña nueva (10 a 128 caracteres)')),
+      submit: t('Guardar contraseña'),
       async onSubmit(show) {
-        if (val('password') !== val('password2')) return show('Las contraseñas no coinciden');
+        if (val('password') !== val('password2')) return show(t('Las contraseñas no coinciden'));
         const r = await post('/api/auth/reset', { token, password: val('password') });
-        if (!r.ok) return show(r.data.error || 'No se pudo cambiar la contraseña');
-        show(r.data.message || 'Contraseña cambiada.', 'ok');
+        if (!r.ok) return show(t(r.data.error) || t('No se pudo cambiar la contraseña'));
+        show(t(r.data.message) || t('Contraseña cambiada.'), 'ok');
         f.querySelector('button').hidden = true;
-        f.append(h('a', { href: '/login', text: 'Ir a entrar' }));
+        f.append(h('a', { href: '/login', text: t('Ir a entrar') }));
       },
     });
-    render('Restablecer contraseña', f);
+    render(t('Restablecer contraseña'), f);
   }
 
   const VIEWS = { '/login': loginView, '/registro': registerView, '/verificar': verifyView, '/restablecer': resetView };
-  (VIEWS[location.pathname] || loginView)();
+  let currentView = VIEWS[location.pathname] || loginView;
+
+  if (I18N) {
+    const top = document.querySelector('.auth-top');
+    if (top) top.append(I18N.menu());
+    // Al cambiar de idioma se redibuja la vista actual conservando lo escrito.
+    I18N.onChange(() => {
+      const values = {};
+      for (const el of panel.querySelectorAll('input[id]')) values[el.id] = el.value;
+      currentView();
+      for (const [id, v] of Object.entries(values)) { const el = document.getElementById(id); if (el) el.value = v; }
+    });
+  }
+  currentView();
 })();

@@ -301,6 +301,39 @@ check('legión: B ve a A entre los miembros', /AnaDaeva/.test(await text(pb, '#l
   await ctx.close();
 }
 
+// ================= Selector de idioma en las pantallas de cuenta =================
+{
+  const ctx = await browser.newContext({ locale: 'es-ES' });
+  const page = await ctx.newPage();
+  const errs = [];
+  page.on('console', (m) => { if (m.type() === 'error') errs.push(m.text()); });
+  page.on('pageerror', (e) => errs.push(String(e)));
+  await page.goto(`${ORIGIN}/login`);
+  check('idioma: botón hamburguesa con bandera, menú cerrado al inicio',
+    await visible(page, '.lang-toggle') && (await page.locator('.lang-toggle svg.flag').count()) === 1 && !(await visible(page, '#lang-list')));
+  await page.click('.lang-toggle');
+  const opts = await page.locator('#lang-list [role=menuitemradio]').evaluateAll((bs) => bs.map((b) => b.dataset.lang + ':' + !!b.querySelector('svg.flag')));
+  check('idioma: el menú muestra las 4 lenguas con su bandera', opts.join(',') === 'es:true,en:true,it:true,pt:true', opts.join(','));
+  await page.fill('#email', 'algo@example.com');
+  await page.click('#lang-list [data-lang=en]');
+  check('idioma: inglés traduce la vista, conserva lo escrito y cierra el menú',
+    (await text(page, 'h2, .auth')).includes('Log in') && (await page.inputValue('#email')) === 'algo@example.com' && !(await visible(page, '#lang-list')) &&
+    (await page.evaluate(() => document.documentElement.lang)) === 'en');
+  await page.fill('#password', 'contraseña-mala-123');
+  await page.click('form button[type=submit]');
+  await page.waitForSelector('.error:not(:empty)', { timeout: 5000 }).catch(() => {});
+  check('idioma: los errores del servidor también se traducen', /Incorrect email or password/.test(await text(page, '.auth')), await text(page, '.auth'));
+  await page.goto(`${ORIGIN}/registro`);
+  check('idioma: la elección se recuerda al cambiar de página', /Create account/.test(await text(page, '.auth')) && (await page.evaluate(() => localStorage.getItem('odyle-lang'))) === 'en');
+  await page.click('.lang-toggle');
+  await page.keyboard.press('Escape');
+  check('idioma: Escape cierra el menú', !(await visible(page, '#lang-list')));
+  // El 401 del login fallido provocado arriba es esperado; cualquier otro error cuenta.
+  const realErrs = errs.filter((e) => !/status of 401/.test(e));
+  check('idioma: sin errores de consola ni violaciones de CSP', realErrs.length === 0, realErrs.join(' | '));
+  await ctx.close();
+}
+
 // ================= Renovación silenciosa (401 -> refresh -> reintento) =================
 {
   const cookies = await A.ctx.cookies();

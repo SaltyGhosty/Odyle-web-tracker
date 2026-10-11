@@ -40,7 +40,7 @@ Un tracker de **Energía Odyle** para Aion 2: llevas la cuenta de la energía de
 
 **Interfaz**
 - Barra de navegación a cualquier ancho de pantalla.
-- Idiomas: español, inglés, italiano y portugués.
+- Idiomas: español, inglés, italiano y portugués. En las pantallas de cuenta (login, registro…) hay un menú hamburguesa con banderas para cambiar de idioma, y la elección se mantiene al entrar.
 - Orbe animado en 3D (three.js).
 
 ## Dos versiones, un mismo código
