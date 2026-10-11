@@ -435,6 +435,18 @@
   .drawer-head button { padding: 4px 10px; min-height: 32px; }
   @media (prefers-reduced-motion: reduce) { .modal, .modal-box { transition: none; } }
 
+  /* ---- Profile chip in the header ---- */
+  .profile-chip { display: flex; align-items: center; gap: 10px; padding: 6px 14px 6px 6px; border-radius: 999px; min-height: 0; text-align: left;
+    background: var(--glass); border-color: var(--line); margin-left: auto; }
+  .pc-icon { width: 34px; height: 34px; border-radius: 50%; display: grid; place-items: center; border: 1px solid var(--c, var(--gold)); flex: none;
+    box-shadow: 0 0 10px color-mix(in srgb, var(--c, var(--gold)) 45%, transparent); }
+  .pc-icon .cls-icon { width: 20px; height: 20px; }
+  .pc-text { display: flex; flex-direction: column; line-height: 1.15; min-width: 0; }
+  .pc-text b { font-weight: 600; color: var(--fg); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 180px; }
+  .pc-text small { color: var(--gold-bright); font-size: .75rem; font-weight: 500; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 180px; }
+  .pc-text small:empty { display: none; }
+  .profile-chip + .online-pill { margin-left: 0; }
+
   /* ---- Custom timers ---- */
   .timer-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
   .timer-list:empty { display: none; }
@@ -508,6 +520,10 @@
         <p class="clock-time" id="next-tick"></p>
       </div>
     </div>
+    <button type="button" id="profile-chip" class="profile-chip" aria-haspopup="dialog" hidden>
+      <span class="pc-icon" id="pc-icon" aria-hidden="true"></span>
+      <span class="pc-text"><b id="pc-name"></b><small id="pc-title"></small></span>
+    </button>
     <button type="button" id="online-pill" class="online-pill" hidden></button>
     <button type="button" id="motion-btn" hidden>Activar movimiento</button>
     <button type="button" id="menu-btn" class="menu-btn" aria-label="Menú" aria-expanded="false" aria-controls="drawer" hidden>☰</button>
@@ -772,6 +788,22 @@
   </form>
 </section>
 
+<div id="profile-modal" class="modal" role="dialog" aria-modal="true" aria-labelledby="profile-title" hidden><div class="modal-box">
+  <form class="panel" id="profile-form" novalidate>
+    <div class="drawer-head"><h2 id="profile-title">Tu perfil</h2><button type="button" class="modal-close" aria-label="Cerrar">✕</button></div>
+    <p class="hint">Así te verán los demás: tu nombre, tu personaje principal y, si eres de una legión, su nombre debajo.</p>
+    <div class="field"><label for="profile-nick">Nombre en el juego</label><input id="profile-nick" maxlength="20" autocomplete="off" placeholder="SaltyGhosty"></div>
+    <div class="field"><label for="profile-main">Personaje principal</label><select id="profile-main"></select></div>
+    <div class="row">
+      <div class="field"><label for="profile-server">Servidor</label><input id="profile-server" maxlength="20" autocomplete="off" placeholder="Israphel"></div>
+      <div class="field"><label for="profile-faction">Facción</label><select id="profile-faction"><option value="elyos">Elyos</option><option value="asmodian">Asmodiano</option></select></div>
+    </div>
+    <div class="field"><label for="profile-bio">Frase (opcional)</label><input id="profile-bio" maxlength="80" autocomplete="off" placeholder="Siempre listo para el asedio"></div>
+    <p class="error" id="profile-error" role="alert" hidden></p>
+    <button type="submit" class="primary">Guardar perfil</button>
+  </form>
+</div></div>
+
 <div id="add-modal" class="modal" role="dialog" aria-modal="true" aria-labelledby="add-title" hidden><div class="modal-box" id="add-box"></div></div>
 
 <div id="keys-help" class="keys-help" role="dialog" aria-modal="true" aria-labelledby="keys-title" hidden>
@@ -809,6 +841,7 @@
   import { DEFAULT_TASKS, progressFor, withCount, parseTask, nextDailyReset } from './tasks.js';
   import { EMPTY_STATS, bumped, unlocked, streak, weekTotals } from './achievements.js';
   const sound = createSound();
+  import { makeCode, normalizeCode, hashCode, roomName, parseLegionName, parseProfile, legionOf, sameLegion, legionTitle } from './legion.js';
   import { formatClock, detectGains, rollValue, becameFull, sceneOptions } from './motion.js';
 
   // Data comes only from db snapshots. Writes happen only after a user action.
@@ -1685,6 +1718,7 @@
     paintSim(view.rows);
     paintWall();
     paintRank();
+    paintProfile();
     paintCharts(view.rows);
 
     // Other members: read-only groups with their own orbs; ids are prefixed with the member id.
@@ -1695,7 +1729,7 @@
       if (!v.rows.length) continue;
       const rows = v.rows.map(r => ({ ...r, id: uid + '~' + r.id }));
       otherRows.push(...rows);
-      groups.push(el('section', { class: 'member' }, el('h2', {}, state.names[uid] || 'Alguien'),
+      groups.push(el('section', { class: 'member' }, el('h2', {}, nameOf(uid)),
         el('div', { class: 'grid' }, ...rows.map((r, i) => cardNode(r, i, true)))));
     }
     if (state.hiddenMembers > 0) groups.push(el('p', { class: 'hint' }, `Mostrando ${MAX_SHOWN_TEXT(state.others.size, state.others.size + state.hiddenMembers)}`));
@@ -1837,7 +1871,7 @@
   $('keys-close').addEventListener('click', () => toggleKeys(false));
   $('keys-help').addEventListener('click', e => { if (e.target === $('keys-help')) toggleKeys(false); });
   document.addEventListener('keydown', e => {
-    if (e.ctrlKey || e.metaKey || e.altKey || e.repeat || ui.menuOpen || !$('ai-panel').hidden || !$('add-modal').hidden) return;
+    if (e.ctrlKey || e.metaKey || e.altKey || e.repeat || ui.menuOpen || !$('ai-panel').hidden || !$('add-modal').hidden || !$('profile-modal').hidden) return;
     if (keysOpen() && e.key === 'Escape') { e.preventDefault(); toggleKeys(false); return; }
     const t = e.target;
     if (t && (t.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(t.tagName))) return;
@@ -1885,6 +1919,8 @@
   });
   for (const r of document.querySelectorAll('input[name=faction]')) r.addEventListener('change', async e => {
     applyFaction(e.target.value);
+    const prof = myProfile();
+    if (prof && prof.faction !== e.target.value && my && !ui.readOnly) save(() => db.doc(my.member).update({ profile: { ...prof, faction: e.target.value } }));
     state.prefs = { ...state.prefs, faction: e.target.value };
     if (my && !ui.readOnly) await save(() => db.doc(my.prefs).set({ ...state.prefs }));
   });
@@ -1996,6 +2032,78 @@
     if (e.shiftKey && document.activeElement === f[0]) { e.preventDefault(); f.at(-1).focus(); }
     else if (!e.shiftKey && document.activeElement === f.at(-1)) { e.preventDefault(); f[0].focus(); }
   });
+  function myLegionTitle() { return ''; } // filled in by the legions task
+
+  // ---- Profile: how others see you (name, main character, server, faction, phrase) ----
+  let membersLoaded = false, profilePrompted = false;
+  const myProfile = () => (myUid && state.memberData.get(myUid)?.profile) || null;
+  function modalKeys(modal, close) {
+    modal.addEventListener('click', e => { if (e.target === modal || e.target.closest('.modal-close')) close(); });
+    modal.addEventListener('keydown', e => {
+      if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); close(); return; }
+      if (e.key !== 'Tab') return;
+      const f = [...modal.querySelectorAll('button, input, select')].filter(x => !x.disabled && x.offsetParent !== null);
+      if (e.shiftKey && document.activeElement === f[0]) { e.preventDefault(); f.at(-1).focus(); }
+      else if (!e.shiftKey && document.activeElement === f.at(-1)) { e.preventDefault(); f[0].focus(); }
+    });
+  }
+  function paintProfile() {
+    const prof = myProfile();
+    const can = !!(my && db && !ui.noDb);
+    $('profile-chip').hidden = !can || !membersLoaded;
+    if ($('profile-chip').hidden) return;
+    const main = state.characters.find(c => c.id === prof?.mainCharId) || [...state.characters].sort((a, b) => (a.order || 0) - (b.order || 0))[0];
+    const cls = classById(main?.classId);
+    $('profile-chip').style.setProperty('--c', cls ? cls.color : 'var(--gold)');
+    $('pc-icon').replaceChildren(cls ? classIcon(cls) : '✦');
+    $('pc-name').textContent = prof?.nick || state.names[myUid] || (ui.readOnly ? 'Invitado' : 'Crea tu perfil');
+    $('pc-title').textContent = myLegionTitle();
+    $('profile-chip').setAttribute('aria-label', `Tu perfil: ${$('pc-name').textContent} ${$('pc-title').textContent}`.trim());
+    // first visit: ask for a profile once per load
+    if (!prof && !profilePrompted && ui.loaded && !ui.readOnly && $('add-modal').hidden && $('keys-help').hidden) { profilePrompted = true; openProfile(); }
+  }
+  function openProfile() {
+    if (!my || ui.readOnly) return;
+    const prof = myProfile() || {};
+    $('profile-nick').value = prof.nick || '';
+    $('profile-server').value = prof.server || '';
+    $('profile-bio').value = prof.bio || '';
+    $('profile-faction').value = prof.faction || state.prefs.faction || 'elyos';
+    const chars = [...state.characters].sort((a, b) => (a.order || 0) - (b.order || 0));
+    $('profile-main').replaceChildren(el('option', { value: '' }, chars.length ? 'Elige…' : 'Aún no tienes personajes'),
+      ...chars.map(c => el('option', { value: c.id, selected: c.id === (prof.mainCharId || chars[0]?.id) }, c.name)));
+    showError('profile-error', '');
+    reveal($('profile-modal'), 'open');
+    $('profile-nick').focus({ preventScroll: true });
+  }
+  function closeProfile() {
+    if ($('profile-modal').hidden) return;
+    conceal($('profile-modal'), 'open');
+    if (!$('profile-chip').hidden) $('profile-chip').focus({ preventScroll: true });
+  }
+  modalKeys($('profile-modal'), closeProfile);
+  $('profile-chip').addEventListener('click', () => ui.readOnly ? null : openProfile());
+  $('profile-form').addEventListener('submit', async e => {
+    e.preventDefault();
+    const r = parseProfile({ nick: $('profile-nick').value, server: $('profile-server').value, bio: $('profile-bio').value,
+      faction: $('profile-faction').value, mainCharId: $('profile-main').value }, state.characters.map(c => c.id));
+    if (!r.ok) return showError('profile-error', r.error);
+    showError('profile-error', '');
+    const ok = await save(async () => {
+      const ref = db.doc(my.member);
+      try { await ref.update({ profile: r.value }); }
+      catch (err) { if (err && err.code === 'not_found') await ref.set({ joinedAt: Date.now(), profile: r.value }); else throw err; }
+    });
+    if (!ok) return;
+    if (r.value.faction !== state.prefs.faction) {
+      applyFaction(r.value.faction);
+      state.prefs = { ...state.prefs, faction: r.value.faction };
+      await save(() => db.doc(my.prefs).set({ ...state.prefs }));
+    }
+    closeProfile();
+    render();
+  });
+
   // Phones: orbs follow the device's tilt. iOS needs a tap to grant permission.
   function enableOrientation() {
     if (!matchMedia('(pointer: coarse)').matches || !window.DeviceOrientationEvent) return;
@@ -2152,7 +2260,7 @@
   let myLfg = null; // {id, at, replies: Set}
   const LFG_TTL = 15 * 60_000;
   const clean = (v, n) => typeof v === 'string' ? v.replace(/[\u0000-\u001f\u007f]/g, ' ').trim().slice(0, n) : '';
-  const nameOf = uid => (uid && state.names[uid]) || 'Alguien';
+  const nameOf = uid => (uid && (state.memberData.get(uid)?.profile?.nick || state.names[uid])) || 'Alguien';
   async function resolveNames(ids) {
     const need = [...new Set(ids.filter(id => id && !(id in state.names)))];
     if (!user || !need.length) return;
@@ -2452,6 +2560,7 @@
     const memberSubs = new Map();
     db.collection('members').onSnapshot(async snap => {
       state.memberData = new Map(snap.docs.map(d => [d.id, d.data() || {}]));
+      membersLoaded = true;
       const all = snap.docs.map(d => d.id).filter(id => id !== myUid);
       const ids = all.slice(0, MAX_OTHERS);
       state.hiddenMembers = all.length - ids.length;

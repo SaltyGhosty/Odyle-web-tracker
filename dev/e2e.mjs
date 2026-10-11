@@ -22,11 +22,12 @@ const STUB = () => {
   const now = Date.now();
   const docs = new Map(Object.entries({
     'settings/schedule': { anchorMs: now - 60 * 60_000 },
-    'members/u_me': { joinedAt: now - 86_400_000 },
+    'members/u_me': window.__noProfile ? { joinedAt: now - 86_400_000 }
+      : { joinedAt: now - 86_400_000, profile: { nick: 'SaltyMain', server: 'Israphel', bio: '', faction: 'elyos', mainCharId: 'c1' } },
     'members/u_me/characters/c1': { name: 'SaltyGhosty', classId: 'asesino', energy: 300, recordedAt: now, order: 1 },
     'members/u_me/characters/c2': { name: 'Shutaruku', classId: 'gladiador', energy: 200, recordedAt: now, order: 2 },
     'members/u_me/settings/presets': { items: [{ id: 'p1', name: 'Mazmorra', cost: 40 }] },
-    'members/u_ana': { joinedAt: now, rank: { weekSpent: 400, cpMax: 90000, achievements: 5, updatedAt: now } },
+    'members/u_ana': { joinedAt: now, profile: { nick: 'AnaDaeva', server: 'Israphel', bio: '', faction: 'elyos', mainCharId: 'a1' }, rank: { weekSpent: 400, cpMax: 90000, achievements: 5, updatedAt: now } },
     'members/u_ana/characters/a1': { name: 'Anita', classId: 'clerigo', energy: 500, recordedAt: now, order: 1 },
   }));
   window.__docs = docs;
@@ -102,12 +103,13 @@ const results = [];
 const check = (name, ok, extra = '') => { results.push([name, !!ok]); console.log(`${ok ? '✔' : '✘'} ${name}${ok ? '' : ' ' + extra}`); };
 const errors = [];
 
-async function open(width, height = 900) {
+async function open(width, height = 900, opts = {}) {
   const ctx = await browser.newContext({ viewport: { width, height }, colorScheme: 'dark' });
   const page = await ctx.newPage();
   await page.route(THREE_URL, r => r.fulfill({ contentType: 'text/javascript', body: THREE_SRC }));
   page.on('pageerror', e => errors.push(`${width}px: ${e.message}`));
   page.on('console', m => { if (m.type() === 'error' && !/favicon|Failed to load resource/.test(m.text())) errors.push(`${width}px console: ${m.text()}`); });
+  if (opts.noProfile) await page.addInitScript(() => { window.__noProfile = true; });
   await page.addInitScript(STUB);
   await page.addInitScript(() => { try { localStorage.setItem('odyle-lang', 'es'); localStorage.removeItem('odyle-tab'); } catch {} });
   await page.goto(BASE);
@@ -125,6 +127,9 @@ const visible = (page, sel) => page.locator(sel).first().isVisible();
   // nav bar
   check('escritorio: barra de navegación con 6 secciones', await visible(page, '#topnav') && await page.locator('#topnav button').count() === 6);
   check('escritorio: sin menú ☰', !(await visible(page, '#menu-btn')));
+  check('perfil: tarjeta en la cabecera con tu nombre', await visible(page, '#profile-chip') && /SaltyMain/.test(await text(page, '#profile-chip')));
+  check('perfil: no se abre solo si ya existe', !(await visible(page, '#profile-modal')));
+  check('perfil: los demás aparecen con su nombre del juego', /AnaDaeva/.test(await text(page, '#legion')));
   check('tarjetas propias: 2', await page.locator('#cards article.card').count() === 2);
   check('personajes: sin formulario en medio, con botón +', !(await visible(page, '#add-form')) && await visible(page, '#add-btn'));
   await page.click('#add-btn');
@@ -197,7 +202,7 @@ const visible = (page, sel) => page.locator(sel).first().isVisible();
   check('presencia: publica tu primer personaje', await page.evaluate(() => window.__presence?.char) === 'SaltyGhosty');
   await page.evaluate(() => window.__room.receive('lfg', { id: 'gana1', act: 'Shugo', text: 'faltan 2', char: 'Anita' }));
   await page.waitForTimeout(200);
-  check('busco grupo: llega el aviso de Ana con "Voy"', /Ana busca grupo: Shugo/.test(await text(page, '#alert-text')) && await visible(page, '#alert-action'));
+  check('busco grupo: llega el aviso de Ana con "Voy"', /AnaDaeva busca grupo: Shugo/.test(await text(page, '#alert-text')) && await visible(page, '#alert-action'));
   await page.click('#alert-action');
   await page.waitForTimeout(200);
   check('busco grupo: "Voy" responde a Ana', await page.evaluate(() => window.__emits.some(e => e.topic === 'lfg-reply' && e.data.id === 'gana1')));
@@ -211,7 +216,7 @@ const visible = (page, sel) => page.locator(sel).first().isVisible();
   check('busco grupo: tu aviso se envía', mine && mine.data.text === 'nivel 45+' && mine.data.char === 'SaltyGhosty');
   await page.evaluate(id => window.__room.receive('lfg-reply', { id }), mine.data.id);
   await page.waitForTimeout(200);
-  check('busco grupo: cuenta las respuestas', (await text(page, '#lfg-state')) === 'Respuestas: 1 · Ana');
+  check('busco grupo: cuenta las respuestas', (await text(page, '#lfg-state')) === 'Respuestas: 1 · AnaDaeva');
 
   // calendar
   const at = new Date(Date.now() + 2 * 3_600_000);
@@ -287,6 +292,26 @@ const visible = (page, sel) => page.locator(sel).first().isVisible();
   check('idioma: los datos siguen ahí', await page.locator('#cards article.card').count() === 2);
   await page.click('#topnav [data-tab=ajustes]');
   await page.selectOption('#lang-select', 'es');
+  await page.close();
+}
+
+// ================= First visit: create your profile =================
+{
+  const page = await open(1280, 900, { noProfile: true });
+  await page.waitForTimeout(300);
+  check('primera visita: se abre "Tu perfil"', await visible(page, '#profile-modal') && await page.evaluate(() => document.activeElement?.id === 'profile-nick'));
+  await page.fill('#profile-nick', 'S');
+  await page.click('#profile-form button[type=submit]');
+  check('perfil: valida el nombre', /entre 2 y 20/.test(await text(page, '#profile-error')));
+  await page.fill('#profile-nick', 'NuevoDaeva'); await page.fill('#profile-server', 'Israphel'); await page.fill('#profile-bio', 'Asesino de noche');
+  await page.selectOption('#profile-main', 'c2'); await page.selectOption('#profile-faction', 'asmodian');
+  await page.click('#profile-form button[type=submit]'); await page.waitForTimeout(500);
+  const prof = (await db(page, 'members/u_me')).profile;
+  check('perfil: se guarda', prof && prof.nick === 'NuevoDaeva' && prof.server === 'Israphel' && prof.mainCharId === 'c2' && prof.faction === 'asmodian' && !(await visible(page, '#profile-modal')));
+  check('perfil: la facción cambia el tema', await page.evaluate(() => document.documentElement.dataset.faction) === 'asmodian');
+  check('perfil: la cabecera muestra el nuevo nombre', /NuevoDaeva/.test(await text(page, '#profile-chip')));
+  await page.click('#profile-chip');
+  check('perfil: la tarjeta abre el perfil para editarlo', await visible(page, '#profile-modal') && (await page.inputValue('#profile-nick')) === 'NuevoDaeva');
   await page.close();
 }
 
