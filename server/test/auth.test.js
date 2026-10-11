@@ -181,6 +181,20 @@ test('me: isAdmin solo para ADMIN_USER_ID con correo verificado (SR-21)', async 
   await app.close();
 });
 
+test('me: en owner-only ADMIN_USER_ID es admin aunque no esté verificado; otros ids no (SR-21)', async () => {
+  const { newUserId } = await import('../src/lib/tokens.js');
+  const { signAccess } = await import('../src/lib/jwt.js');
+  const id = newUserId();
+  const other = newUserId();
+  const { app, db, config } = await makeTestApp({ ADMIN_USER_ID: id, EMAIL_MODE: 'owner-only' });
+  await db.query('insert into users (id, email, password_hash) values ($1, $2, $3)', [id, 'admin@example.com', 'x']);
+  await db.query('insert into users (id, email, password_hash) values ($1, $2, $3)', [other, 'otro@example.com', 'x']);
+  const me = async (sub) => (await app.inject({ method: 'GET', url: '/api/auth/me', headers: { cookie: `__Host-odyle_at=${await signAccess(config, { sub, ver: 0 }, Date.now())}` } })).json();
+  assert.equal((await me(id)).isAdmin, true);
+  assert.equal((await me(other)).isAdmin, false);
+  await app.close();
+});
+
 test('me: token_version distinto -> 401 (y la caché se puede invalidar)', async () => {
   const { app, db, sent } = await registered();
   await post(app, '/api/auth/verify', { token: tokenFrom(sent), password: PW });

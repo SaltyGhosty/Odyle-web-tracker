@@ -94,7 +94,7 @@ test('loadConfig: valores devueltos', () => {
 });
 
 test('migrate dos veces no falla y crea las tablas', async () => {
-  const db = createDb({ pgMem: true });
+  const db = await createDb({ pgMem: true });
   await migrate(db);
   await migrate(db);
   for (const t of ['users', 'refresh_tokens', 'email_tokens', 'docs', 'legion_codes']) {
@@ -131,4 +131,56 @@ test('SR-33: el registro no contiene cookies, autorización ni query', async () 
   await app.close();
   assert.ok(out.includes('/api/health'), 'debe haber registro');
   for (const v of ['secret123', 'cookieval999', 'authval888', 'token=']) assert.ok(!out.includes(v), v);
+});
+
+test('TRUST_PROXY_HOPS: por defecto 1; entero >= 1; inválido lanza', () => {
+  assert.equal(loadConfig(testEnv()).trustProxyHops, 1);
+  assert.equal(loadConfig(testEnv({ TRUST_PROXY_HOPS: '2' })).trustProxyHops, 2);
+  assert.equal(loadConfig(testEnv({ TRUST_PROXY_HOPS: ' 3 ' })).trustProxyHops, 3);
+  for (const bad of ['0', '-1', '1.5', 'abc', 'true', '1e1', '0x2', '100']) {
+    assert.throws(() => loadConfig(testEnv({ TRUST_PROXY_HOPS: bad })), /TRUST_PROXY_HOPS/, bad);
+  }
+});
+
+test('trustProxy: con N saltos request.ip es la N-ésima entrada por la derecha; la entrada izquierda falsificada nunca gana', async () => {
+  for (const [hops, xff, expected] of [
+    [1, '6.6.6.6, 1.2.3.4', '1.2.3.4'],           // proxy único añade al cliente; el atacante antepone 6.6.6.6
+    [1, '9.9.9.9', '9.9.9.9'],
+    [2, '6.6.6.6, 1.2.3.4, 10.0.0.9', '1.2.3.4'],  // dos saltos: cliente = penúltima
+    [2, '5.5.5.5, 6.6.6.6, 1.2.3.4, 10.0.0.9', '1.2.3.4'],
+  ]) {
+    const { app } = await makeTestApp({ TRUST_PROXY_HOPS: String(hops) });
+    app.get('/api/__ip', async (req) => ({ ip: req.ip }));
+    const r = await app.inject({ method: 'GET', url: '/api/__ip', remoteAddress: '10.0.0.1', headers: { 'x-forwarded-for': xff } });
+    assert.equal(r.json().ip, expected, `hops=${hops} xff=${xff}`);
+    assert.notEqual(r.json().ip, '6.6.6.6');
+    await app.close();
+  }
+  // Sin cabecera: la IP del par inmediato.
+  const { app } = await makeTestApp();
+  app.get('/api/__ip', async (req) => ({ ip: req.ip }));
+  assert.equal((await app.inject({ method: 'GET', url: '/api/__ip', remoteAddress: '10.0.0.7' })).json().ip, '10.0.0.7');
+  await app.close();
+});
+
+test('db.js no importa pg-mem de forma estática (producción arranca sin devDependencies)', async () => {
+  const { readFile } = await import('node:fs/promises');
+  const src = await readFile(new URL('../src/db.js', import.meta.url), 'utf8');
+  assert.ok(!/^\s*import[^\n]*['"]pg-mem['"]/m.test(src), 'import estático de pg-mem');
+  assert.match(src, /await import\(['"]pg-mem['"]\)/);
+  // ni ningún otro módulo del arranque
+  const { execFileSync } = await import('node:child_process');
+  const out = execFileSync('grep', ['-rl', 'pg-mem', new URL('../src', import.meta.url).pathname]).toString().trim().split('\n');
+  assert.equal(out.length, 1);
+  assert.ok(out[0].endsWith('db.js'));
+});
+
+test('DATABASE_URL: DATABASE_SSL manda; cualquier sslmode/ssl de la URL se ignora', async () => {
+  const { prepareConnection } = await import('../src/db.js');
+  const a = prepareConnection('postgres://@dpg-x/db?sslmode=require&application_name=odyle&ssl=true&sslrootcert=/x', 'off');
+  assert.equal(a.ssl, undefined);
+  assert.equal(a.connectionString, 'postgres://dpg-x/db?application_name=odyle');
+  assert.deepEqual(prepareConnection('postgres://@h/db?sslmode=disable', 'verify').ssl, { rejectUnauthorized: true });
+  assert.deepEqual(prepareConnection('postgres://h/db', 'require').ssl, { rejectUnauthorized: false });
+  assert.equal(prepareConnection('postgres://h/db', 'off').connectionString, 'postgres://h/db');
 });

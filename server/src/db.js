@@ -2,23 +2,37 @@ import { readdir, readFile } from 'node:fs/promises';
 import { fileURLToPath } from 'node:url';
 import path from 'node:path';
 import pg from 'pg';
-import { newDb } from 'pg-mem';
 
 const MIGRATIONS_DIR = path.join(path.dirname(fileURLToPath(import.meta.url)), '..', 'migrations');
 
-export function createDb({ connectionString, pgMem, ssl = 'off' } = {}) {
+const SSL_PARAMS = ['sslmode', 'ssl', 'sslcert', 'sslkey', 'sslrootcert', 'sslcrl', 'sslpassword', 'uselibpqcompat'];
+
+// DATABASE_SSL es la única fuente de verdad del TLS: pg deja que los parámetros de la cadena de conexión pisen la
+// opción `ssl`, así que se quitan de la URL todos los parámetros ssl* para que nunca haya dos respuestas distintas.
+export function prepareConnection(connectionString, ssl = 'off') {
+  let cs = connectionString;
+  try {
+    const u = new URL(connectionString);
+    for (const k of SSL_PARAMS) u.searchParams.delete(k);
+    cs = u.toString();
+  } catch { /* cadena no parseable: pg dará el error */ }
+  return {
+    connectionString: cs,
+    ssl: ssl === 'verify' ? { rejectUnauthorized: true } : ssl === 'require' ? { rejectUnauthorized: false } : undefined,
+  };
+}
+
+export async function createDb({ connectionString, pgMem, ssl = 'off' } = {}) {
   let pool;
   if (pgMem) {
+    // pg-mem es devDependency: solo se carga bajo demanda (producción arranca sin ella).
+    const { newDb } = await import('pg-mem');
     const mem = newDb();
     const adapter = mem.adapters.createPg();
     pool = new adapter.Pool();
   } else {
     if (!connectionString) throw new Error('Falta la variable DATABASE_URL');
-    pool = new pg.Pool({
-      connectionString,
-      max: 10,
-      ssl: ssl === 'verify' ? { rejectUnauthorized: true } : ssl === 'require' ? { rejectUnauthorized: false } : undefined,
-    });
+    pool = new pg.Pool({ ...prepareConnection(connectionString, ssl), max: 10 });
     // Un error en un cliente inactivo no debe tumbar el proceso; solo se registra el código.
     pool.on('error', (err) => { console.error('Error en la conexión inactiva de la base de datos', err && err.code); });
   }

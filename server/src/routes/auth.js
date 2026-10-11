@@ -7,6 +7,8 @@ import {
   invalidateUserCache, revokeFamilyOf, RT_COOKIE,
 } from '../lib/session.js';
 
+import { isAdminUser } from '../lib/rules.js';
+
 const GENERIC = { message: 'Si el correo es válido, te hemos enviado un enlace' };
 const EMAIL_RE = /^[^\s@]+@[^\s@.]+(\.[^\s@.]+)+$/;
 const CTRL_RE = /[\u0000-\u001F\u007F-\u009F]/;
@@ -226,7 +228,7 @@ export default async function authRoutes(app) {
 
   app.get('/api/auth/me', { preHandler: requireUser }, async (req, reply) => {
     noStore(reply);
-    const isAdmin = !!(config.adminUserId && req.user.id === config.adminUserId && req.user.verified);
+    const isAdmin = !!(config.adminUserId && isAdminUser(config, req.user));
     return { id: req.user.id, email: req.user.email, verified: req.user.verified, isAdmin };
   });
 

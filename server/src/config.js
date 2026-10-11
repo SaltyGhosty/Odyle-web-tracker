@@ -23,6 +23,8 @@ export function loadConfig(env) {
   const codeKey = decodeSecret('CODE_KEY', env.CODE_KEY.trim());
   const ssl = env.DATABASE_SSL === undefined || String(env.DATABASE_SSL).trim() === '' ? 'verify' : String(env.DATABASE_SSL).trim();
   if (!['off', 'require', 'verify'].includes(ssl)) throw new Error("DATABASE_SSL debe ser 'off', 'require' o 'verify'");
+  const hopsRaw = env.TRUST_PROXY_HOPS === undefined || String(env.TRUST_PROXY_HOPS).trim() === '' ? '1' : String(env.TRUST_PROXY_HOPS).trim();
+  if (!/^\d{1,2}$/.test(hopsRaw) || Number(hopsRaw) < 1 || Number(hopsRaw) > 10) throw new Error('TRUST_PROXY_HOPS debe ser un entero entre 1 y 10');
   const admin = typeof env.ADMIN_USER_ID === 'string' ? env.ADMIN_USER_ID.trim() : '';
   return {
     appOrigin: env.APP_ORIGIN.trim().replace(/\/+$/, ''),
@@ -34,6 +36,7 @@ export function loadConfig(env) {
     adminUserId: admin || null,
     databaseUrl: env.DATABASE_URL.trim(),
     databaseSsl: ssl,
+    trustProxyHops: Number(hopsRaw),
     isProd: env.NODE_ENV === 'production',
   };
 }

@@ -1,5 +1,5 @@
 import { requireUser } from '../lib/session.js';
-import { canRead, canWrite, membership } from '../lib/rules.js';
+import { canRead, canWrite, membership, isAdminUser } from '../lib/rules.js';
 import { upsertDoc } from '../lib/doc-store.js';
 import { parsePath, classify, sanitize, MAX_DOC_BYTES, MEMBER_SUBS } from '../lib/validate.js';
 import { safeMerge, isPlain } from '../lib/merge.js';
@@ -68,7 +68,7 @@ export default async function docsRoutes(app) {
 
   const ctxOf = (req) => ({
     uid: req.user.id, db,
-    isAdmin: !!(app.config.adminUserId && req.user.id === app.config.adminUserId && req.user.verified),
+    isAdmin: !!(app.config.adminUserId && isAdminUser(app.config, req.user)),
   });
   const denyRead = (reply, segs) => (segs[0] === 'members' ? err(reply, 404, 'No encontrado') : err(reply, 403, 'Sin permiso'));
 

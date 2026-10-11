@@ -25,7 +25,7 @@ const config = loadConfig({
   RESEND_API_KEY: 're_test', MAIL_FROM: 'Odyle <no-reply@odyle.test>', EMAIL_MODE: 'owner-only', ADMIN_USER_ID: '',
   DATABASE_URL: 'postgres://unused', NODE_ENV: 'test',
 });
-const db = createDb({ pgMem: true });
+const db = await createDb({ pgMem: true });
 await migrate(db);
 const app = buildApp({ config, db, mailer: { async send() {} }, logger: false });
 await app.listen({ port, host: '127.0.0.1' });
@@ -50,6 +50,7 @@ async function newUser(label) {
     if (m.type() !== 'error') return;
     const t = m.text();
     if (/Failed to load resource/.test(t)) return; // 401/404 esperados (sesión caducada, favicon)
+    if (/No se pudo cerrar la sesión/.test(t)) return; // fallo de cierre provocado a propósito
     errors.push(`${label} console: ${t}`);
   });
   page.on('dialog', (d) => { dialogs.push(d.message()); d.dismiss().catch(() => {}); });
@@ -320,6 +321,13 @@ await pa.click('#profile-chip');
 await pa.waitForSelector('#profile-modal:not([hidden])');
 check('perfil: botones de sesión visibles en la web', await visible(pa, '#profile-logout') && await visible(pa, '#profile-logout-all'));
 await collectCsp(pa, 'A'); await collectCsp(pb, 'B');
+// Cierre fallido (red caída): sin redirección, mensaje visible y cookies intactas.
+await pa.route('**/api/auth/logout', (r) => r.abort());
+await pa.click('#profile-logout');
+await pa.waitForSelector('#odyle-session-error');
+check('cerrar sesión fallido: sigue en la página con mensaje y sin perder cookies',
+  new URL(pa.url()).pathname === '/' && (await A.ctx.cookies()).some((c) => c.name === '__Host-odyle_at'), pa.url());
+await pa.unroute('**/api/auth/logout');
 await pa.click('#profile-logout');
 await pa.waitForURL(`${ORIGIN}/login`);
 check('cerrar sesión: vuelve a /login y las cookies desaparecen', !(await A.ctx.cookies()).some((c) => c.name === '__Host-odyle_at' && c.value));
@@ -350,7 +358,7 @@ check('cerrar todas: la cookie de renovación vieja de B no renueva', (await rep
     RESEND_API_KEY: 're_test', MAIL_FROM: 'Odyle <no-reply@odyle.test>', EMAIL_MODE: 'full', ADMIN_USER_ID: '',
     DATABASE_URL: 'postgres://unused', NODE_ENV: 'test',
   });
-  const db2 = createDb({ pgMem: true });
+  const db2 = await createDb({ pgMem: true });
   await migrate(db2);
   const app2 = buildApp({ config: cfg2, db: db2, mailer: { async send(m) { sent.push(m); } }, logger: false });
   await app2.listen({ port: port2, host: '127.0.0.1' });

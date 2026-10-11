@@ -5,6 +5,14 @@ import { classify } from './validate.js';
 const RSVP = new Set(['yes', 'maybe', 'no']);
 const segsOf = (path) => (Array.isArray(path) ? path : String(path).split('/'));
 
+// SR-21: administrador = el id configurado en ADMIN_USER_ID Y (correo verificado O modo owner-only). En owner-only no
+// se envía ningún correo de verificación, así que exigirlo dejaría al administrador inalcanzable; ese id lo fija el
+// operador tras registrarse, no puede reclamarlo un atacante. En modo full sigue exigiendo verificación.
+export function isAdminUser(config, user) {
+  return !!(config && config.adminUserId && user && user.id === config.adminUserId
+    && (user.verified || config.emailMode === 'owner-only'));
+}
+
 // Legión vigente del usuario y sus compañeros, con lecturas frescas; se guarda en ctx durante la petición.
 export async function membership(ctx) {
   if (ctx._membership) return ctx._membership;

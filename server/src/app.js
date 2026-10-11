@@ -26,9 +26,10 @@ export const PROD_LOGGER = {
 
 export function buildApp({ config, db, mailer, now = Date.now, hasher = hashPassword, logger = PROD_LOGGER, publicDir }) {
   const app = Fastify({
-    // Exactamente un salto (el balanceador de Render), nunca `true` (SR-18). Con un número, Fastify 5.12 no confía
-    // en nadie y request.ip sería siempre la IP del proxy; esta función equivale a "1 salto": solo el par inmediato.
-    trustProxy: (_addr, hop) => hop < 1,
+    // Exactamente N saltos de confianza (TRUST_PROXY_HOPS, por defecto 1 = el balanceador de Render), nunca `true` (SR-18).
+    // Con un número, Fastify 5.12 no confía en nadie; esta función confía solo en los N pares más cercanos al socket,
+    // de modo que request.ip es la N-ésima entrada de X-Forwarded-For por la derecha y las de la izquierda (falsificables) no cuentan.
+    trustProxy: (_addr, hop) => hop < config.trustProxyHops,
     bodyLimit: 70000,
     logger,
   });

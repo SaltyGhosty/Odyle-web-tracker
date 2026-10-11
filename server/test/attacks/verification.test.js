@@ -50,18 +50,35 @@ test('ADMIN_EMAIL (o cualquier correo) no da acceso a feedback: solo ADMIN_USER_
   }
 });
 
-test('ADMIN_USER_ID sin correo verificado no es admin; verificado sí (control)', async () => {
+test('ADMIN_USER_ID sin correo verificado: admin en owner-only (decisión del controlador); verificado también (control)', async () => {
   const s = await setup({ EMAIL_MODE: 'owner-only' });
   await s.req('POST', '/api/auth/register', { payload: { email: 'owner@example.com', password: PW }, ip: freshIp() });
   const u = await apiLogin(s, 'owner@example.com');
   const s2cfg = loadConfig(testEnv({ EMAIL_MODE: 'owner-only', ADMIN_USER_ID: u.id }));
   const app2 = buildApp({ config: { ...s2cfg, jwtSecret: s.config.jwtSecret }, db: s.db, mailer: { async send() {} }, logger: false, now: () => s.clock.t });
   const list = () => app2.inject({ method: 'GET', url: '/api/docs/feedback', headers: { cookie: `${AT}=${u.at}` } });
-  assert.equal((await list()).statusCode, 403, 'sin verificar');
+  assert.equal((await list()).statusCode, 200, 'owner-only: sin verificar basta el id');
   await s.db.query('update users set email_verified_at = $1 where id = $2', [new Date(s.clock.t), u.id]);
   const { invalidateUserCache } = await import('../../src/lib/session.js');
   invalidateUserCache(u.id);
   assert.equal((await list()).statusCode, 200, 'verificado');
+  await app2.close(); await s.app.close();
+});
+
+test('ADMIN_USER_ID en modo full exige correo verificado (SR-21)', async () => {
+  const s = await setup({ EMAIL_MODE: 'full' });
+  await s.req('POST', '/api/auth/register', { payload: { email: 'owner@example.com', password: PW }, ip: freshIp() });
+  await tick();
+  await s.req('POST', '/api/auth/verify', { payload: { token: lastToken(s.sent), password: PW } });
+  const u = await apiLogin(s, 'owner@example.com');
+  const cfg = loadConfig(testEnv({ EMAIL_MODE: 'full', ADMIN_USER_ID: u.id }));
+  const app2 = buildApp({ config: { ...cfg, jwtSecret: s.config.jwtSecret }, db: s.db, mailer: { async send() {} }, logger: false, now: () => s.clock.t });
+  const list = () => app2.inject({ method: 'GET', url: '/api/docs/feedback', headers: { cookie: `${AT}=${u.at}` } });
+  assert.equal((await list()).statusCode, 200, 'verificado');
+  await s.db.query('update users set email_verified_at = null where id = $1', [u.id]);
+  const { invalidateUserCache } = await import('../../src/lib/session.js');
+  invalidateUserCache(u.id);
+  assert.equal((await list()).statusCode, 403, 'full sin verificar');
   await app2.close(); await s.app.close();
 });
 

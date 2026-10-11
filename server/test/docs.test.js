@@ -11,9 +11,9 @@ const AT = '__Host-odyle_at';
 const H = { origin: 'https://odyle.test', 'x-odyle-csrf': '1' };
 
 // Usuarios A, B (misma legión L=A), C (legión propia), D sin legión. Todo sembrado por SQL.
-async function setup({ adminVerified = true, adminIsolated = false } = {}) {
+async function setup({ adminVerified = true, adminIsolated = false, mode = 'full' } = {}) {
   const ids = { A: newUserId(), B: newUserId(), C: newUserId(), D: newUserId(), ADM: newUserId() };
-  const t = await makeTestApp({ ADMIN_USER_ID: ids.ADM, __buildApp: { now: () => NOW } });
+  const t = await makeTestApp({ ADMIN_USER_ID: ids.ADM, EMAIL_MODE: mode, __buildApp: { now: () => NOW } });
   const { db, config } = t;
   const put = (path, data) => db.query(
     'insert into docs (path, parent, data, updated_at, sort_at) values ($1, $2, $3::jsonb, $4, $5)',
@@ -240,6 +240,13 @@ test('feedback: solo el dueño escribe; lee el dueño y el administrador verific
   assert.equal((await get(u, `feedback/${u.ids.A}`, 'ADM')).statusCode, 403);
   assert.equal((await get(u, 'feedback', 'ADM')).statusCode, 403);
   await u.app.close();
+  // owner-only: no hay correos de verificación, basta el id (decisión del controlador)
+  const o = await setup({ adminVerified: false, mode: 'owner-only' });
+  await o.call('PUT', `feedback/${o.ids.A}`, 'A', { items: [] });
+  assert.equal((await get(o, `feedback/${o.ids.A}`, 'ADM')).statusCode, 200);
+  assert.equal((await get(o, 'feedback', 'ADM')).statusCode, 200);
+  assert.equal((await get(o, 'feedback', 'B')).statusCode, 403);
+  await o.app.close();
 });
 
 test('SR-4: \\u0000, control y marcas bidi se limpian (sin 500); \\n solo en notas/muro/feedback', async () => {

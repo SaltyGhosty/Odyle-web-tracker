@@ -1,5 +1,8 @@
 {
   "type": "module",
+  "engines": {
+    "node": "22.x"
+  },
   "scripts": {
     "test": "node --test",
     "e2e": "node dev/e2e.mjs",

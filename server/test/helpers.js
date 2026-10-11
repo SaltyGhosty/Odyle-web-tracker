@@ -25,7 +25,7 @@ export const REAL_PG = typeof process.env.TEST_DATABASE_URL === 'string' && proc
 
 export async function makeTestDb() {
   if (!REAL_PG) {
-    const db = createDb({ pgMem: true });
+    const db = await createDb({ pgMem: true });
     await migrate(db);
     return db;
   }
@@ -35,7 +35,7 @@ export async function makeTestDb() {
   try { await admin.query(`create schema ${schema}`); } finally { await admin.end(); }
   const url = new URL(process.env.TEST_DATABASE_URL);
   url.searchParams.set('options', `-c search_path=${schema}`);
-  const db = createDb({ connectionString: url.toString(), ssl: 'off' });
+  const db = await createDb({ connectionString: url.toString(), ssl: 'off' });
   await migrate(db);
   return db;
 }

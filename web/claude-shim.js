@@ -217,10 +217,32 @@
     },
   };
 
+  // Mensaje visible (sin alert): se mantiene al usuario en la página con la sesión intacta si el cierre falló.
+  const showSessionError = (text) => {
+    let el = document.getElementById('odyle-session-error');
+    if (!el) {
+      el = document.createElement('div');
+      el.id = 'odyle-session-error';
+      el.setAttribute('role', 'alert');
+      el.style.cssText = 'position:fixed;left:50%;bottom:24px;transform:translateX(-50%);z-index:99999;max-width:90vw;padding:10px 16px;border-radius:8px;background:#7a1f1f;color:#fff;font:14px/1.4 system-ui,sans-serif;box-shadow:0 4px 16px rgba(0,0,0,.4)';
+      document.body.append(el);
+    }
+    el.textContent = text;
+    clearTimeout(showSessionError.t);
+    showSessionError.t = setTimeout(() => el.remove(), 8000);
+  };
+
+  // Solo se redirige a /login si el servidor confirmó el cierre (2xx) o la sesión ya no existía (401).
   const endSession = async (path) => {
-    try { await rawFetch('POST', path, {}); } catch { /* da igual: se vuelve a /login */ }
-    location.assign('/login');
-    return new Promise(() => {});
+    let res;
+    try { res = await rawFetch('POST', path, {}); } catch (e) { res = null; }
+    if (res && (res.ok || res.status === 401)) {
+      location.assign('/login');
+      return new Promise(() => {});
+    }
+    console.error('No se pudo cerrar la sesión', res ? res.status : 'sin conexión');
+    showSessionError('No se pudo cerrar la sesión. Revisa tu conexión e inténtalo de nuevo.');
+    return false;
   };
 
   window.claude = {
