@@ -110,3 +110,25 @@ test('createLimiter: pico de concurrencia <= max, incluso con rechazos', async (
   assert.equal(res.filter((r) => r.status === 'rejected').length, 14);
   assert.ok(peak <= 4 && peak >= 2, `peak=${peak}`);
 });
+
+test('createLimiter: plazo vencido => BusyError; espera que caduca => BusyError y la plaza sigue bien contada', async () => {
+  const { createLimiter, BusyError } = await import('../src/lib/passwords.js');
+  const { performance } = await import('node:perf_hooks');
+  const limited = createLimiter(1, 40);
+  let release; const gate = new Promise((r) => { release = r; });
+  const holder = limited(() => gate); // ocupa la única plaza
+  // plazo ya vencido al llegar (llegó hace 1 s): rechazo inmediato
+  await assert.rejects(limited(async () => 1, performance.now() - 1000), BusyError);
+  // espera que caduca por tiempo
+  const t0 = performance.now();
+  await assert.rejects(limited(async () => 2), (e) => e instanceof BusyError && e.statusCode === 503);
+  assert.ok(performance.now() - t0 >= 30);
+  // un rechazo no deja plazas fantasma ni waiters: al liberar, la siguiente petición entra y la cuenta cuadra
+  release('ok');
+  assert.equal(await holder, 'ok');
+  for (let i = 0; i < 25; i++) await limited(async () => i); // la duración media vuelve a ser corta
+  let running = 0, peak = 0;
+  const limited2 = createLimiter(1, 2000);
+  await Promise.all(Array.from({ length: 5 }, () => limited2(async () => { running++; peak = Math.max(peak, running); await new Promise((r) => setTimeout(r, 2)); running--; })));
+  assert.equal(peak, 1);
+});

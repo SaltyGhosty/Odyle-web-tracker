@@ -77,19 +77,42 @@ test('secuestro previo (atacante primero): la víctima se registra y verifica; l
   await s.app.close();
 });
 
-test('secuestro previo (atacante DESPUÉS): la víctima abre el último correo de verificación y el atacante no queda con la cuenta', async () => {
+test('secuestro previo (atacante DESPUÉS): cada enlace exige SU contraseña; el atacante no queda con la cuenta', async () => {
   const s = await setup();
-  // 1) La víctima se registra; recibe el correo 1.
+  // 1) La víctima se registra con su contraseña; recibe el correo 1.
   await s.req('POST', '/api/auth/register', { payload: { email: 'victima@example.com', password: VICTIM_PW }, ip: freshIp() });
   await tick();
-  // 2) Antes de que lo abra, el atacante registra el mismo correo con su contraseña: la víctima recibe el correo 2.
+  const victimLink = lastToken(s.sent);
+  // 2) El atacante registra el mismo correo con la suya: la víctima recibe el correo 2 (ligado a la del atacante).
   await s.req('POST', '/api/auth/register', { payload: { email: 'victima@example.com', password: ATTACKER_PW }, ip: freshIp() });
   await tick();
   assert.equal(s.sent.length, 2);
-  // 3) La víctima abre el correo más reciente (el que tiene arriba en su bandeja) y verifica.
-  await s.req('POST', '/api/auth/verify', { payload: { token: lastToken(s.sent) } });
-  // El atacante no debe poder entrar en la cuenta verificada de la víctima.
-  const r = await s.req('POST', '/api/auth/login', { payload: { email: 'victima@example.com', password: ATTACKER_PW }, ip: freshIp() });
-  assert.notEqual(r.statusCode, 200, 'el atacante entra con su contraseña en la cuenta verificada de la víctima');
+  const newestLink = lastToken(s.sent);
+  assert.notEqual(newestLink, victimLink);
+  const verify = (token, password) => s.req('POST', '/api/auth/verify', { payload: { token, password } });
+  // 3) La víctima abre el más reciente y escribe SU contraseña: rechazado y sin consumir nada.
+  assert.equal((await verify(newestLink, VICTIM_PW)).statusCode, 400);
+  // 4) Su propio enlace (el primero) con su contraseña sigue vivo y funciona.
+  assert.equal((await verify(victimLink, VICTIM_PW)).statusCode, 200);
+  assert.equal((await s.req('POST', '/api/auth/login', { payload: { email: 'victima@example.com', password: ATTACKER_PW }, ip: freshIp() })).statusCode, 401, 'el atacante no entra');
+  assert.equal((await s.req('POST', '/api/auth/login', { payload: { email: 'victima@example.com', password: VICTIM_PW }, ip: freshIp() })).statusCode, 200, 'la víctima entra');
+  // 5) El enlace del atacante, con su contraseña, ya no sirve (cuenta verificada, enlaces anulados).
+  assert.equal((await verify(newestLink, ATTACKER_PW)).statusCode, 400);
+  await s.app.close();
+});
+
+test('verify: un token sin contraseña ligada (pending nulo) se rechaza siempre', async () => {
+  const s = await setup();
+  await s.req('POST', '/api/auth/register', { payload: { email: 'ana@example.com', password: VICTIM_PW }, ip: freshIp() });
+  await tick();
+  const { sha256hex } = await import('../../src/lib/tokens.js');
+  const raw = 'n'.repeat(43);
+  await s.db.query('update email_tokens set token_hash = $1, pending_password_hash = null', [sha256hex(raw)]);
+  for (const password of [VICTIM_PW, '', undefined]) {
+    const r = await s.req('POST', '/api/auth/verify', { payload: { token: raw, password } });
+    assert.equal(r.statusCode, 400);
+    assert.deepEqual(r.json(), { error: 'El enlace o la contraseña no son válidos' });
+  }
+  assert.equal((await s.db.query('select email_verified_at from users')).rows[0].email_verified_at, null);
   await s.app.close();
 });

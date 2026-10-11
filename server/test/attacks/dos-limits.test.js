@@ -98,7 +98,13 @@ test('argon2 en masa: con la cola llena, cada login espera ≤ 2 s o recibe 503 
   const started = performance.now();
   const results = await Promise.all(Array.from({ length: n }, (_, i) => s.req('POST', '/api/auth/login', {
     payload: { email: `ataque${i}@example.com`, password: 'mala-contrasena-1' }, ip: freshIp(),
-  }).then((r) => ({ status: r.statusCode, ms: performance.now() - started }))));
+  }).then((r) => ({ status: r.statusCode, ms: performance.now() - started, retry: r.headers['retry-after'], cache: r.headers['cache-control'] || '', json: r.statusCode === 503 ? r.json() : null }))));
+  const busy = results.filter((r) => r.status === 503);
+  assert.ok(results.some((r) => r.status !== 503), 'al menos una petición se atiende');
+  for (const r of busy) {
+    assert.deepEqual(r.json, { error: 'El servidor está ocupado. Inténtalo en unos segundos.' });
+    assert.ok(r.retry, 'Retry-After'); assert.match(r.cache, /no-store/);
+  }
   const slow = results.filter((r) => r.status !== 503 && r.ms > 2000 + 4 * one);
   assert.equal(slow.length, 0, `${n} logins (1 tarda ${one.toFixed(0)} ms): ${slow.length} esperaron más de 2 s sin 503 (máx ${Math.max(...results.map((r) => r.ms)).toFixed(0)} ms)`);
   await s.app.close();

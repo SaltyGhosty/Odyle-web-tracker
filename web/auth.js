@@ -126,7 +126,7 @@
   function verifyView() {
     const token = takeToken();
     const done = (text, kind) => render('Verificar correo', h('p', { class: kind, text }), h('div', { class: 'links' }, h('a', { href: '/login', text: 'Entrar' })));
-    if (!token) return done('El enlace no es válido o ha caducado', 'error');
+    if (!token) return done('El enlace o la contraseña no son válidos', 'error');
     const f = form({
       fields: [
         h('p', { class: 'hint', text: 'Escribe la contraseña que elegiste al registrarte' }),
@@ -136,7 +136,7 @@
       async onSubmit(show) {
         const r = await post('/api/auth/verify', { token, password: val('password') });
         if (r.ok) return done(r.data.message || 'Correo verificado', 'ok');
-        show(r.data.error || 'El enlace no es válido o ha caducado');
+        show(r.data.error || 'El enlace o la contraseña no son válidos');
       },
     });
     render('Verificar correo', f);

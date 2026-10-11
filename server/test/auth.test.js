@@ -93,7 +93,7 @@ test('login sin verificar 403; tras verificar 200 con cookies exactas; token de 
   assert.deepEqual(r.json(), { message: 'Correo verificado' });
   r = await post(app, '/api/auth/verify', { token, password: PW });
   assert.equal(r.statusCode, 400);
-  assert.deepEqual(r.json(), { error: 'El enlace no es válido o ha caducado' });
+  assert.deepEqual(r.json(), { error: 'El enlace o la contraseña no son válidos' });
   r = await post(app, '/api/auth/login', { email: 'ANA@example.com', password: PW });
   assert.equal(r.statusCode, 200);
   const body = r.json();

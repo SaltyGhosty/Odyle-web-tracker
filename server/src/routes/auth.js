@@ -20,6 +20,7 @@ const LOCK_AFTER = 10;
 const LOCK_MS = 15 * MIN;
 const LOCK_MAP_MAX = 10_000;
 const TOO_MANY = 'Demasiados intentos. Prueba más tarde.';
+const BAD_VERIFY = 'El enlace o la contraseña no son válidos';
 const BAD_LINK = 'El enlace no es válido o ha caducado';
 
 function normEmail(v) {
@@ -158,7 +159,7 @@ export default async function authRoutes(app) {
     noStore(reply);
     const body = req.body && typeof req.body === 'object' ? req.body : {};
     const token = body.token;
-    const bad = () => reply.code(400).send({ error: BAD_LINK });
+    const bad = () => reply.code(400).send({ error: BAD_VERIFY });
     if (typeof token !== 'string' || token.length < 20 || token.length > 200) return bad();
     if (typeof body.password !== 'string' || body.password.length > 128) return bad();
     const now = new Date(app.now());
@@ -169,7 +170,7 @@ export default async function authRoutes(app) {
     )).rows[0];
     if (!live) return bad();
     const pending = live.pending_password_hash;
-    if (pending && !(await verifyPassword(pending, body.password, req.arrivedAt))) return bad(); // no consume el token
+    if (!pending || !(await verifyPassword(pending, body.password, req.arrivedAt))) return bad(); // no consume el token
     const userId = await db.tx(async (q) => {
       const used = await q(
         `update email_tokens set used_at = $1

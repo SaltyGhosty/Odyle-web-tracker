@@ -340,6 +340,51 @@ const replay = async (url, method, cookie) => (await fetch(ORIGIN + url, { metho
 check('cerrar todas: la cookie de acceso vieja de B da 401 en /api/auth/me', (await replay('/api/auth/me', 'GET', bHeader(['__Host-odyle_at']))) === 401);
 check('cerrar todas: la cookie de renovación vieja de B no renueva', (await replay('/api/auth/refresh', 'POST', bHeader(['__Secure-odyle_rt']))) === 401);
 
+// ================= Verificación por correo (EMAIL_MODE full) =================
+{
+  const port2 = await new Promise((res) => { const sv = net.createServer().listen(0, '127.0.0.1', () => { const p = sv.address().port; sv.close(() => res(p)); }); });
+  const origin2 = `http://127.0.0.1:${port2}`;
+  const sent = [];
+  const cfg2 = loadConfig({
+    APP_ORIGIN: origin2, JWT_SECRET: randomBytes(32).toString('base64'), CODE_KEY: randomBytes(32).toString('base64'),
+    RESEND_API_KEY: 're_test', MAIL_FROM: 'Odyle <no-reply@odyle.test>', EMAIL_MODE: 'full', ADMIN_USER_ID: '',
+    DATABASE_URL: 'postgres://unused', NODE_ENV: 'test',
+  });
+  const db2 = createDb({ pgMem: true });
+  await migrate(db2);
+  const app2 = buildApp({ config: cfg2, db: db2, mailer: { async send(m) { sent.push(m); } }, logger: false });
+  await app2.listen({ port: port2, host: '127.0.0.1' });
+  const V = await newUser('V');
+  const pv = V.page;
+  const VPW = 'contrasena-verificada-9';
+  await pv.goto(`${origin2}/registro`);
+  await pv.fill('#email', 'vera@example.com'); await pv.fill('#password', VPW); await pv.fill('#password2', VPW);
+  await pv.click('form button[type=submit]');
+  await pv.waitForSelector('p.ok');
+  for (let i = 0; i < 50 && !sent.length; i++) await new Promise((r) => setTimeout(r, 50));
+  const link = /(https?:\/\/\S+\/verificar#t=[A-Za-z0-9_-]+)/.exec(sent[0]?.text || '')?.[1];
+  check('verificación: llega el enlace por correo', !!link);
+  await pv.goto(link);
+  await pv.waitForSelector('#password');
+  check('verificación: pide la contraseña elegida al registrarte', /contraseña que elegiste/.test(await text(pv, '#panel')));
+  await pv.fill('#password', 'otra-contrasena-mala-1');
+  await pv.click('form button[type=submit]');
+  await pv.waitForSelector('p.error:not([hidden])');
+  check('verificación: contraseña equivocada da el error uniforme y no consume el enlace', /El enlace o la contraseña no son válidos/.test(await text(pv, '#panel')));
+  await pv.fill('#password', VPW);
+  await pv.click('form button[type=submit]');
+  await pv.waitForSelector('p.ok');
+  check('verificación: con la contraseña correcta, correo verificado', /Correo verificado/.test(await text(pv, '#panel')));
+  await pv.goto(`${origin2}/login`);
+  await pv.fill('#email', 'vera@example.com'); await pv.fill('#password', VPW);
+  await pv.click('form button[type=submit]');
+  await pv.waitForURL(`${origin2}/`);
+  check('verificación: después puede entrar', true);
+  await collectCsp(pv, 'V');
+  await V.ctx.close();
+  await app2.close();
+}
+
 check('consola: ningún error de CSP, Trusted Types ni JavaScript', errors.length === 0, '\n  ' + errors.join('\n  '));
 check('CSP: ningún evento securitypolicyviolation', violations.length === 0, violations.join(', '));
 
