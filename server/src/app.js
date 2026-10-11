@@ -1,6 +1,7 @@
 import Fastify from 'fastify';
 import helmet from '@fastify/helmet';
 import cookie from '@fastify/cookie';
+import rateLimit from '@fastify/rate-limit';
 import { requireCsrf } from './lib/csrf.js';
 import authRoutes from './routes/auth.js';
 
@@ -20,7 +21,9 @@ export const PROD_LOGGER = {
 
 export function buildApp({ config, db, mailer, now = Date.now, logger = PROD_LOGGER }) {
   const app = Fastify({
-    trustProxy: 1,
+    // Exactamente un salto (el balanceador de Render), nunca `true` (SR-18). Con un número, Fastify 5.12 no confía
+    // en nadie y request.ip sería siempre la IP del proxy; esta función equivale a "1 salto": solo el par inmediato.
+    trustProxy: (_addr, hop) => hop < 1,
     bodyLimit: 70000,
     logger,
   });
@@ -51,6 +54,8 @@ export function buildApp({ config, db, mailer, now = Date.now, logger = PROD_LOG
   });
 
   app.register(cookie);
+  // Sin límite global: cada ruta declara los suyos (SR-17); las claves usan request.ip (SR-18).
+  app.register(rateLimit, { global: false });
   app.addHook('onRequest', requireCsrf);
 
   app.addHook('onSend', async (req, reply) => {
@@ -67,7 +72,9 @@ export function buildApp({ config, db, mailer, now = Date.now, logger = PROD_LOG
       413: 'La petición es demasiado grande.',
       415: 'Tipo de contenido no admitido.',
       400: 'Petición no válida.',
+      429: 'Demasiados intentos. Prueba más tarde.',
     };
+    if (status === 429) reply.header('cache-control', 'no-store');
     return reply.code(status).send({ error: messages[status] || 'Petición no válida.' });
   });
   app.setNotFoundHandler((req, reply) => reply.code(404).send({ error: 'No encontrado.' }));

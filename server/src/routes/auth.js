@@ -1,5 +1,7 @@
 import { hashPassword, verifyPassword, DUMMY_HASH, checkPasswordPolicy } from '../lib/passwords.js';
 import { randomToken, sha256hex, newUserId } from '../lib/tokens.js';
+import { signAccess } from '../lib/jwt.js';
+import { encryptCode, decryptCode } from '../lib/codecrypt.js';
 import {
   issueSession, setSessionCookies, clearSessionCookies, requireUser,
   invalidateUserCache, revokeFamilyOf, RT_COOKIE,
@@ -8,6 +10,15 @@ import {
 const GENERIC = { message: 'Si el correo es válido, te hemos enviado un enlace' };
 const EMAIL_RE = /^[^\s@]+@[^\s@.]+(\.[^\s@.]+)+$/;
 const VERIFY_TTL_MS = 24 * 3600 * 1000;
+const RESET_TTL_MS = 30 * 60 * 1000;
+const GRACE_MS = 20_000;
+const MIN = 60_000;
+const HOUR = 3600_000;
+const LOCK_AFTER = 10;
+const LOCK_MS = 15 * MIN;
+const LOCK_MAP_MAX = 10_000;
+const TOO_MANY = 'Demasiados intentos. Prueba más tarde.';
+const BAD_LINK = 'El enlace no es válido o ha caducado';
 
 function normEmail(v) {
   if (typeof v !== 'string') return null;
@@ -41,11 +52,64 @@ function verifyMail(config, to, token) {
   };
 }
 
+// Contador de fallos consecutivos por correo (exista o no, SR-15). En memoria, por instancia, acotado.
+function createLockout(now) {
+  const map = new Map(); // email -> { fails, last, lockedUntil }
+  const sweep = (t) => {
+    for (const [k, v] of map) if (t - v.last > LOCK_MS && !(v.lockedUntil > t)) map.delete(k);
+    while (map.size > LOCK_MAP_MAX) map.delete(map.keys().next().value);
+  };
+  return {
+    isLocked(email) {
+      const e = map.get(email);
+      return !!e && e.lockedUntil > now();
+    },
+    fail(email) {
+      const t = now();
+      let e = map.get(email);
+      if (!e || (e.lockedUntil <= t && t - e.last > LOCK_MS)) e = { fails: 0, last: t, lockedUntil: 0 };
+      if (e.lockedUntil > t) return false;
+      e.fails += 1; e.last = t;
+      const locked = e.fails >= LOCK_AFTER;
+      if (locked) { e.lockedUntil = t + LOCK_MS; e.fails = 0; }
+      map.delete(email); map.set(email, e); // reinserta: orden por actividad
+      if (map.size > 1000) sweep(t);
+      return locked;
+    },
+    reset(email) { map.delete(email); },
+  };
+}
+
 export default async function authRoutes(app) {
   const { config, db, mailer } = app;
   const noStore = (reply) => reply.header('cache-control', 'no-store');
+  const lockout = createLockout(app.now);
 
-  app.post('/api/auth/register', async (req, reply) => {
+  // Cada límite tiene su propio almacén; se aplican en preHandler para poder usar el correo del cuerpo (SR-17, SR-18).
+  const limit = (max, timeWindow, keyOf) => {
+    const check = app.createRateLimit({
+      max, timeWindow, keyGenerator: keyOf,
+      errorResponseBuilder: () => Object.assign(new Error(TOO_MANY), { statusCode: 429 }),
+    });
+    return async (req, reply) => {
+      const r = await check(req);
+      if (!r.isAllowed && r.isExceeded) {
+        reply.header('retry-after', r.ttlInSeconds);
+        return reply.code(429).header('cache-control', 'no-store').send({ error: TOO_MANY });
+      }
+    };
+  };
+  const emailKey = (req) => {
+    const e = req.body && typeof req.body === 'object' && typeof req.body.email === 'string' ? req.body.email.trim().toLowerCase().slice(0, 254) : '';
+    return e;
+  };
+  const byIp = (req) => req.ip;
+  const byIpEmail = (req) => `${req.ip}|${emailKey(req)}`;
+  const loginLimits = [limit(30, HOUR, byIp), limit(5, MIN, byIpEmail)];
+  const registerLimits = [limit(5, HOUR, byIp)];
+  const forgotLimits = [limit(10, HOUR, byIp), limit(3, HOUR, (req) => `e|${emailKey(req)}`)];
+
+  app.post('/api/auth/register', { preHandler: registerLimits }, async (req, reply) => {
     noStore(reply);
     const body = req.body && typeof req.body === 'object' ? req.body : {};
     const email = normEmail(body.email);
@@ -106,16 +170,22 @@ export default async function authRoutes(app) {
     return { message: 'Correo verificado' };
   });
 
-  app.post('/api/auth/login', async (req, reply) => {
+  app.post('/api/auth/login', { preHandler: loginLimits }, async (req, reply) => {
     noStore(reply);
     const body = req.body && typeof req.body === 'object' ? req.body : {};
     const email = normEmail(body.email);
     const password = typeof body.password === 'string' && body.password.length <= 128 ? body.password : '';
+    const lockKey = email || (typeof body.email === 'string' ? body.email.trim().toLowerCase().slice(0, 254) : '');
+    if (lockout.isLocked(lockKey)) return reply.code(429).send({ error: TOO_MANY });
     const user = email
       ? (await db.query('select id, email, password_hash, email_verified_at from users where email = $1', [email])).rows[0]
       : null;
     const ok = await verifyPassword(user ? user.password_hash : DUMMY_HASH, password);
-    if (!user || !ok) return reply.code(401).send({ error: 'Correo o contraseña incorrectos' });
+    if (!user || !ok) {
+      if (lockout.fail(lockKey)) req.log.warn('cuenta bloqueada por intentos fallidos');
+      return reply.code(401).send({ error: 'Correo o contraseña incorrectos' });
+    }
+    lockout.reset(lockKey);
     if (config.emailMode === 'full' && !user.email_verified_at) {
       return reply.code(403).send({ error: 'Verifica tu correo para entrar' });
     }
@@ -135,5 +205,128 @@ export default async function authRoutes(app) {
   app.get('/api/auth/me', { preHandler: requireUser }, async (req, reply) => {
     noStore(reply);
     return { id: req.user.id, email: req.user.email, verified: req.user.verified };
+  });
+
+  // Consume el token de renovación con una sola UPDATE (SR-9) y emite el sucesor en la misma familia.
+  app.post('/api/auth/refresh', async (req, reply) => {
+    noStore(reply);
+    const fail = () => { clearSessionCookies(reply); return reply.code(401).send({ error: 'Sesión caducada' }); };
+    const rt = req.cookies && req.cookies[RT_COOKIE];
+    if (typeof rt !== 'string' || rt.length < 20 || rt.length > 200) return fail();
+    const hash = sha256hex(rt);
+    const t = app.now();
+    const nowD = new Date(t);
+
+    const issued = await db.tx(async (q) => {
+      const newId = randomToken();
+      const successor = randomToken();
+      // Todo el consumo (uso, rotación y copia cifrada para la gracia) va en una sola sentencia (SR-9).
+      const used = await q(
+        `update refresh_tokens set used_at = $1, rotated_at = $1, replaced_by = $2, grace_token_enc = $3
+         where token_hash = $4 and used_at is null and revoked_at is null and expires_at > $1
+         returning user_id, family_id`,
+        [nowD, newId, encryptCode(config.codeKey, successor, hash), hash],
+      );
+      if (!used.rows.length) return null;
+      const { user_id: userId, family_id: familyId } = used.rows[0];
+      return issueSession({ query: q }, config, userId, req.headers['user-agent'], familyId, app.now, newId, successor);
+    });
+    if (issued) {
+      setSessionCookies(reply, issued);
+      return { ok: true };
+    }
+
+    const row = (await db.query(
+      'select user_id, family_id, revoked_at, rotated_at, replaced_by, grace_token_enc from refresh_tokens where token_hash = $1', [hash],
+    )).rows[0];
+    if (!row) return fail();
+    const inGrace = !row.revoked_at && row.rotated_at && row.grace_token_enc
+      && t - new Date(row.rotated_at).getTime() < GRACE_MS && t >= new Date(row.rotated_at).getTime();
+    if (inGrace) {
+      const succ = (await db.query('select revoked_at from refresh_tokens where id = $1', [row.replaced_by])).rows[0];
+      const refresh = succ && !succ.revoked_at ? decryptCode(config.codeKey, row.grace_token_enc, hash) : null;
+      const user = refresh ? (await db.query('select token_version from users where id = $1', [row.user_id])).rows[0] : null;
+      if (refresh && user) {
+        const access = await signAccess(config, { sub: row.user_id, ver: Number(user.token_version) }, t);
+        setSessionCookies(reply, { access, refresh });
+        return { ok: true };
+      }
+    }
+    // Reutilización fuera de la gracia, o token ya revocado: se cierra toda la familia.
+    await db.query('update refresh_tokens set revoked_at = $1, grace_token_enc = null where family_id = $2 and revoked_at is null', [nowD, row.family_id]);
+    return fail();
+  });
+
+  app.post('/api/auth/logout-all', { preHandler: requireUser }, async (req, reply) => {
+    noStore(reply);
+    const nowD = new Date(app.now());
+    await db.tx(async (q) => {
+      await q('update users set token_version = token_version + 1 where id = $1', [req.user.id]);
+      await q('update refresh_tokens set revoked_at = $1, grace_token_enc = null where user_id = $2 and revoked_at is null', [nowD, req.user.id]);
+    });
+    invalidateUserCache(req.user.id);
+    clearSessionCookies(reply);
+    return { ok: true };
+  });
+
+  app.post('/api/auth/forgot', { preHandler: forgotLimits }, async (req, reply) => {
+    noStore(reply);
+    if (config.emailMode !== 'full') {
+      return reply.code(503).send({ error: 'La recuperación por correo aún no está disponible' });
+    }
+    const email = normEmail(req.body && typeof req.body === 'object' ? req.body.email : null);
+    let mail = null;
+    const user = email ? (await db.query('select id from users where email = $1', [email])).rows[0] : null;
+    if (user) {
+      const now = app.now();
+      const token = randomToken();
+      await db.tx(async (q) => {
+        await q("update email_tokens set used_at = $1 where user_id = $2 and kind = 'reset' and used_at is null", [new Date(now), user.id]);
+        await q(
+          'insert into email_tokens (id, user_id, kind, token_hash, expires_at) values ($1, $2, $3, $4, $5)',
+          [randomToken(), user.id, 'reset', sha256hex(token), new Date(now + RESET_TTL_MS)],
+        );
+      });
+      mail = {
+        to: email,
+        subject: 'Restablece tu contraseña de Odyle',
+        text: `Hola,\n\nPara elegir una contraseña nueva abre este enlace (caduca en 30 minutos):\n${config.appOrigin}/restablecer#t=${token}\n\nSi no lo has pedido tú, ignora este mensaje.\n`,
+      };
+    }
+    if (mail) afterResponse(reply, req, () => mailer.send(mail));
+    return reply.code(202).send(GENERIC);
+  });
+
+  app.post('/api/auth/reset', async (req, reply) => {
+    noStore(reply);
+    const body = req.body && typeof req.body === 'object' ? req.body : {};
+    const policy = checkPasswordPolicy(body.password);
+    if (policy) return reply.code(400).send({ error: policy });
+    const token = body.token;
+    if (typeof token !== 'string' || token.length < 20 || token.length > 200) return reply.code(400).send({ error: BAD_LINK });
+    const passwordHash = await hashPassword(body.password);
+    const now = new Date(app.now());
+    const userId = await db.tx(async (q) => {
+      const used = await q(
+        `update email_tokens set used_at = $1
+         where token_hash = $2 and kind = 'reset' and used_at is null and expires_at > $1
+         returning user_id`,
+        [now, sha256hex(token)],
+      );
+      if (!used.rows.length) return null;
+      const uid = used.rows[0].user_id;
+      await q(
+        `update users set password_hash = $1, email_verified_at = coalesce(email_verified_at, $2), token_version = token_version + 1
+         where id = $3`,
+        [passwordHash, now, uid],
+      );
+      await q('update refresh_tokens set revoked_at = $1, grace_token_enc = null where user_id = $2 and revoked_at is null', [now, uid]);
+      // Un enlace de verificación pendiente llevaría una contraseña antigua: se anula.
+      await q("update email_tokens set used_at = $1 where user_id = $2 and used_at is null", [now, uid]);
+      return uid;
+    });
+    if (!userId) return reply.code(400).send({ error: BAD_LINK });
+    invalidateUserCache(userId);
+    return { message: 'Contraseña cambiada. Ya puedes entrar.' };
   });
 }

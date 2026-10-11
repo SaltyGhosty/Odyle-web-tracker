@@ -102,7 +102,7 @@ test('migrate dos veces no falla y crea las tablas', async () => {
     assert.equal(Number(r.rows[0].n), 0, t);
   }
   const v = await db.query('select version from schema_version');
-  assert.equal(v.rows.length, 2);
+  assert.equal(v.rows.length, 3);
   await db.close();
 });
 

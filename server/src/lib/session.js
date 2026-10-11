@@ -12,15 +12,15 @@ export function safeNext(next) {
   return typeof next === 'string' && (next === '/' || /^\/#[a-z0-9-]{0,32}$/.test(next)) ? next : '/';
 }
 
-export async function issueSession(db, config, userId, userAgent, familyId, now = Date.now) {
+export async function issueSession(db, config, userId, userAgent, familyId, now = Date.now, rowId = randomToken(), presetRefresh = null) {
   const t = now();
   const { rows } = await db.query('select token_version from users where id = $1', [userId]);
   if (!rows.length) throw new Error('usuario inexistente');
-  const refresh = randomToken();
+  const refresh = presetRefresh || randomToken();
   await db.query(
     `insert into refresh_tokens (id, user_id, family_id, token_hash, expires_at, created_at, user_agent)
      values ($1, $2, $3, $4, $5, $6, $7)`,
-    [randomToken(), userId, familyId || randomToken(), sha256hex(refresh),
+    [rowId, userId, familyId || randomToken(), sha256hex(refresh),
       new Date(t + RT_MAX_AGE * 1000), new Date(t), String(userAgent || '').slice(0, 200)],
   );
   const access = await signAccess(config, { sub: userId, ver: Number(rows[0].token_version) }, t);
