@@ -204,3 +204,27 @@ test('sin sesión: 401 en todos los endpoints', async () => {
   const r = await s.app.inject({ method: 'POST', url: '/api/legions', payload: { name: 'Los Albores' }, headers: H });
   assert.equal(r.statusCode, 401);
 });
+
+test('dos expulsiones concurrentes: ambos acaban en banned (SR-31)', async () => {
+  const s = await setup();
+  const a = await create(s, 'A');
+  await s.call('POST', '/api/legions/join', 'B', { code: a.code });
+  await s.call('POST', '/api/legions/join', 'C', { code: a.code });
+  const code2 = (await s.call('GET', '/api/legions/mine/code', 'A')).json().code;
+  assert.equal(code2, a.code);
+  const rs = await Promise.all([
+    s.call('POST', '/api/legions/mine/kick', 'A', { uid: s.ids.B }),
+    s.call('POST', '/api/legions/mine/kick', 'A', { uid: s.ids.C }),
+    s.call('PATCH', '/api/legions/mine', 'A', { name: 'Renombrada' }),
+  ]);
+  assert.deepEqual(rs.map((r) => r.statusCode), [200, 200, 200]);
+  const l = await s.doc(`legions/${s.ids.A}`);
+  assert.deepEqual([...l.banned].sort(), [s.ids.B, s.ids.C].sort());
+  assert.equal(l.name, 'Renombrada');
+});
+
+test('el código de lectura de GET no se bloquea y la cuota sigue funcionando con miembros en subcolecciones', async () => {
+  const s = await setup();
+  await create(s, 'A');
+  assert.equal((await s.call('PUT', `/api/docs/members/${s.ids.A}/characters/c1`, 'A', { name: 'Kaeli', classId: 'sorcerer', energy: 3 })).statusCode, 200);
+});

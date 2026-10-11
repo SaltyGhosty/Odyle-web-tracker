@@ -1,3 +1,4 @@
+import { upsertDoc } from '../lib/doc-store.js';
 import { requireUser } from '../lib/session.js';
 import { randomToken } from '../lib/tokens.js';
 import { generateCode, codeHash, sealCode, openCode } from '../lib/legion-codes.js';
@@ -26,23 +27,37 @@ export default async function legionsRoutes(app) {
   };
   const joinLimits = [limit(10, (req) => `u|${req.user.id}`), limit(30, (req) => `ip|${req.ip}`)];
 
-  const readDoc = async (q, path) => (await q('select data from docs where path = $1', [path])).rows[0]?.data ?? null;
-  const writeDoc = (q, path, data, now) => q(
-    `insert into docs (path, parent, data, updated_at, sort_at) values ($1, $2, $3::jsonb, $4, null)
-     on conflict (path) do update set data = excluded.data, updated_at = excluded.updated_at, sort_at = excluded.sort_at`,
-    [path, path.slice(0, path.lastIndexOf('/')), JSON.stringify(data), now],
-  );
+  // Todas las lecturas-modificaciones-escrituras bloquean antes las filas que leen (SR-29, SR-31).
+  // Orden fijo para evitar interbloqueos: fila del usuario -> legión -> ficha.
+  const readDoc = async (q, path, lock = '') => (await q(`select data from docs where path = $1${lock}`, [path])).rows[0]?.data ?? null;
+  const lockUser = (q, uid) => q('select id from users where id = $1 for update', [uid]);
+  const writeDoc = (q, path, data, now) => upsertDoc(q, path, data, now);
+  // Modifica un documento de legión con compare-and-swap además del bloqueo de fila: si otro cambio se coló,
+  // se vuelve a leer y a calcular (la lista de baneados nunca pierde una expulsión, SR-31).
+  // fn(actual) devuelve el documento nuevo; null cancela. Devuelve el documento escrito o null.
+  async function updateLegion(q, uid, fn, now) {
+    for (let i = 0; i < 8; i++) {
+      const cur = await readDoc(q, `legions/${uid}`, ' for update');
+      if (!cur) return null;
+      const next = fn(cur);
+      if (!next) return null;
+      const r = await q('update docs set data = $1::jsonb, updated_at = $2 where path = $3 and data = $4::jsonb',
+        [JSON.stringify(next), now, `legions/${uid}`, JSON.stringify(cur)]);
+      if (r.rowCount) return next;
+    }
+    throw new Error('conflicto de escritura');
+  }
   // Única escritura de legionId/legionEpoch del sistema; crea la ficha si no existe.
   async function setMembership(q, uid, legion, now) {
-    const cur = (await readDoc(q, `members/${uid}`)) || { joinedAt: now };
+    const cur = (await readDoc(q, `members/${uid}`, ' for update')) || { joinedAt: now };
     const next = { ...cur };
     if (legion) { next.legionId = legion.id; next.legionEpoch = legion.epoch; } else { delete next.legionId; delete next.legionEpoch; }
     await writeDoc(q, `members/${uid}`, next, now);
   }
   async function putCode(q, legionId, code) {
-    await q('delete from legion_codes where legion_id = $1', [legionId]);
-    await q('insert into legion_codes (legion_id, code_hash, code_enc) values ($1, $2, $3)',
-      [legionId, codeHash(config.codeKey, code), sealCode(config.codeKey, code, legionId)]);
+    const vals = [codeHash(config.codeKey, code), sealCode(config.codeKey, code, legionId), legionId];
+    const upd = await q('update legion_codes set code_hash = $1, code_enc = $2 where legion_id = $3', vals);
+    if (!upd.rowCount) await q('insert into legion_codes (code_hash, code_enc, legion_id) values ($1, $2, $3)', vals);
   }
   // Genera un código sin colisión (la columna code_hash es única).
   async function freshCode(q) {
@@ -53,8 +68,8 @@ export default async function legionsRoutes(app) {
     }
     throw new Error('sin códigos libres');
   }
-  const leaderLegion = async (q, uid) => {
-    const l = await readDoc(q, `legions/${uid}`);
+  const leaderLegion = async (q, uid, lock = ' for update') => {
+    const l = await readDoc(q, `legions/${uid}`, lock);
     return l && l.leader === uid ? l : null;
   };
 
@@ -67,8 +82,9 @@ export default async function legionsRoutes(app) {
     if (!name.ok) return err(reply, 400, name.error);
     const uid = req.user.id;
     const now = app.now();
-    const epoch = Date.now().toString(36) + randomToken().slice(0, 6);
+    const epoch = now.toString(36) + randomToken().slice(0, 6);
     const out = await db.tx(async (q) => {
+      await lockUser(q, uid);
       if (await leaderLegion(q, uid)) return null;
       const code = await freshCode(q);
       await writeDoc(q, `legions/${uid}`, { name: name.value, epoch, banned: [], createdAt: now, leader: uid }, now);
@@ -87,8 +103,9 @@ export default async function legionsRoutes(app) {
     const uid = req.user.id;
     const now = app.now();
     const res = await db.tx(async (q) => {
+      await lockUser(q, uid);
       const row = (await q('select legion_id from legion_codes where code_hash = $1', [codeHash(config.codeKey, code)])).rows[0];
-      const legion = row ? await readDoc(q, `legions/${row.legion_id}`) : null;
+      const legion = row ? await readDoc(q, `legions/${row.legion_id}`, ' for share') : null;
       if (!legion || legion.leader !== row.legion_id) return { status: 400, error: 'Ese código no es válido' };
       if (Array.isArray(legion.banned) && legion.banned.includes(uid)) return { status: 403, error: 'No puedes unirte a esta legión' };
       if (await leaderLegion(q, uid)) return { status: 409, error: 'Ya lideras una legión' };
@@ -101,7 +118,7 @@ export default async function legionsRoutes(app) {
   app.get('/api/legions/mine/code', pre, async (req, reply) => {
     reply.header('cache-control', 'no-store');
     const uid = req.user.id;
-    if (!(await leaderLegion(db.query.bind(db), uid))) return err(reply, 403, NOT_LEADER);
+    if (!(await leaderLegion(db.query.bind(db), uid, ''))) return err(reply, 403, NOT_LEADER);
     const row = (await db.query('select code_enc from legion_codes where legion_id = $1', [uid])).rows[0];
     const code = row ? openCode(config.codeKey, row.code_enc, uid) : null;
     if (!code) return err(reply, 500, 'Error interno del servidor.');
@@ -112,6 +129,7 @@ export default async function legionsRoutes(app) {
     reply.header('cache-control', 'no-store');
     const uid = req.user.id;
     const out = await db.tx(async (q) => {
+      await lockUser(q, uid);
       if (!(await leaderLegion(q, uid))) return null;
       const code = await freshCode(q);
       await putCode(q, uid, code);
@@ -126,10 +144,11 @@ export default async function legionsRoutes(app) {
     const now = app.now();
     const name = parseLegionName(isObj(req.body) ? req.body.name : '');
     const ok = await db.tx(async (q) => {
+      await lockUser(q, uid);
       const l = await leaderLegion(q, uid);
       if (!l) return false;
       if (!name.ok) return name;
-      await writeDoc(q, `legions/${uid}`, { ...l, name: name.value }, now);
+      await updateLegion(q, uid, (cur) => ({ ...cur, name: name.value }), now);
       return true;
     });
     if (ok === false) return err(reply, 403, NOT_LEADER);
@@ -143,13 +162,17 @@ export default async function legionsRoutes(app) {
     const now = app.now();
     const target = isObj(req.body) ? req.body.uid : null;
     const res = await db.tx(async (q) => {
+      await lockUser(q, uid);
       const l = await leaderLegion(q, uid);
       if (!l) return { status: 403, error: NOT_LEADER };
       if (typeof target !== 'string' || !target || target === uid) return { status: 400, error: 'Miembro no válido' };
       const m = await readDoc(q, `members/${target}`);
       const banned = Array.isArray(l.banned) ? l.banned : [];
       if (!m || m.legionId !== uid || m.legionEpoch !== l.epoch || banned.includes(target)) return { status: 400, error: 'Miembro no válido' };
-      await writeDoc(q, `legions/${uid}`, { ...l, banned: [...banned, target] }, now);
+      await updateLegion(q, uid, (cur) => {
+        const b = Array.isArray(cur.banned) ? cur.banned : [];
+        return { ...cur, banned: b.includes(target) ? b : [...b, target] };
+      }, now);
       await setMembership(q, target, null, now);
       await putCode(q, uid, await freshCode(q)); // SR-31: el código que conocía el expulsado deja de servir
       return {};
@@ -162,6 +185,7 @@ export default async function legionsRoutes(app) {
     const uid = req.user.id;
     const now = app.now();
     const res = await db.tx(async (q) => {
+      await lockUser(q, uid);
       if (await leaderLegion(q, uid)) return { error: 'El líder no puede salir; disuelve la legión' };
       const m = await readDoc(q, `members/${uid}`);
       if (m && ('legionId' in m || 'legionEpoch' in m)) await setMembership(q, uid, null, now);
@@ -175,10 +199,11 @@ export default async function legionsRoutes(app) {
     const uid = req.user.id;
     const now = app.now();
     const ok = await db.tx(async (q) => {
+      await lockUser(q, uid);
       const l = await leaderLegion(q, uid);
       if (!l) return false;
       const p = `legionData/${uid}-${l.epoch}`;
-      await q('delete from docs where path >= $1 and path < $2', [`${p}/`, `${p}0`]);
+      await q('delete from docs where parent in ($1, $2)', [`${p}/wall`, `${p}/calendar`]);
       await q('delete from docs where path = $1', [`legions/${uid}`]);
       await q('delete from legion_codes where legion_id = $1', [uid]);
       await setMembership(q, uid, null, now);

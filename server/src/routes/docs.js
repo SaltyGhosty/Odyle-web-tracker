@@ -1,6 +1,7 @@
 import { requireUser } from '../lib/session.js';
 import { canRead, canWrite, membership } from '../lib/rules.js';
-import { parsePath, classify, sanitize, MAX_DOC_BYTES } from '../lib/validate.js';
+import { upsertDoc } from '../lib/doc-store.js';
+import { parsePath, classify, sanitize, MAX_DOC_BYTES, MEMBER_SUBS } from '../lib/validate.js';
 import { safeMerge, isPlain } from '../lib/merge.js';
 
 const MAX_DOCS = 500;
@@ -118,23 +119,18 @@ export default async function docsRoutes(app) {
   });
 
   // ---- Escritura ----
-  const upsert = async (path, data, now) => {
-    const parent = path.slice(0, path.lastIndexOf('/'));
-    await db.query(
-      `insert into docs (path, parent, data, updated_at, sort_at) values ($1, $2, $3::jsonb, $4, $5)
-       on conflict (path) do update set data = excluded.data, updated_at = excluded.updated_at, sort_at = excluded.sort_at`,
-      [path, parent, JSON.stringify(data), now, typeof data.at === 'number' ? data.at : null],
-    );
-  };
+  const upsert = (path, data, now) => upsertDoc(db.query.bind(db), path, data, now);
 
   // Cuota por usuario (SR-26): ≤ 500 documentos y ≤ 2 MB entre members/{uid}/** y lo que el usuario ha
   // publicado en legionData; solo se rechaza lo que crece.
   async function overQuota(uid, path, existingData, newData) {
     const own = `members/${uid}`;
+    // Sin comparaciones de rango sobre path (dependerían de la collation): los hijos se localizan por `parent`.
+    const subs = [...MEMBER_SUBS].map((x) => `${own}/${x}`);
     const rows = (await db.query(
-      `select path, data from docs where path = $1 or (path >= $2 and path < $3)
-         or (path >= 'legionData/' and path < 'legionData0' and data->>'uid' = $4)`,
-      [own, `${own}/`, `${own}0`, uid],
+      `select path, data from docs where path = $1 or parent in (${subs.map((_, i) => `$${i + 3}`).join(',')})
+         or (parent like 'legionData/%' and data->>'uid' = $2)`,
+      [own, uid, ...subs],
     )).rows;
     const oldSize = existingData ? bytes(existingData) : 0;
     const total = rows.reduce((s, r) => s + bytes(r.data), 0) - oldSize + bytes(newData);

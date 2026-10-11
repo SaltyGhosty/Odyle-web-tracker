@@ -32,7 +32,7 @@ export function parsePath(raw) {
   return { segments: segs };
 }
 
-const MEMBER_SUBS = new Set(['characters', 'settings', 'events', 'cp', 'progress']);
+export const MEMBER_SUBS = new Set(['characters', 'settings', 'events', 'cp', 'progress']);
 const SETTINGS = new Set(['presets', 'prefs', 'tasks', 'stats', 'timers', 'schedule']);
 
 // Clasifica una ruta ya validada. null = ruta que el servidor no conoce (denegada).
