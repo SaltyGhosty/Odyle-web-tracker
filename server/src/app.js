@@ -5,6 +5,7 @@ import rateLimit from '@fastify/rate-limit';
 import { requireCsrf } from './lib/csrf.js';
 import { hashPassword } from './lib/passwords.js';
 import authRoutes from './routes/auth.js';
+import docsRoutes from './routes/docs.js';
 
 export const CSP = "default-src 'self'; script-src 'self'; style-src 'self'; style-src-attr 'unsafe-inline'; font-src 'self'; img-src 'self' data: blob:; connect-src 'self'; object-src 'none'; base-uri 'none'; form-action 'self'; frame-ancestors 'none'; require-trusted-types-for 'script'; trusted-types 'none'";
 
@@ -84,6 +85,7 @@ export function buildApp({ config, db, mailer, now = Date.now, hasher = hashPass
   app.get('/api/health', async () => ({ ok: true }));
 
   app.register(authRoutes);
+  app.register(docsRoutes);
 
   return app;
 }
