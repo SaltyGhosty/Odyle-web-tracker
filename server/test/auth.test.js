@@ -152,13 +152,32 @@ test('me: con cookie devuelve usuario; sin cookie o con cookie falsa 401', async
   const l = await post(app, '/api/auth/login', { email: 'ana@example.com', password: PW });
   const r = await app.inject({ method: 'GET', url: '/api/auth/me', headers: { cookie: jar(l) } });
   assert.equal(r.statusCode, 200);
-  assert.deepEqual(r.json(), { id: l.json().id, email: 'ana@example.com', verified: true });
+  assert.deepEqual(r.json(), { id: l.json().id, email: 'ana@example.com', verified: true, isAdmin: false });
   assert.equal(r.headers['cache-control'], 'no-store');
   const n = await app.inject({ method: 'GET', url: '/api/auth/me' });
   assert.equal(n.statusCode, 401);
   assert.deepEqual(n.json(), { error: 'Sesión caducada' });
   const f = await app.inject({ method: 'GET', url: '/api/auth/me', headers: { cookie: '__Host-odyle_at=basura' } });
   assert.equal(f.statusCode, 401);
+  await app.close();
+});
+
+test('me: isAdmin solo para ADMIN_USER_ID con correo verificado (SR-21)', async () => {
+  const { newUserId } = await import('../src/lib/tokens.js');
+  const { signAccess } = await import('../src/lib/jwt.js');
+  const id = newUserId();
+  const other = newUserId();
+  const { app, db, config } = await makeTestApp({ ADMIN_USER_ID: id });
+  await db.query('insert into users (id, email, password_hash, email_verified_at) values ($1, $2, $3, $4)', [id, 'admin@example.com', 'x', new Date()]);
+  await db.query('insert into users (id, email, password_hash) values ($1, $2, $3)', [other, 'otro@example.com', 'x']);
+  const me = async (sub) => (await app.inject({ method: 'GET', url: '/api/auth/me', headers: { cookie: `__Host-odyle_at=${await signAccess(config, { sub, ver: 0 }, Date.now())}` } })).json();
+  assert.equal((await me(id)).isAdmin, true);
+  assert.equal((await me(other)).isAdmin, false);
+  // el mismo id sin verificar no es administrador
+  await db.query('update users set email_verified_at = null where id = $1', [id]);
+  const { invalidateUserCache } = await import('../src/lib/session.js');
+  invalidateUserCache(id);
+  assert.equal((await me(id)).isAdmin, false);
   await app.close();
 });
 

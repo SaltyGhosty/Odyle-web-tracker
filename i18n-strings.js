@@ -616,3 +616,9 @@ const PRESETS2 = {
   pt: { '⚡ Gastos': '⚡ Gastos', 'Cada botón aparece en tus tarjetas y resta su coste de un toque. El primero también se usa para calcular las mazmorras de hoy.': 'Cada botão aparece nos seus cartões e desconta o custo com um toque. O primeiro também é usado para calcular as masmorras de hoje.' },
 };
 for (const l of Object.keys(PRESETS2)) Object.assign(STRINGS[l], PRESETS2[l]);
+const SESSION = {
+  en: { 'Cerrar sesión': 'Log out', 'Cerrar todas mis sesiones': 'Log out of all my sessions' },
+  it: { 'Cerrar sesión': 'Esci', 'Cerrar todas mis sesiones': 'Esci da tutte le mie sessioni' },
+  pt: { 'Cerrar sesión': 'Sair', 'Cerrar todas mis sesiones': 'Sair de todas as minhas sessões' },
+};
+for (const l of Object.keys(SESSION)) Object.assign(STRINGS[l], SESSION[l]);

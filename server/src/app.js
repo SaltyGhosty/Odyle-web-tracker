@@ -7,6 +7,7 @@ import { hashPassword } from './lib/passwords.js';
 import authRoutes from './routes/auth.js';
 import docsRoutes from './routes/docs.js';
 import legionsRoutes from './routes/legions.js';
+import pagesRoutes from './routes/pages.js';
 
 export const CSP = "default-src 'self'; script-src 'self'; style-src 'self'; style-src-attr 'unsafe-inline'; font-src 'self'; img-src 'self' data: blob:; connect-src 'self'; object-src 'none'; base-uri 'none'; form-action 'self'; frame-ancestors 'none'; require-trusted-types-for 'script'; trusted-types 'none'";
 
@@ -22,7 +23,7 @@ export const PROD_LOGGER = {
   },
 };
 
-export function buildApp({ config, db, mailer, now = Date.now, hasher = hashPassword, logger = PROD_LOGGER }) {
+export function buildApp({ config, db, mailer, now = Date.now, hasher = hashPassword, logger = PROD_LOGGER, publicDir }) {
   const app = Fastify({
     // Exactamente un salto (el balanceador de Render), nunca `true` (SR-18). Con un número, Fastify 5.12 no confía
     // en nadie y request.ip sería siempre la IP del proxy; esta función equivale a "1 salto": solo el par inmediato.
@@ -88,6 +89,7 @@ export function buildApp({ config, db, mailer, now = Date.now, hasher = hashPass
   app.register(authRoutes);
   app.register(docsRoutes);
   app.register(legionsRoutes);
+  app.register(pagesRoutes, { publicDir });
 
   return app;
 }

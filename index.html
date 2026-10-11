@@ -864,6 +864,10 @@
     <div class="field"><label for="profile-bio">Frase (opcional)</label><input id="profile-bio" maxlength="80" autocomplete="off" placeholder="Siempre listo para el asedio"></div>
     <p class="error" id="profile-error" role="alert" hidden></p>
     <button type="submit" class="primary">Guardar perfil</button>
+    <div class="row" id="profile-session" hidden>
+      <button type="button" id="profile-logout">Cerrar sesión</button>
+      <button type="button" class="danger" id="profile-logout-all">Cerrar todas mis sesiones</button>
+    </div>
   </form>
 </div></div>
 
@@ -2148,13 +2152,32 @@
       return el('li', {}, el('span', {}, id === myUid ? 'Tú' : nameOf(id), id === lg.id ? el('small', {}, 'líder') : null, prof?.server ? el('small', {}, prof.server) : null), kick);
     }));
   }
+  // On the web the server owns legions and their codes (window.odyleLegionApi); in claude.ai the page does it with the db.
+  const legionApi = () => window.odyleLegionApi || null;
+  async function viaApi(fn) {
+    try { await fn(); return true; }
+    catch (err) { showError('lg-error', err && err.message ? err.message : 'No se pudo guardar'); return false; }
+  }
   async function loadCode() {
+    if (legionApi()) {
+      shownCode = null;
+      try { shownCode = await legionApi().getCode(); } catch { shownCode = null; }
+      if (!shownCode) showError('lg-error', 'No se encontró el código; crea uno nuevo');
+      paintLegionPanel();
+      return;
+    }
     try { const d = await db.doc(my.legionSecret).get(); shownCode = d.exists ? d.data().code : null; }
     catch { shownCode = null; }
     if (!shownCode) showError('lg-error', 'No se encontró el código; crea uno nuevo');
     paintLegionPanel();
   }
   async function newCode() {
+    if (legionApi()) {
+      showError('lg-error', '');
+      if (!await viaApi(async () => { shownCode = await legionApi().newCode(); })) return;
+      paintLegionPanel();
+      return;
+    }
     const code = makeCode(), codeHash = await hashCode(code), proof = await proofFor(myUid, code);
     if (!await saveShared(() => db.doc('legions/' + myUid).update({ codeHash, proof }))) return;
     if (!await saveShared(() => db.doc(my.legionSecret).set({ code }))) return;
@@ -2162,6 +2185,7 @@
   }
   const kickMember = uid => {
     const lg = myLegion(); if (!lg || lg.id !== myUid) return;
+    if (legionApi()) { showError('lg-error', ''); return viaApi(() => legionApi().kick(uid)); }
     return saveShared(() => db.doc('legions/' + myUid).update({ banned: [...new Set([...(lg.banned || []), uid])] }));
   };
   $('lg-create').addEventListener('submit', async e => {
@@ -2170,6 +2194,12 @@
     const r = parseLegionName($('lg-name').value);
     if (!r.ok) return showError('lg-error', r.error);
     showError('lg-error', '');
+    if (legionApi()) {
+      if (!await viaApi(async () => { shownCode = (await legionApi().create(r.value)).code; })) return;
+      $('lg-name').value = '';
+      render();
+      return;
+    }
     // a fresh epoch per creation: members of an earlier incarnation of this legion don't come back
     const code = makeCode(), codeHash = await hashCode(code), proof = await proofFor(myUid, code);
     const epoch = Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
@@ -2184,6 +2214,13 @@
     if (!my || ui.readOnly) return;
     const code = normalizeCode($('lg-code').value);
     if (!code) return showError('lg-error', 'Ese código no es válido');
+    if (legionApi()) {
+      showError('lg-error', '');
+      if (!await viaApi(() => legionApi().join(code))) return;
+      $('lg-code').value = '';
+      render();
+      return;
+    }
     let found = null;
     try {
       const snap = await db.collection('legions').where('codeHash', '==', await hashCode(code)).limit(10).get();
@@ -2209,12 +2246,15 @@
     const r = parseLegionName($('lg-rename').value);
     if (!r.ok) return showError('lg-error', r.error);
     showError('lg-error', '');
+    if (legionApi()) { if (await viaApi(() => legionApi().rename(r.value))) $('lg-rename').value = ''; return; }
     if (await saveShared(() => db.doc('legions/' + myUid).update({ name: r.value }))) $('lg-rename').value = '';
   });
   $('lg-leave').addEventListener('click', e => confirmClick(e.currentTarget, 'Salir de la legión', async () => {
+    if (legionApi()) { showError('lg-error', ''); if (await viaApi(() => legionApi().leave())) render(); return; }
     if (await saveShared(() => updateMember({ legionId: null, legionEpoch: null }))) render();
   }));
   $('lg-dissolve').addEventListener('click', e => confirmClick(e.currentTarget, 'Disolver legión', async () => {
+    if (legionApi()) { showError('lg-error', ''); if (await viaApi(() => legionApi().dissolve())) { shownCode = null; render(); } return; }
     if (!await saveShared(() => db.doc('legions/' + myUid).delete())) return;
     await saveShared(() => db.doc(my.legionSecret).delete());
     await saveShared(() => updateMember({ legionId: null, legionEpoch: null }));
@@ -2273,6 +2313,12 @@
     if (!$('profile-chip').hidden) $('profile-chip').focus({ preventScroll: true });
   }
   modalKeys($('profile-modal'), closeProfile);
+  // Session buttons exist only on the web build (window.odyleWeb comes from its claude-shim.js).
+  if (window.odyleWeb) {
+    $('profile-session').hidden = false;
+    $('profile-logout').addEventListener('click', () => window.odyleWeb.logout());
+    $('profile-logout-all').addEventListener('click', () => window.odyleWeb.logoutAll());
+  }
   // Spend buttons: managed in a modal opened from "⚡ Gastos" next to "+".
   $('presets-box').append($('presets-panel'));
   function closePresets() {

@@ -210,7 +210,8 @@ export default async function authRoutes(app) {
 
   app.get('/api/auth/me', { preHandler: requireUser }, async (req, reply) => {
     noStore(reply);
-    return { id: req.user.id, email: req.user.email, verified: req.user.verified };
+    const isAdmin = !!(config.adminUserId && req.user.id === config.adminUserId && req.user.verified);
+    return { id: req.user.id, email: req.user.email, verified: req.user.verified, isAdmin };
   });
 
   // Consume el token de renovación con una sola UPDATE (SR-9) y emite el sucesor en la misma familia.
