@@ -13,6 +13,7 @@ export function paths(uid) {
     progress: member + '/progress', // one doc per character
     stats: member + '/settings/stats',
     timers: member + '/settings/timers', // {items:[{id, name, endsAt}]}
+    legionSecret: 'data/users/' + uid + '/legion', // {code}: the invite code in clear, private to its leader
   };
 }
 

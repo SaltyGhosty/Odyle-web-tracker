@@ -27,7 +27,9 @@ const STUB = () => {
     'members/u_me/characters/c1': { name: 'SaltyGhosty', classId: 'asesino', energy: 300, recordedAt: now, order: 1 },
     'members/u_me/characters/c2': { name: 'Shutaruku', classId: 'gladiador', energy: 200, recordedAt: now, order: 2 },
     'members/u_me/settings/presets': { items: [{ id: 'p1', name: 'Mazmorra', cost: 40 }] },
-    'members/u_ana': { joinedAt: now, profile: { nick: 'AnaDaeva', server: 'Israphel', bio: '', faction: 'elyos', mainCharId: 'a1' }, rank: { weekSpent: 400, cpMax: 90000, achievements: 5, updatedAt: now } },
+    // Ana leads "Guardianes" (code K7Q2XM9P); in the leader scenario she is a member of my legion instead
+    ...(window.__leader ? { 'members/u_ana_x': {} } : { 'legions/u_ana': { name: 'Guardianes', codeHash: 'f55d80307efb8130b5768dc57d8cc0534bf13252195f36a4db55d629be3a1fba', banned: [], createdAt: now } }),
+    'members/u_ana': { joinedAt: now, legionId: window.__leader ? 'u_me' : 'u_ana', profile: { nick: 'AnaDaeva', server: 'Israphel', bio: '', faction: 'elyos', mainCharId: 'a1' }, rank: { weekSpent: 400, cpMax: 90000, achievements: 5, updatedAt: now } },
     'members/u_ana/characters/a1': { name: 'Anita', classId: 'clerigo', energy: 500, recordedAt: now, order: 1 },
   }));
   window.__docs = docs;
@@ -110,6 +112,7 @@ async function open(width, height = 900, opts = {}) {
   page.on('pageerror', e => errors.push(`${width}px: ${e.message}`));
   page.on('console', m => { if (m.type() === 'error' && !/favicon|Failed to load resource/.test(m.text())) errors.push(`${width}px console: ${m.text()}`); });
   if (opts.noProfile) await page.addInitScript(() => { window.__noProfile = true; });
+  if (opts.leader) await page.addInitScript(() => { window.__leader = true; });
   await page.addInitScript(STUB);
   await page.addInitScript(() => { try { localStorage.setItem('odyle-lang', 'es'); localStorage.removeItem('odyle-tab'); } catch {} });
   await page.goto(BASE);
@@ -129,7 +132,17 @@ const visible = (page, sel) => page.locator(sel).first().isVisible();
   check('escritorio: sin menú ☰', !(await visible(page, '#menu-btn')));
   check('perfil: tarjeta en la cabecera con tu nombre', await visible(page, '#profile-chip') && /SaltyMain/.test(await text(page, '#profile-chip')));
   check('perfil: no se abre solo si ya existe', !(await visible(page, '#profile-modal')));
+  // legion: join Ana's with her code
+  await page.click('#topnav [data-tab=legion]');
+  check('legión: sin legión, ofrece crear o unirse', await visible(page, '#lg-create') && await visible(page, '#lg-join'));
+  await page.fill('#lg-code', 'AAAA-BBBB'); await page.click('#lg-join button[type=submit]'); await page.waitForTimeout(300);
+  check('legión: código incorrecto', /no es válido/.test(await text(page, '#lg-error')));
+  await page.fill('#lg-code', 'k7q2-xm9p'); await page.click('#lg-join button[type=submit]'); await page.waitForTimeout(500);
+  check('legión: te unes con el código', (await db(page, 'members/u_me')).legionId === 'u_ana' && /Guardianes/.test(await text(page, '#lg-mine')));
+  check('legión: el título sale bajo tu nombre', (await text(page, '#pc-title')) === '‹Guardianes›');
+  check('legión: un miembro no ve el código, puede salir', !(await visible(page, '#lg-leader')) && await visible(page, '#lg-leave'));
   check('perfil: los demás aparecen con su nombre del juego', /AnaDaeva/.test(await text(page, '#legion')));
+  await page.click('#topnav [data-tab=personajes]');
   check('tarjetas propias: 2', await page.locator('#cards article.card').count() === 2);
   check('personajes: sin formulario en medio, con botón +', !(await visible(page, '#add-form')) && await visible(page, '#add-btn'));
   await page.click('#add-btn');
@@ -278,6 +291,11 @@ const visible = (page, sel) => page.locator(sel).first().isVisible();
   await page.keyboard.press('Escape'); await page.waitForTimeout(400);
   check('asistente: Esc lo cierra', !(await visible(page, '#ai-panel')));
 
+  // leave the legion
+  await page.click('#topnav [data-tab=legion]');
+  await page.click('#lg-leave'); await page.click('#lg-leave'); await page.waitForTimeout(400);
+  check('legión: sales (con confirmación)', !(await db(page, 'members/u_me')).legionId && await visible(page, '#lg-join') && (await text(page, '#pc-title')) === '');
+
   // compact mode + language (Ajustes)
   await page.click('#topnav [data-tab=ajustes]');
   await page.check('#compact-toggle');
@@ -312,6 +330,31 @@ const visible = (page, sel) => page.locator(sel).first().isVisible();
   check('perfil: la cabecera muestra el nuevo nombre', /NuevoDaeva/.test(await text(page, '#profile-chip')));
   await page.click('#profile-chip');
   check('perfil: la tarjeta abre el perfil para editarlo', await visible(page, '#profile-modal') && (await page.inputValue('#profile-nick')) === 'NuevoDaeva');
+  await page.close();
+}
+
+// ================= Leader: create, code, rename, kick, dissolve =================
+{
+  const page = await open(1280, 900, { leader: true });
+  await page.click('#topnav [data-tab=legion]');
+  await page.fill('#lg-name', 'ab'); await page.click('#lg-create button[type=submit]');
+  check('líder: valida el nombre', /al menos 3/.test(await text(page, '#lg-error')));
+  await page.fill('#lg-name', 'Mi Legión'); await page.click('#lg-create button[type=submit]'); await page.waitForTimeout(600);
+  const lg = await db(page, 'legions/u_me'), priv = await db(page, 'data/users/u_me/legion');
+  check('líder: la legión se crea y eres líder', lg && lg.name === 'Mi Legión' && (await db(page, 'members/u_me')).legionId === 'u_me' && (await text(page, '#pc-title')) === 'Líder · ‹Mi Legión›');
+  check('líder: el código solo se guarda cifrado a la vista de todos', priv && /^[A-Z2-9]{8}$/.test(priv.code) && lg.codeHash.length === 64 && !JSON.stringify(lg).includes(priv.code));
+  await page.click('#lg-show-code'); await page.waitForTimeout(200);
+  check('líder: ve su código', (await text(page, '#lg-code-text')) === priv.code);
+  await page.click('#lg-new-code'); await page.waitForTimeout(400);
+  const priv2 = await db(page, 'data/users/u_me/legion');
+  check('líder: código nuevo', priv2.code !== priv.code && (await db(page, 'legions/u_me')).codeHash !== lg.codeHash && (await text(page, '#lg-code-text')) === priv2.code);
+  await page.fill('#lg-rename', 'Alba Eterna'); await page.click('#lg-rename-form button[type=submit]'); await page.waitForTimeout(400);
+  check('líder: renombra', (await db(page, 'legions/u_me')).name === 'Alba Eterna' && /Alba Eterna/.test(await text(page, '#pc-title')));
+  check('líder: ve a AnaDaeva como miembro', /AnaDaeva/.test(await text(page, '#lg-members')));
+  await page.click('#lg-members button'); await page.click('#lg-members button'); await page.waitForTimeout(400);
+  check('líder: expulsa (con confirmación)', (await db(page, 'legions/u_me')).banned.includes('u_ana') && !/AnaDaeva/.test(await text(page, '#lg-members')));
+  await page.click('#lg-dissolve'); await page.click('#lg-dissolve'); await page.waitForTimeout(500);
+  check('líder: disuelve la legión', !(await db(page, 'legions/u_me')) && !(await db(page, 'members/u_me')).legionId && await visible(page, '#lg-create') && (await text(page, '#pc-title')) === '');
   await page.close();
 }
 

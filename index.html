@@ -435,6 +435,21 @@
   .drawer-head button { padding: 4px 10px; min-height: 32px; }
   @media (prefers-reduced-motion: reduce) { .modal, .modal-box { transition: none; } }
 
+  /* ---- Your legion ---- */
+  .lg-forms { display: grid; gap: 12px; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); }
+  .code-input { text-transform: uppercase; letter-spacing: .12em; font-variant-numeric: tabular-nums; }
+  .lg-head { display: flex; align-items: baseline; gap: 12px; flex-wrap: wrap; }
+  .lg-head h2 { color: var(--gold-bright); }
+  .lg-role { color: var(--muted); font-size: .8125rem; }
+  .lg-code-row { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+  .lg-code { font: 600 1.05rem var(--font-body); letter-spacing: .18em; color: var(--gold-bright); padding: 4px 10px; border: 1px dashed var(--line); border-radius: 8px; }
+  .lg-code-row button, .lg-members button { padding: 4px 12px; min-height: 32px; font-size: .8125rem; }
+  .lg-members { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; }
+  .lg-members li { display: flex; align-items: center; gap: 10px; padding: 6px 0; border-top: 1px solid rgba(232, 184, 90, .12); }
+  .lg-members li:first-child { border-top: none; }
+  .lg-members li > span { flex: 1; min-width: 0; overflow-wrap: anywhere; }
+  .lg-members small { color: var(--muted); margin-left: 6px; }
+
   /* ---- Profile chip in the header ---- */
   .profile-chip { display: flex; align-items: center; gap: 10px; padding: 6px 14px 6px 6px; border-radius: 999px; min-height: 0; text-align: left;
     background: var(--glass); border-color: var(--line); margin-left: auto; }
@@ -559,6 +574,45 @@
     <button type="button" id="add-btn" class="add-btn" aria-label="Añadir personaje" title="Añadir personaje" aria-haspopup="dialog" hidden>+</button>
   </div>
   <section class="grid" id="cards" aria-label="Personajes"></section>
+  <section class="panel legion-panel" id="legion-panel" aria-labelledby="lg-heading" hidden>
+    <div id="lg-none">
+      <h2 id="lg-heading">Tu legión</h2>
+      <p class="hint">Crea tu legión o únete a la de tus compañeros con su código de invitación. Solo verás a los de tu legión.</p>
+      <div class="lg-forms">
+        <form id="lg-create" class="row" novalidate>
+          <div class="field"><label for="lg-name">Nombre de la nueva legión</label><input id="lg-name" maxlength="24" autocomplete="off" placeholder="Guardianes del Alba"></div>
+          <button type="submit" class="primary offset">Crear legión</button>
+        </form>
+        <form id="lg-join" class="row" novalidate>
+          <div class="field"><label for="lg-code">Código de invitación</label><input id="lg-code" maxlength="12" autocomplete="off" placeholder="K7Q2-XM9P" class="code-input"></div>
+          <button type="submit" class="offset">Unirme</button>
+        </form>
+      </div>
+    </div>
+    <div id="lg-mine" hidden>
+      <div class="lg-head"><h2 id="lg-name-text"></h2><span class="lg-role" id="lg-role"></span></div>
+      <div id="lg-leader" hidden>
+        <div class="lg-code-row">
+          <span class="hint">Código de invitación:</span>
+          <code id="lg-code-text" class="lg-code">••••••••</code>
+          <button type="button" id="lg-show-code">Ver</button>
+          <button type="button" id="lg-copy-code" hidden>Copiar</button>
+          <button type="button" id="lg-new-code">Código nuevo</button>
+        </div>
+        <form id="lg-rename-form" class="row" novalidate>
+          <div class="field"><label for="lg-rename">Cambiar nombre</label><input id="lg-rename" maxlength="24" autocomplete="off"></div>
+          <button type="submit" class="offset">Guardar</button>
+        </form>
+      </div>
+      <h3 class="sub">Miembros</h3>
+      <ul class="lg-members" id="lg-members"></ul>
+      <div class="row">
+        <button type="button" class="danger" id="lg-leave" hidden>Salir de la legión</button>
+        <button type="button" class="danger" id="lg-dissolve" hidden>Disolver legión</button>
+      </div>
+    </div>
+    <p class="error" id="lg-error" role="alert" hidden></p>
+  </section>
   <section class="panel online" id="online-panel" aria-labelledby="online-title" hidden>
     <h2 id="online-title">En línea</h2>
     <ul class="online-list" id="online-list"></ul>
@@ -845,7 +899,7 @@
   import { formatClock, detectGains, rollValue, becameFull, sceneOptions } from './motion.js';
 
   // Data comes only from db snapshots. Writes happen only after a user action.
-  const state = { characters: [], memberData: new Map(), stats: null, tasks: DEFAULT_TASKS, progress: new Map(), cpHist: new Map(), hiddenMembers: 0, others: new Map(), names: {}, schedule: null, presets: [], events: [], timers: [], calendar: [], wall: [], prefs: { quietStart: '00:00', quietEnd: '08:00', favEvents: [], faction: 'elyos' } };
+  const state = { characters: [], memberData: new Map(), stats: null, tasks: DEFAULT_TASKS, progress: new Map(), cpHist: new Map(), hiddenMembers: 0, others: new Map(), names: {}, schedule: null, presets: [], events: [], timers: [], calendar: [], wall: [], legions: new Map(), prefs: { quietStart: '00:00', quietEnd: '08:00', favEvents: [], faction: 'elyos' } };
   // Interface-only state: which card is editing/confirming, validation messages.
   // noDb: no db in this view. readOnly: viewer cannot write (or a write was refused).
   const ui = { pop: null, notesId: null, tasksOpen: new Set(), menuOpen: false, editingId: null, extraId: null, confirmId: null, errors: {}, selectedId: null, noDb: false, readOnly: false, loaded: false };
@@ -1477,7 +1531,7 @@
     personajes: () => ['guide', 'summary', 'empty', 'chars-bar', 'cards'].map(id => $(id)),
     eventos: () => [$('events'), $('timers-panel')],
     estadisticas: () => ['week-panel', 'sim-panel', 'forecast-panel', 'cp-panel', 'history-panel'].map(id => $(id)),
-    legion: () => ['online-panel', 'calendar-panel', 'rank-panel', 'wall-panel', 'legion', 'legion-empty'].map(id => $(id)),
+    legion: () => ['legion-panel', 'online-panel', 'calendar-panel', 'rank-panel', 'wall-panel', 'legion', 'legion-empty'].map(id => $(id)),
     ajustes: () => drawerPanels.filter(n => n.id !== 'add-form' && !isNews(n)),
     novedades: () => drawerPanels.filter(isNews),
   };
@@ -1719,6 +1773,7 @@
     paintWall();
     paintRank();
     paintProfile();
+    paintLegionPanel();
     paintCharts(view.rows);
 
     // Other members: read-only groups with their own orbs; ids are prefixed with the member id.
@@ -2032,7 +2087,119 @@
     if (e.shiftKey && document.activeElement === f[0]) { e.preventDefault(); f.at(-1).focus(); }
     else if (!e.shiftKey && document.activeElement === f.at(-1)) { e.preventDefault(); f[0].focus(); }
   });
-  function myLegionTitle() { return ''; } // filled in by the legions task
+  // ---- Legions: create, join with a code, leader tools. A legion's id is its leader's uid. ----
+  const myLegion = () => myUid ? legionOf(state.memberData.get(myUid), state.legions, myUid) : null;
+  function myLegionTitle() { return legionTitle(myLegion(), myUid); }
+  async function updateMember(patch) {
+    const ref = db.doc(my.member);
+    try { await ref.update(patch); }
+    catch (err) { if (err && err.code === 'not_found') await ref.set({ joinedAt: Date.now(), ...patch }); else throw err; }
+  }
+  let shownCode = null, paintedLegion = '';
+  const confirmTimers = new WeakMap();
+  // Destructive buttons ask twice: the first click arms them for 4 seconds.
+  function confirmClick(btn, label, action) {
+    if (btn.dataset.armed === '1') { btn.dataset.armed = ''; clearTimeout(confirmTimers.get(btn)); btn.textContent = label; action(); return; }
+    btn.dataset.armed = '1'; btn.textContent = '¿Seguro? Pulsa otra vez';
+    confirmTimers.set(btn, setTimeout(() => { btn.dataset.armed = ''; btn.textContent = label; }, 4000));
+  }
+  function paintLegionPanel() {
+    $('legion-panel').hidden = !my || !db || ui.noDb || !membersLoaded;
+    if ($('legion-panel').hidden) return;
+    const lg = myLegion();
+    const leader = !!lg && lg.id === myUid;
+    $('lg-none').hidden = !!lg;
+    $('lg-mine').hidden = !lg;
+    for (const f of ['lg-create', 'lg-join']) $(f).hidden = ui.readOnly;
+    if (!lg) { shownCode = null; return; }
+    $('lg-name-text').textContent = lg.name;
+    $('lg-role').textContent = leader ? 'Eres el líder' : `Líder: ${nameOf(lg.id)}`;
+    $('lg-leader').hidden = !leader || ui.readOnly;
+    $('lg-leave').hidden = leader || ui.readOnly;
+    $('lg-dissolve').hidden = !leader || ui.readOnly;
+    $('lg-code-text').textContent = shownCode || '••••••••';
+    $('lg-copy-code').hidden = !shownCode;
+    $('lg-show-code').hidden = !!shownCode;
+    const ids = [lg.id, ...sameLegion(state.memberData, myUid, state.legions).filter(id => id !== lg.id)];
+    if (!ids.includes(myUid)) ids.push(myUid);
+    const key = JSON.stringify(ids.map(id => [id, nameOf(id)])) + leader + ui.readOnly;
+    if (key === paintedLegion) return; // rebuild only when the member list changes (keeps focus otherwise)
+    paintedLegion = key;
+    $('lg-members').replaceChildren(...ids.filter(id => id === myUid || state.memberData.has(id)).map(id => {
+      const prof = state.memberData.get(id)?.profile;
+      const kick = leader && id !== myUid && !ui.readOnly
+        ? el('button', { type: 'button', class: 'danger', onclick: e => confirmClick(e.currentTarget, 'Expulsar', () => kickMember(id)) }, 'Expulsar') : null;
+      return el('li', {}, el('span', {}, id === myUid ? 'Tú' : nameOf(id), id === lg.id ? el('small', {}, 'líder') : null, prof?.server ? el('small', {}, prof.server) : null), kick);
+    }));
+  }
+  async function loadCode() {
+    try { const d = await db.doc(my.legionSecret).get(); shownCode = d.exists ? d.data().code : null; }
+    catch { shownCode = null; }
+    if (!shownCode) showError('lg-error', 'No se encontró el código; crea uno nuevo');
+    paintLegionPanel();
+  }
+  async function newCode() {
+    const code = makeCode(), codeHash = await hashCode(code);
+    if (!await save(() => db.doc('legions/' + myUid).update({ codeHash }))) return;
+    if (!await save(() => db.doc(my.legionSecret).set({ code }))) return;
+    shownCode = code; paintLegionPanel();
+  }
+  const kickMember = uid => {
+    const lg = myLegion(); if (!lg || lg.id !== myUid) return;
+    return save(() => db.doc('legions/' + myUid).update({ banned: [...new Set([...(lg.banned || []), uid])] }));
+  };
+  $('lg-create').addEventListener('submit', async e => {
+    e.preventDefault();
+    if (!my || ui.readOnly) return;
+    const r = parseLegionName($('lg-name').value);
+    if (!r.ok) return showError('lg-error', r.error);
+    showError('lg-error', '');
+    const code = makeCode(), codeHash = await hashCode(code);
+    if (!await save(() => db.doc('legions/' + myUid).set({ name: r.value, codeHash, banned: [], createdAt: Date.now() }))) return;
+    if (!await save(() => db.doc(my.legionSecret).set({ code }))) return;
+    if (!await save(() => updateMember({ legionId: myUid }))) return;
+    shownCode = code; $('lg-name').value = '';
+    render();
+  });
+  $('lg-join').addEventListener('submit', async e => {
+    e.preventDefault();
+    if (!my || ui.readOnly) return;
+    const code = normalizeCode($('lg-code').value);
+    if (!code) return showError('lg-error', 'Ese código no es válido');
+    let found = null;
+    try { const snap = await db.collection('legions').where('codeHash', '==', await hashCode(code)).limit(1).get(); found = snap.docs[0] || null; }
+    catch { return showError('lg-error', 'No se pudo comprobar el código'); }
+    if (!found) return showError('lg-error', 'Ese código no es válido');
+    const banned = found.data().banned;
+    if (Array.isArray(banned) && banned.includes(myUid)) return showError('lg-error', 'No puedes unirte a esta legión');
+    showError('lg-error', '');
+    if (!await save(() => updateMember({ legionId: found.id }))) return;
+    $('lg-code').value = '';
+    render();
+  });
+  $('lg-show-code').addEventListener('click', loadCode);
+  $('lg-new-code').addEventListener('click', newCode);
+  $('lg-copy-code').addEventListener('click', async () => {
+    try { await navigator.clipboard.writeText(shownCode); $('lg-copy-code').textContent = '¡Copiado!'; }
+    catch { getSelection().selectAllChildren($('lg-code-text')); $('lg-copy-code').textContent = 'Selecciónalo y cópialo'; }
+    setTimeout(() => { $('lg-copy-code').textContent = 'Copiar'; }, 2000);
+  });
+  $('lg-rename-form').addEventListener('submit', async e => {
+    e.preventDefault();
+    const r = parseLegionName($('lg-rename').value);
+    if (!r.ok) return showError('lg-error', r.error);
+    showError('lg-error', '');
+    if (await save(() => db.doc('legions/' + myUid).update({ name: r.value }))) $('lg-rename').value = '';
+  });
+  $('lg-leave').addEventListener('click', e => confirmClick(e.currentTarget, 'Salir de la legión', async () => {
+    if (await save(() => updateMember({ legionId: null }))) render();
+  }));
+  $('lg-dissolve').addEventListener('click', e => confirmClick(e.currentTarget, 'Disolver legión', async () => {
+    if (!await save(() => db.doc('legions/' + myUid).delete())) return;
+    await save(() => db.doc(my.legionSecret).delete());
+    await save(() => updateMember({ legionId: null }));
+    shownCode = null; render();
+  }));
 
   // ---- Profile: how others see you (name, main character, server, faction, phrase) ----
   let membersLoaded = false, profilePrompted = false;
@@ -2555,8 +2722,8 @@
     }, onError);
     else { ui.loaded = true; render(); }
     // Legion: every member's characters (read-only for everyone but their owner).
-    // A view may hold 64 subscriptions; the page keeps 13 of its own, so at most 51 other members.
-    const MAX_OTHERS = 64 - 13;
+    // A view may hold 64 subscriptions; the page keeps 14 of its own, so at most 50 other members.
+    const MAX_OTHERS = 64 - 14;
     const memberSubs = new Map();
     db.collection('members').onSnapshot(async snap => {
       state.memberData = new Map(snap.docs.map(d => [d.id, d.data() || {}]));
@@ -2616,6 +2783,11 @@
       state.presets = items.filter(p => p && typeof p.name === 'string' && Number.isFinite(p.cost));
       render();
     }, onError);
+    db.collection('legions').onSnapshot(snap => {
+      state.legions = new Map(snap.docs.map(d => [d.id, d.data() || {}]).filter(([, l]) => typeof l.name === 'string')
+        .map(([id, l]) => [id, { name: l.name.slice(0, 24), codeHash: l.codeHash, banned: Array.isArray(l.banned) ? l.banned : [] }]));
+      render();
+    }, () => {});
     if (my) db.doc(my.timers).onSnapshot(snap => {
       const items = snap.exists && Array.isArray(snap.data().items) ? snap.data().items : [];
       state.timers = items.filter(t => t && typeof t.id === 'string' && typeof t.name === 'string' && Number.isFinite(t.endsAt));
