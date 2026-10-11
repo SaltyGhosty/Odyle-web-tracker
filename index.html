@@ -450,6 +450,10 @@
   .lg-members li > span { flex: 1; min-width: 0; overflow-wrap: anywhere; }
   .lg-members small { color: var(--muted); margin-left: 6px; }
 
+  .chars-actions { display: flex; align-items: center; gap: 10px; }
+  .presets-btn { border-radius: 999px; padding: 8px 14px; min-height: 40px; border-color: var(--sky); color: var(--sky); }
+  .presets-btn:hover { border-color: var(--sky); box-shadow: 0 0 14px rgba(124, 200, 255, .35); }
+
   /* ---- Profile chip in the header ---- */
   .profile-chip { display: flex; align-items: center; gap: 10px; padding: 6px 14px 6px 6px; border-radius: 999px; min-height: 0; text-align: left;
     background: var(--glass); border-color: var(--line); margin-left: auto; }
@@ -571,7 +575,10 @@
   <h2 class="group-title" id="mine-title" hidden>Tus personajes</h2>
   <div class="chars-bar" id="chars-bar">
     <h2>Tus personajes</h2>
-    <button type="button" id="add-btn" class="add-btn" aria-label="Añadir personaje" title="Añadir personaje" aria-haspopup="dialog" hidden>+</button>
+    <div class="chars-actions">
+      <button type="button" id="presets-btn" class="presets-btn" aria-label="Botones de gasto" title="Botones de gasto" aria-haspopup="dialog" hidden>⚡ Gastos</button>
+      <button type="button" id="add-btn" class="add-btn" aria-label="Añadir personaje" title="Añadir personaje" aria-haspopup="dialog" hidden>+</button>
+    </div>
   </div>
   <section class="grid" id="cards" aria-label="Personajes"></section>
   <section class="panel legion-panel" id="legion-panel" aria-labelledby="lg-heading" hidden>
@@ -736,7 +743,8 @@
   </section>
 
   <section class="panel" id="presets-panel" aria-labelledby="presets-title">
-    <h2 id="presets-title">Botones de gasto</h2>
+    <div class="drawer-head"><h2 id="presets-title">Botones de gasto</h2><button type="button" class="modal-close" aria-label="Cerrar">✕</button></div>
+    <p class="hint">Cada botón aparece en tus tarjetas y resta su coste de un toque. El primero también se usa para calcular las mazmorras de hoy.</p>
     <ul class="preset-list" id="preset-list"></ul>
     <form id="preset-form" class="row" novalidate>
       <div class="field"><label for="preset-name">Nombre</label><input id="preset-name" maxlength="40" autocomplete="off" placeholder="Mazmorra"></div>
@@ -858,6 +866,8 @@
     <button type="submit" class="primary">Guardar perfil</button>
   </form>
 </div></div>
+
+<div id="presets-modal" class="modal" role="dialog" aria-modal="true" aria-labelledby="presets-title" hidden><div class="modal-box" id="presets-box"></div></div>
 
 <div id="add-modal" class="modal" role="dialog" aria-modal="true" aria-labelledby="add-title" hidden><div class="modal-box" id="add-box"></div></div>
 
@@ -1533,7 +1543,7 @@
     eventos: () => [$('events'), $('timers-panel')],
     estadisticas: () => ['week-panel', 'sim-panel', 'forecast-panel', 'cp-panel', 'history-panel'].map(id => $(id)),
     legion: () => ['legion-panel', 'online-panel', 'calendar-panel', 'rank-panel', 'wall-panel', 'legion', 'legion-empty'].map(id => $(id)),
-    ajustes: () => drawerPanels.filter(n => n.id !== 'add-form' && !isNews(n)),
+    ajustes: () => drawerPanels.filter(n => n.id !== 'add-form' && n.id !== 'presets-panel' && !isNews(n)),
     novedades: () => drawerPanels.filter(isNews),
   };
   const nav = el('nav', { class: 'topnav', id: 'topnav', 'aria-label': 'Secciones' });
@@ -1746,6 +1756,8 @@
     $('nodata').hidden = !ui.noDb;
     $('menu-btn').hidden = locked || !db || !ui.loaded;
     $('add-btn').hidden = locked || !db || !ui.loaded; // nothing to add to without data or permission
+    $('presets-btn').hidden = $('add-btn').hidden;
+    if ($('presets-btn').hidden && !$('presets-modal').hidden) conceal($('presets-modal'), 'open');
     if ($('add-btn').hidden && !$('add-modal').hidden) closeAdd();
     if ($('menu-btn').hidden && ui.menuOpen) closeMenu();
     paintPresets();
@@ -1927,7 +1939,7 @@
   $('keys-close').addEventListener('click', () => toggleKeys(false));
   $('keys-help').addEventListener('click', e => { if (e.target === $('keys-help')) toggleKeys(false); });
   document.addEventListener('keydown', e => {
-    if (e.ctrlKey || e.metaKey || e.altKey || e.repeat || ui.menuOpen || !$('ai-panel').hidden || !$('add-modal').hidden || !$('profile-modal').hidden) return;
+    if (e.ctrlKey || e.metaKey || e.altKey || e.repeat || ui.menuOpen || !$('ai-panel').hidden || document.querySelector('.modal:not([hidden])')) return;
     if (keysOpen() && e.key === 'Escape') { e.preventDefault(); toggleKeys(false); return; }
     const t = e.target;
     if (t && (t.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(t.tagName))) return;
@@ -2213,6 +2225,10 @@
   let membersLoaded = false, profilePrompted = false, prefsLoaded = false;
   const myProfile = () => (myUid && state.memberData.get(myUid)?.profile) || null;
   function modalKeys(modal, close) {
+    // Esc also works when focus fell out of the modal (e.g. a list inside it was rebuilt)
+    document.addEventListener('keydown', e => {
+      if (e.key === 'Escape' && !modal.hidden && !modal.contains(document.activeElement)) { e.preventDefault(); close(); }
+    });
     modal.addEventListener('click', e => { if (e.target === modal || e.target.closest('.modal-close')) close(); });
     modal.addEventListener('keydown', e => {
       if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); close(); return; }
@@ -2257,6 +2273,15 @@
     if (!$('profile-chip').hidden) $('profile-chip').focus({ preventScroll: true });
   }
   modalKeys($('profile-modal'), closeProfile);
+  // Spend buttons: managed in a modal opened from "⚡ Gastos" next to "+".
+  $('presets-box').append($('presets-panel'));
+  function closePresets() {
+    if ($('presets-modal').hidden) return;
+    conceal($('presets-modal'), 'open');
+    if (!$('presets-btn').hidden) $('presets-btn').focus({ preventScroll: true });
+  }
+  modalKeys($('presets-modal'), closePresets);
+  $('presets-btn').addEventListener('click', () => { showError('preset-error', ''); reveal($('presets-modal'), 'open'); $('preset-name').focus({ preventScroll: true }); });
   $('profile-chip').addEventListener('click', () => ui.readOnly ? null : openProfile());
   $('profile-form').addEventListener('submit', async e => {
     e.preventDefault();

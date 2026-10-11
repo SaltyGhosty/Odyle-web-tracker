@@ -184,6 +184,15 @@ const visible = (page, sel) => page.locator(sel).first().isVisible();
   check('+: abre la ventana con el foco en el nombre', await visible(page, '#add-modal') && await page.evaluate(() => document.activeElement?.id === 'add-name'));
   await page.keyboard.press('Escape'); await page.waitForTimeout(400);
   check('ventana: Esc la cierra y el foco vuelve al +', !(await visible(page, '#add-modal')) && await page.evaluate(() => document.activeElement?.id === 'add-btn'));
+  check('gastos: botón junto al +', await visible(page, '#presets-btn') && !(await page.evaluate(() => document.getElementById('tab-ajustes').contains(document.getElementById('presets-panel')))));
+  await page.click('#presets-btn');
+  check('gastos: abre la ventana con tus botones', await visible(page, '#presets-modal') && /Mazmorra · 40/.test(await text(page, '#preset-list')));
+  await page.fill('#preset-name', 'Jefe'); await page.fill('#preset-cost', '80'); await page.click('#preset-form button[type=submit]'); await page.waitForTimeout(400);
+  check('gastos: añadir un botón', (await db(page, 'members/u_me/settings/presets')).items.some(p => p.name === 'Jefe' && p.cost === 80) && await page.locator('article[data-id=c1] button.spend').count() === 2);
+  await page.click('#preset-list li:last-child button'); await page.waitForTimeout(400);
+  check('gastos: quitar un botón', (await db(page, 'members/u_me/settings/presets')).items.length === 1);
+  await page.keyboard.press('Escape'); await page.waitForTimeout(400);
+  check('gastos: Esc cierra la ventana', !(await visible(page, '#presets-modal')) && await page.evaluate(() => document.activeElement?.id === 'presets-btn'));
   check('tarjeta: mazmorras de hoy', /^Mazmorras \(40\): 7 ahora · \d+ antes de medianoche$/.test(await text(page, 'article[data-id=c1] .runs')), await text(page, 'article[data-id=c1] .runs'));
 
   // keyboard shortcuts
