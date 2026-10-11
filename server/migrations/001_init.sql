@@ -11,21 +11,23 @@ create table users (
 
 create table refresh_tokens (
   id text primary key,
-  user_id text not null,
+  user_id text not null references users (id) on delete cascade,
   family_id text not null,
   token_hash text not null unique,
   expires_at timestamptz not null,
   used_at timestamptz,
   revoked_at timestamptz,
   created_at timestamptz not null default now(),
-  user_agent text
+  user_agent text,
+  replaced_by text,
+  rotated_at timestamptz
 );
 create index refresh_tokens_user_idx on refresh_tokens (user_id);
 create index refresh_tokens_family_idx on refresh_tokens (family_id);
 
 create table email_tokens (
   id text primary key,
-  user_id text not null,
+  user_id text not null references users (id) on delete cascade,
   kind text not null,
   token_hash text not null unique,
   expires_at timestamptz not null,

@@ -21,6 +21,8 @@ export function loadConfig(env) {
   }
   const jwt = decodeSecret('JWT_SECRET', env.JWT_SECRET.trim());
   const codeKey = decodeSecret('CODE_KEY', env.CODE_KEY.trim());
+  const ssl = env.DATABASE_SSL === undefined || String(env.DATABASE_SSL).trim() === '' ? 'verify' : String(env.DATABASE_SSL).trim();
+  if (!['off', 'require', 'verify'].includes(ssl)) throw new Error("DATABASE_SSL debe ser 'off', 'require' o 'verify'");
   const admin = typeof env.ADMIN_USER_ID === 'string' ? env.ADMIN_USER_ID.trim() : '';
   return {
     appOrigin: env.APP_ORIGIN.trim().replace(/\/+$/, ''),
@@ -31,6 +33,7 @@ export function loadConfig(env) {
     emailMode,
     adminUserId: admin || null,
     databaseUrl: env.DATABASE_URL.trim(),
+    databaseSsl: ssl,
     isProd: env.NODE_ENV === 'production',
   };
 }

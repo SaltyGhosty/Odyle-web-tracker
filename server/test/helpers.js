@@ -19,11 +19,12 @@ export function testEnv(overrides = {}) {
 }
 
 export async function makeTestApp(overrides = {}) {
-  const config = loadConfig(testEnv(overrides));
+  const { __buildApp, ...envOverrides } = overrides;
+  const config = loadConfig(testEnv(envOverrides));
   const db = createDb({ pgMem: true });
   await migrate(db);
   const sent = [];
   const mailer = { async send(msg) { sent.push({ to: msg.to, subject: msg.subject, text: msg.text }); } };
-  const app = buildApp({ config, db, mailer });
+  const app = buildApp({ config, db, mailer, logger: false, ...(overrides.__buildApp || {}) });
   return { app, db, sent, config };
 }

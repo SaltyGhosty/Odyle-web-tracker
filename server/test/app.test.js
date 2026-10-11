@@ -105,3 +105,30 @@ test('migrate dos veces no falla y crea las tablas', async () => {
   assert.equal(v.rows.length, 1);
   await db.close();
 });
+
+test('loadConfig: DATABASE_SSL', () => {
+  assert.equal(loadConfig(testEnv()).databaseSsl, 'verify');
+  for (const v of ['off', 'require', 'verify']) assert.equal(loadConfig(testEnv({ DATABASE_SSL: v })).databaseSsl, v);
+  assert.throws(() => loadConfig(testEnv({ DATABASE_SSL: 'x' })), /DATABASE_SSL/);
+});
+
+test('redirección HTTPS ignora un Host falsificado', async () => {
+  const { app, config } = await makeTestApp({ NODE_ENV: 'production' });
+  const r = await app.inject({ method: 'GET', url: '/api/health?a=1', headers: { 'x-forwarded-proto': 'http', host: 'evil.example' } });
+  assert.equal(r.statusCode, 301);
+  assert.ok(r.headers.location.startsWith(config.appOrigin + '/'));
+  assert.ok(!r.headers.location.includes('evil'));
+  await app.close();
+});
+
+test('SR-33: el registro no contiene cookies, autorización ni query', async () => {
+  const { Writable } = await import('node:stream');
+  const { PROD_LOGGER } = await import('../src/app.js');
+  let out = '';
+  const stream = new Writable({ write(c, _e, cb) { out += c; cb(); } });
+  const { app } = await makeTestApp({ __buildApp: { logger: { ...PROD_LOGGER, stream } } });
+  await app.inject({ method: 'GET', url: '/api/health?token=secret123', headers: { cookie: 'sid=cookieval999', authorization: 'Bearer authval888' } });
+  await app.close();
+  assert.ok(out.includes('/api/health'), 'debe haber registro');
+  for (const v of ['secret123', 'cookieval999', 'authval888', 'token=']) assert.ok(!out.includes(v), v);
+});

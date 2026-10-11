@@ -3,22 +3,23 @@ import helmet from '@fastify/helmet';
 
 export const CSP = "default-src 'self'; script-src 'self'; style-src 'self'; style-src-attr 'unsafe-inline'; font-src 'self'; img-src 'self' data: blob:; connect-src 'self'; object-src 'none'; base-uri 'none'; form-action 'self'; frame-ancestors 'none'; require-trusted-types-for 'script'; trusted-types 'none'";
 
-export function buildApp({ config, db, mailer, now = Date.now }) {
-  const inTest = process.env.NODE_ENV === 'test' || process.argv.includes('--test') || !!process.env.NODE_TEST_CONTEXT;
+export const PROD_LOGGER = {
+  level: 'info',
+  redact: {
+    paths: ['req.headers.cookie', 'req.headers.authorization', 'res.headers["set-cookie"]', 'req.body', 'req.query'],
+    remove: true,
+  },
+  serializers: {
+    req(req) { return { method: req.method, url: String(req.url).split('?')[0], remoteAddress: req.ip }; },
+    res(res) { return { statusCode: res.statusCode }; },
+  },
+};
+
+export function buildApp({ config, db, mailer, now = Date.now, logger = PROD_LOGGER }) {
   const app = Fastify({
     trustProxy: 1,
     bodyLimit: 70000,
-    logger: inTest ? false : {
-      level: 'info',
-      redact: {
-        paths: ['req.headers.cookie', 'req.headers.authorization', 'res.headers["set-cookie"]', 'req.body', 'req.query'],
-        remove: true,
-      },
-      serializers: {
-        req(req) { return { method: req.method, url: String(req.url).split('?')[0], remoteAddress: req.ip }; },
-        res(res) { return { statusCode: res.statusCode }; },
-      },
-    },
+    logger,
   });
 
   app.decorate('config', config);
@@ -31,8 +32,7 @@ export function buildApp({ config, db, mailer, now = Date.now }) {
 
   app.addHook('onRequest', async (req, reply) => {
     if (config.isProd && req.headers['x-forwarded-proto'] === 'http') {
-      const host = req.headers.host || new URL(config.appOrigin).host;
-      return reply.code(301).redirect(`https://${host}${req.raw.url}`);
+      return reply.code(301).redirect(`${config.appOrigin}${req.raw.url}`);
     }
   });
 

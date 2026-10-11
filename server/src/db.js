@@ -6,7 +6,7 @@ import { newDb } from 'pg-mem';
 
 const MIGRATIONS_DIR = path.join(path.dirname(fileURLToPath(import.meta.url)), '..', 'migrations');
 
-export function createDb({ connectionString, pgMem, isProd } = {}) {
+export function createDb({ connectionString, pgMem, ssl = 'off' } = {}) {
   let pool;
   if (pgMem) {
     const mem = newDb();
@@ -17,8 +17,10 @@ export function createDb({ connectionString, pgMem, isProd } = {}) {
     pool = new pg.Pool({
       connectionString,
       max: 10,
-      ssl: isProd ? { rejectUnauthorized: false } : undefined,
+      ssl: ssl === 'verify' ? { rejectUnauthorized: true } : ssl === 'require' ? { rejectUnauthorized: false } : undefined,
     });
+    // Un error en un cliente inactivo no debe tumbar el proceso; solo se registra el código.
+    pool.on('error', (err) => { console.error('Error en la conexión inactiva de la base de datos', err && err.code); });
   }
   return {
     async query(text, params) {
