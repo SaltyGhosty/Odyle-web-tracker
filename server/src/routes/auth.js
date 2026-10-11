@@ -2,7 +2,7 @@ import { hashPassword, verifyPassword, DUMMY_HASH, checkPasswordPolicy } from '.
 import { randomToken, sha256hex, newUserId } from '../lib/tokens.js';
 import {
   issueSession, setSessionCookies, clearSessionCookies, requireUser,
-  invalidateUserCache, RT_COOKIE,
+  invalidateUserCache, revokeFamilyOf, RT_COOKIE,
 } from '../lib/session.js';
 
 const GENERIC = { message: 'Si el correo es válido, te hemos enviado un enlace' };
@@ -22,11 +22,13 @@ function afterResponse(reply, req, fn) {
   });
 }
 
-async function createVerifyToken(db, userId, now) {
+// El token queda ligado a la contraseña de esa petición y anula los anteriores (anti pre-secuestro).
+async function createVerifyToken(db, userId, now, pendingHash) {
   const token = randomToken();
+  await db.query("update email_tokens set used_at = $1 where user_id = $2 and kind = 'verify' and used_at is null", [new Date(now), userId]);
   await db.query(
-    'insert into email_tokens (id, user_id, kind, token_hash, expires_at) values ($1, $2, $3, $4, $5)',
-    [randomToken(), userId, 'verify', sha256hex(token), new Date(now + VERIFY_TTL_MS)],
+    'insert into email_tokens (id, user_id, kind, token_hash, expires_at, pending_password_hash) values ($1, $2, $3, $4, $5, $6)',
+    [randomToken(), userId, 'verify', sha256hex(token), new Date(now + VERIFY_TTL_MS), pendingHash],
   );
   return token;
 }
@@ -58,7 +60,7 @@ export default async function authRoutes(app) {
     const existing = (await db.query('select id, email_verified_at from users where email = $1', [email])).rows[0];
     if (existing) {
       if (!existing.email_verified_at && config.emailMode === 'full') {
-        mail = verifyMail(config, email, await createVerifyToken(db, existing.id, now));
+        mail = verifyMail(config, email, await createVerifyToken(db, existing.id, now, passwordHash));
       }
     } else {
       const id = newUserId();
@@ -67,7 +69,7 @@ export default async function authRoutes(app) {
           'insert into users (id, email, password_hash, token_version, created_at) values ($1, $2, $3, 0, $4)',
           [id, email, passwordHash, new Date(now)],
         );
-        const token = await createVerifyToken(db, id, now);
+        const token = await createVerifyToken(db, id, now, passwordHash);
         if (config.emailMode === 'full') mail = verifyMail(config, email, token);
       } catch (err) {
         // Carrera con otro registro del mismo correo: se responde igual.
@@ -85,14 +87,21 @@ export default async function authRoutes(app) {
     const bad = () => reply.code(400).send({ error: 'El enlace no es válido o ha caducado' });
     if (typeof token !== 'string' || token.length < 20 || token.length > 200) return bad();
     const now = new Date(app.now());
-    const used = await db.query(
-      `update email_tokens set used_at = $1
-       where token_hash = $2 and kind = 'verify' and used_at is null and expires_at > $1 returning user_id`,
-      [now, sha256hex(token)],
-    );
-    if (!used.rows.length) return bad();
-    const userId = used.rows[0].user_id;
-    await db.query('update users set email_verified_at = $1 where id = $2 and email_verified_at is null', [now, userId]);
+    const userId = await db.tx(async (q) => {
+      const used = await q(
+        `update email_tokens set used_at = $1
+         where token_hash = $2 and kind = 'verify' and used_at is null and expires_at > $1
+         returning user_id, pending_password_hash`,
+        [now, sha256hex(token)],
+      );
+      if (!used.rows.length) return null;
+      const { user_id: uid, pending_password_hash: pending } = used.rows[0];
+      if (pending) await q('update users set password_hash = $1 where id = $2', [pending, uid]);
+      await q('update users set email_verified_at = $1, token_version = token_version + 1 where id = $2', [now, uid]);
+      await q('update refresh_tokens set revoked_at = $1 where user_id = $2 and revoked_at is null', [now, uid]);
+      return uid;
+    });
+    if (!userId) return bad();
     invalidateUserCache(userId);
     return { message: 'Correo verificado' };
   });
@@ -110,6 +119,7 @@ export default async function authRoutes(app) {
     if (config.emailMode === 'full' && !user.email_verified_at) {
       return reply.code(403).send({ error: 'Verifica tu correo para entrar' });
     }
+    await revokeFamilyOf(db, req.cookies && req.cookies[RT_COOKIE], app.now);
     const session = await issueSession(db, config, user.id, req.headers['user-agent'], undefined, app.now);
     setSessionCookies(reply, session);
     return { id: user.id, email: user.email, verified: !!user.email_verified_at };
@@ -117,13 +127,7 @@ export default async function authRoutes(app) {
 
   app.post('/api/auth/logout', async (req, reply) => {
     noStore(reply);
-    const rt = req.cookies && req.cookies[RT_COOKIE];
-    if (typeof rt === 'string' && rt) {
-      const row = (await db.query('select family_id from refresh_tokens where token_hash = $1', [sha256hex(rt)])).rows[0];
-      if (row) {
-        await db.query('update refresh_tokens set revoked_at = $1 where family_id = $2 and revoked_at is null', [new Date(app.now()), row.family_id]);
-      }
-    }
+    await revokeFamilyOf(db, req.cookies && req.cookies[RT_COOKIE], app.now);
     clearSessionCookies(reply);
     return { ok: true };
   });

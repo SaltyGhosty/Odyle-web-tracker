@@ -1,5 +1,5 @@
 // CSRF (SR-12, SR-13): en cualquier método distinto de GET/HEAD/OPTIONS, con o sin sesión,
-// Origin debe ser exactamente APP_ORIGIN y debe venir la cabecera X-Odyle-CSRF: 1.
+// (onRequest: antes de leer el cuerpo) Origin debe ser exactamente APP_ORIGIN y debe venir la cabecera X-Odyle-CSRF: 1.
 const SAFE = new Set(['GET', 'HEAD', 'OPTIONS']);
 
 export async function requireCsrf(request, reply) {

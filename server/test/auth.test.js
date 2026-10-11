@@ -277,3 +277,91 @@ test('createMailer: POST a Resend, sin lanzar ni registrar el cuerpo', async () 
   await createMailer(cfg, { log, fetchImpl: async () => ({ ok: false, status: 500 }) }).send({ to: 'a@b.co', subject: 'S', text: 'cuerpo secreto' });
   assert.ok(logs.length === 2 && logs.every((l) => !l.includes('re_secret') && !l.includes('cuerpo')));
 });
+
+test('pre-secuestro: la contraseña queda ligada al enlace más reciente', async () => {
+  const { app, sent } = await makeTestApp();
+  const A = 'contrasena-atacante-1';
+  const B = 'contrasena-victima-22';
+  await post(app, '/api/auth/register', { email: 'v@example.com', password: A });
+  await tick();
+  const oldTok = tokenFrom(sent);
+  await post(app, '/api/auth/register', { email: 'v@example.com', password: B });
+  await tick();
+  const newTok = tokenFrom(sent);
+  assert.notEqual(oldTok, newTok);
+  assert.equal((await post(app, '/api/auth/verify', { token: oldTok })).statusCode, 400);
+  assert.equal((await post(app, '/api/auth/verify', { token: newTok })).statusCode, 200);
+  assert.equal((await post(app, '/api/auth/login', { email: 'v@example.com', password: A })).statusCode, 401);
+  assert.equal((await post(app, '/api/auth/login', { email: 'v@example.com', password: B })).statusCode, 200);
+  await app.close();
+});
+
+test('verificar sube token_version y revoca las sesiones previas', async () => {
+  const { app, db, sent } = await makeTestApp({ EMAIL_MODE: 'owner-only' });
+  await post(app, '/api/auth/register', { email: 'o@example.com', password: PW });
+  const l = await post(app, '/api/auth/login', { email: 'o@example.com', password: PW });
+  const tok = (await db.query("select id from email_tokens")).rows.length;
+  assert.equal(tok, 1);
+  assert.equal(sent.length, 0);
+  // en owner-only no hay enlace por correo: se fabrica uno para comprobar el efecto
+  const { sha256hex } = await import('../src/lib/tokens.js');
+  const raw = 'x'.repeat(43);
+  await db.query("update email_tokens set token_hash = $1", [sha256hex(raw)]);
+  assert.equal((await post(app, '/api/auth/verify', { token: raw })).statusCode, 200);
+  assert.equal((await db.query('select token_version from users')).rows[0].token_version, 1);
+  assert.ok((await db.query('select revoked_at from refresh_tokens')).rows.every((r) => r.revoked_at));
+  const me = await app.inject({ method: 'GET', url: '/api/auth/me', headers: { cookie: jar(l) } });
+  assert.equal(me.statusCode, 401);
+  await app.close();
+});
+
+test('SR-11: login descarta la familia anterior', async () => {
+  const { app, db, sent } = await registered();
+  await post(app, '/api/auth/verify', { token: tokenFrom(sent) });
+  const l1 = await post(app, '/api/auth/login', { email: 'ana@example.com', password: PW });
+  const l2 = await post(app, '/api/auth/login', { email: 'ana@example.com', password: PW }, { ...H, cookie: jar(l1) });
+  assert.equal(l2.statusCode, 200);
+  const rows = (await db.query('select family_id, revoked_at from refresh_tokens order by created_at')).rows;
+  assert.equal(rows.length, 2);
+  const rt1 = jar(l1).split('; ').find((c) => c.startsWith('__Secure-odyle_rt='));
+  const { sha256hex } = await import('../src/lib/tokens.js');
+  const fam1 = (await db.query('select family_id, revoked_at from refresh_tokens where token_hash = $1', [sha256hex(rt1.split('=')[1])])).rows[0];
+  assert.ok(fam1.revoked_at);
+  const live = (await db.query('select 1 from refresh_tokens where family_id <> $1 and revoked_at is null', [fam1.family_id])).rows;
+  assert.equal(live.length, 1);
+  await app.close();
+});
+
+test('CSRF se comprueba antes de leer el cuerpo', async () => {
+  const { app } = await makeTestApp();
+  const url = '/api/auth/login';
+  const foreign = await app.inject({ method: 'POST', url, headers: { origin: 'https://evil.example', 'x-odyle-csrf': '1', 'content-type': 'text/plain' }, payload: 'hola' });
+  assert.equal(foreign.statusCode, 403);
+  const same = await app.inject({ method: 'POST', url, headers: { ...H, 'content-type': 'text/plain' }, payload: 'hola' });
+  assert.equal(same.statusCode, 415);
+  await app.close();
+});
+
+test('caché: ver nuevo en BD se recoge enseguida; ver viejo da 401', async () => {
+  let t = 5_000_000;
+  const { app, db, sent } = await makeTestApp({ __buildApp: { now: () => t } });
+  await post(app, '/api/auth/register', { email: 'ana@example.com', password: PW });
+  await tick();
+  await post(app, '/api/auth/verify', { token: tokenFrom(sent) });
+  const l = await post(app, '/api/auth/login', { email: 'ana@example.com', password: PW });
+  const headers = { cookie: jar(l) };
+  assert.equal((await app.inject({ method: 'GET', url: '/api/auth/me', headers })).statusCode, 200); // cachea ver 1
+  // subida directa sin invalidar la caché
+  await db.query('update users set token_version = token_version + 1');
+  t += 1000;
+  const { signAccess } = await import('../src/lib/jwt.js');
+  const sub = l.json().id;
+  const ver = (await db.query('select token_version from users')).rows[0].token_version;
+  const fresh = await signAccess(app.config, { sub, ver }, t);
+  // la caché aún tiene la versión vieja: el token nuevo debe aceptarse ya (recarga)
+  const r = await app.inject({ method: 'GET', url: '/api/auth/me', headers: { cookie: `__Host-odyle_at=${fresh}` } });
+  assert.equal(r.statusCode, 200);
+  // y el token con la versión vieja se rechaza tras recargar
+  assert.equal((await app.inject({ method: 'GET', url: '/api/auth/me', headers })).statusCode, 401);
+  await app.close();
+});

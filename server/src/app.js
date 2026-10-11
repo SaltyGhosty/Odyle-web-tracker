@@ -51,7 +51,7 @@ export function buildApp({ config, db, mailer, now = Date.now, logger = PROD_LOG
   });
 
   app.register(cookie);
-  app.addHook('preHandler', requireCsrf);
+  app.addHook('onRequest', requireCsrf);
 
   app.addHook('onSend', async (req, reply) => {
     reply.header('content-security-policy', CSP);

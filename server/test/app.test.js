@@ -41,7 +41,7 @@ test('producción: x-forwarded-proto http -> 301 a https', async () => {
 test('POST con text/plain -> 415; JSON se acepta', async () => {
   const { app } = await makeTestApp();
   app.post('/__test/echo', async (req) => ({ got: req.body }));
-  const bad = await app.inject({ method: 'POST', url: '/__test/echo', headers: { 'content-type': 'text/plain' }, payload: 'hola' });
+  const bad = await app.inject({ method: 'POST', url: '/__test/echo', headers: { 'content-type': 'text/plain', origin: 'https://odyle.test', 'x-odyle-csrf': '1' }, payload: 'hola' });
   assert.equal(bad.statusCode, 415);
   assert.ok(typeof bad.json().error === 'string');
   const good = await app.inject({ method: 'POST', url: '/__test/echo', headers: { 'content-type': 'application/json', origin: 'https://odyle.test', 'x-odyle-csrf': '1' }, payload: '{"a":1}' });
@@ -62,7 +62,7 @@ test('errores 500 sin trazas, en español', async () => {
 test('cuerpo mayor de 70000 bytes -> 413', async () => {
   const { app } = await makeTestApp();
   app.post('/__test/echo', async () => ({}));
-  const r = await app.inject({ method: 'POST', url: '/__test/echo', headers: { 'content-type': 'application/json' }, payload: JSON.stringify({ a: 'x'.repeat(70100) }) });
+  const r = await app.inject({ method: 'POST', url: '/__test/echo', headers: { 'content-type': 'application/json', origin: 'https://odyle.test', 'x-odyle-csrf': '1' }, payload: JSON.stringify({ a: 'x'.repeat(70100) }) });
   assert.equal(r.statusCode, 413);
   await app.close();
 });
@@ -102,7 +102,7 @@ test('migrate dos veces no falla y crea las tablas', async () => {
     assert.equal(Number(r.rows[0].n), 0, t);
   }
   const v = await db.query('select version from schema_version');
-  assert.equal(v.rows.length, 1);
+  assert.equal(v.rows.length, 2);
   await db.close();
 });
 

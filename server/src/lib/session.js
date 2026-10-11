@@ -27,6 +27,15 @@ export async function issueSession(db, config, userId, userAgent, familyId, now 
   return { access, refresh };
 }
 
+// Revoca toda la familia del refresh token dado (logout y login, SR-11). No falla si no existe.
+export async function revokeFamilyOf(db, refresh, now = Date.now) {
+  if (typeof refresh !== 'string' || !refresh) return;
+  const row = (await db.query('select family_id from refresh_tokens where token_hash = $1', [sha256hex(refresh)])).rows[0];
+  if (row) {
+    await db.query('update refresh_tokens set revoked_at = $1 where family_id = $2 and revoked_at is null', [new Date(now()), row.family_id]);
+  }
+}
+
 export function setSessionCookies(reply, { access, refresh }) {
   reply.setCookie(AT_COOKIE, access, { httpOnly: true, secure: true, sameSite: 'lax', path: '/', maxAge: AT_MAX_AGE });
   reply.setCookie(RT_COOKIE, refresh, { httpOnly: true, secure: true, sameSite: 'strict', path: '/api/auth', maxAge: RT_MAX_AGE });
@@ -41,9 +50,9 @@ export function clearSessionCookies(reply) {
 const cache = new Map();
 export function invalidateUserCache(userId) { cache.delete(userId); }
 
-async function loadUser(db, id, now) {
+async function loadUser(db, id, now, force = false) {
   const hit = cache.get(id);
-  if (hit && hit.exp > now) return hit;
+  if (!force && hit && hit.exp > now) return hit;
   const { rows } = await db.query('select id, email, token_version, email_verified_at from users where id = $1', [id]);
   if (!rows.length) { cache.delete(id); return null; }
   const u = { id: rows[0].id, email: rows[0].email, ver: Number(rows[0].token_version), verified: !!rows[0].email_verified_at, exp: now + CACHE_TTL_MS };
@@ -60,7 +69,9 @@ export async function requireUser(request, reply) {
   if (!token) return expired(reply);
   const claims = await verifyAccess(config, token, now);
   if (!claims) return expired(reply);
-  const u = await loadUser(db, claims.sub, now);
+  let u = await loadUser(db, claims.sub, now);
+  // Versión distinta: puede ser caché vieja; se recarga una vez antes de rechazar.
+  if (u && u.ver !== claims.ver) u = await loadUser(db, claims.sub, now, true);
   if (!u || u.ver !== claims.ver) return expired(reply);
   request.user = { id: u.id, email: u.email, verified: u.verified };
 }
