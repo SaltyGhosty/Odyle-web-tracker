@@ -203,6 +203,103 @@ await pb.evaluate(() => window.claude.__refreshAll());
 await pb.waitForTimeout(800);
 check('legión: B ve a A entre los miembros', /AnaDaeva/.test(await text(pb, '#legion')), await text(pb, '#lg-members'));
 
+// ================= ATAQUE (Task 8): XSS almacenado en todos los textos pintados =================
+// B (miembro) y A (líder) escriben cargas por la API, como lo haría un atacante con su sesión; luego ambos recargan.
+{
+  const P = '"><img src=x onerror=alert(7)>';
+  const NICK = '<svg onload=alert()>'; // 20 caracteres (límite del nick)
+  const LNAME = '<svg onload=alert(3)>'; // ≤ 24 caracteres (nombre de legión)
+  const okB = await pb.evaluate(async ({ P, NICK }) => {
+    const db = await window.claude.use('db');
+    const uid = await (await window.claude.use('user')).id();
+    await db.doc('members/' + uid).update({ profile: { nick: NICK, bio: P, server: '<b>x</b>' } });
+    await db.collection('members/' + uid + '/characters').doc('xss1').set({ name: P, notes: P, classId: 'asesino', energy: 100, recordedAt: Date.now(), order: 9 });
+    return 'ok';
+  }, { P, NICK }).catch((e) => 'err:' + (e && (e.message || e.code)));
+  const okA = await pa.evaluate(async ({ P, LNAME }) => {
+    await window.odyleLegionApi.rename(LNAME);
+    const db = await window.claude.use('db');
+    const uid = await (await window.claude.use('user')).id();
+    const l = await db.doc('legions/' + uid).get();
+    await db.collection('legionData/' + uid + '-' + l.data().epoch + '/calendar').doc('xss1').set({ title: P, at: Date.now() + 86400000, durationMin: 60 });
+    return 'ok';
+  }, { P, LNAME }).catch((e) => 'err:' + (e && (e.message || e.code)));
+  check('ATAQUE xss: el atacante pudo guardar las cargas (nick, bio, personaje, nombre de legión, calendario)', okA === 'ok' && okB === 'ok', `${okA} ${okB}`);
+  const injected = (page) => page.evaluate(() => document.querySelectorAll('img[src="x"], svg[onload], [onerror], [onload], script:not([src])').length);
+  for (const [label, page] of [['B', pb], ['A', pa]]) {
+    await page.reload();
+    await page.waitForSelector('#profile-chip:not([hidden])');
+    await page.click('#topnav [data-tab=personajes]');
+    await page.waitForTimeout(400);
+    await page.click('#topnav [data-tab=legion]');
+    await page.waitForFunction((n) => (document.getElementById('lg-name-text')?.textContent || '').includes(n), LNAME, { timeout: 5000 }).catch(() => {});
+    await page.waitForTimeout(600);
+    const legionText = await text(page, '#legion');
+    // A (líder) ve el nick de B en la lista de miembros; B ve el nombre de la legión.
+    const nickOk = label === 'B' || legionText.includes(NICK);
+    check(`ATAQUE xss (${label}): el nombre de legión${label === 'A' ? ' y el nick del miembro' : ''} se pintan como texto literal`, (await text(page, '#lg-name-text')).includes(LNAME) && nickOk, (await text(page, '#lg-name-text')) + ' | ' + legionText.slice(0, 200));
+    check(`ATAQUE xss (${label}): ningún elemento ni manejador inyectado en el DOM`, (await injected(page)) === 0, String(await injected(page)));
+  }
+  await pb.click('#topnav [data-tab=personajes]');
+  await pb.waitForTimeout(400);
+  check('ATAQUE xss (B): el nombre de personaje malicioso aparece como texto', (await text(pb, '#cards, main')).includes(P) || (await pb.locator('article.card').allTextContents()).some((t) => t.includes(P)));
+  check('ATAQUE xss: ningún alert ni diálogo se ejecutó', dialogs.length === 0, dialogs.join(','));
+}
+
+// ================= ATAQUE (Task 8): CSP + Trusted Types bloquean ejecución en el origen =================
+// Contexto aparte, sin los oyentes de errores: aquí las violaciones de CSP son el resultado esperado.
+{
+  const ctx = await browser.newContext();
+  const page = await ctx.newPage();
+  const atkDialogs = [];
+  page.on('dialog', (d) => { atkDialogs.push(d.message()); d.dismiss().catch(() => {}); });
+  await page.goto(`${ORIGIN}/login`);
+  // Los intentos van en una tarea posterior (setTimeout): durante page.evaluate, DevTools permite eval aunque la
+  // CSP lo prohíba (Runtime.evaluate allowUnsafeEvalBlockedByCSP); en una tarea normal rige la CSP de la página.
+  const r = await page.evaluate(() => new Promise((done) => setTimeout(async () => {
+    const out = {};
+    const tryIt = (k, fn) => { try { fn(); out[k] = 'ejecutado'; } catch (e) { out[k] = e.name; } };
+    tryIt('innerHTML', () => { document.body.innerHTML += '<img src=x onerror="window.__xss=1">'; });
+    tryIt('insertAdjacentHTML', () => document.body.insertAdjacentHTML('beforeend', '<img src=x onerror="window.__xss=2">'));
+    tryIt('eval', () => eval('window.__xss=3'));
+    tryIt('Function', () => new Function('window.__xss=4')());
+    tryIt('setTimeout(string)', () => setTimeout('window.__xss=5', 0));
+    tryIt('script.textContent', () => { const s = document.createElement('script'); s.textContent = 'window.__xss=6'; document.body.append(s); });
+    tryIt('script.src data:', () => { const s = document.createElement('script'); s.src = 'data:text/javascript,window.__xss=7'; document.body.append(s); });
+    tryIt('iframe srcdoc', () => { const f = document.createElement('iframe'); f.srcdoc = '<script>parent.__xss=8<\/script>'; document.body.append(f); });
+    // Elemento creado por DOM con un manejador inline (sin sumidero HTML): la CSP no permite inline.
+    tryIt('setAttribute(onerror)', () => { const img = document.createElement('img'); img.setAttribute('onerror', 'window.__xss=9'); img.src = 'data:,x'; document.body.append(img); });
+    tryIt('a href javascript:', () => { const a = document.createElement('a'); a.href = 'javascript:window.__xss=10'; document.body.append(a); a.click(); });
+    // Recurso propio de la API como script (bypass de CSP con 'self').
+    const s2 = document.createElement('script');
+    try { s2.src = '/api/health'; } catch (e) { out['script /api'] = e.name; }
+    await new Promise((res) => setTimeout(res, 800));
+    out.marker = window.__xss === undefined ? 'sin ejecutar' : 'EJECUTADO ' + window.__xss;
+    done(out);
+  }, 0)));
+  // a.click() con javascript: no lanza: su bloqueo se ve en el marcador (window.__xss sigue sin definir).
+  const blocked = Object.entries(r).filter(([k]) => k !== 'marker' && k !== 'a href javascript:').every(([, v]) => v !== 'ejecutado');
+  check('ATAQUE CSP/TT: innerHTML, eval, Function, setTimeout(string), <script> creado, srcdoc y javascript: quedan bloqueados', blocked && r.marker === 'sin ejecutar' && atkDialogs.length === 0, JSON.stringify(r));
+  await ctx.close();
+}
+
+// ================= ATAQUE (Task 8): redirección abierta tras entrar =================
+{
+  const ctx = await browser.newContext();
+  const page = await ctx.newPage();
+  await register(page, 'redir@example.com', PW);
+  const landed = [];
+  for (const next of ['//evil.example/', '/\\evil.example', 'https://evil.example/', 'javascript:alert(1)']) {
+    await page.goto(`${ORIGIN}/login?next=${encodeURIComponent(next)}`);
+    await page.fill('#email', 'redir@example.com'); await page.fill('#password', PW);
+    await page.click('form button[type=submit]');
+    await page.waitForURL((u) => !u.pathname.startsWith('/login'), { timeout: 5000 }).catch(() => {});
+    landed.push(`${next} -> ${page.url()}`);
+  }
+  check('ATAQUE redirect: next=//evil, /\\evil, https://evil, javascript: acaban en el propio origen', landed.every((l) => l.endsWith(` -> ${ORIGIN}/`)), landed.join(' | '));
+  await ctx.close();
+}
+
 // ================= Renovación silenciosa (401 -> refresh -> reintento) =================
 {
   const cookies = await A.ctx.cookies();
