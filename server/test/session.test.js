@@ -19,7 +19,7 @@ async function setup(over = {}, email = 'ana@example.com') {
   const t = await makeTestApp({ ...over, __buildApp: { now: () => clock.t, ...(over.__buildApp || {}) } });
   await post(t.app, '/api/auth/register', { email, password: PW });
   await tick();
-  if (t.config.emailMode === 'full') await post(t.app, '/api/auth/verify', { token: tokenFrom(t.sent) });
+  if (t.config.emailMode === 'full') await post(t.app, '/api/auth/verify', { token: tokenFrom(t.sent), password: PW });
   return { ...t, clock };
 }
 const login = (app, email = 'ana@example.com', password = PW, headers = H) => post(app, '/api/auth/login', { email, password }, headers);

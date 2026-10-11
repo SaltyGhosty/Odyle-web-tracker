@@ -190,11 +190,11 @@ await pb.waitForSelector('#wall-panel:not([hidden])');
 const XSS = '<img src=x onerror=alert(1)>';
 await pb.fill('#wall-text', XSS);
 await pb.click('#wall-form button[type=submit]');
-await pb.waitForFunction(() => document.querySelector('#wall-list li'));
-await pb.waitForTimeout(300);
+// Espera la condición real: el mensaje ya pintado como texto (un <li> previo no basta).
+await pb.waitForFunction((x) => (document.getElementById('wall-list')?.textContent || '').includes(x), XSS);
 check('muro: el HTML se muestra como texto, sin elemento <img>', (await text(pb, '#wall-list')).includes(XSS) && (await pb.locator('#wall-list img').count()) === 0);
 await pa.evaluate(() => window.claude.__refreshAll());
-await pa.waitForFunction(() => document.querySelector('#wall-list li'));
+await pa.waitForFunction((x) => (document.getElementById('wall-list')?.textContent || '').includes(x), XSS);
 check('muro: A (legión) lo ve también como texto', (await text(pa, '#wall-list')).includes(XSS) && (await pa.locator('#wall-list img').count()) === 0);
 check('muro: nada se ejecutó (sin diálogos)', dialogs.length === 0, dialogs.join(','));
 

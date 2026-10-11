@@ -119,15 +119,13 @@ export default async function docsRoutes(app) {
   });
 
   // ---- Escritura ----
-  const upsert = (path, data, now) => upsertDoc(db.query.bind(db), path, data, now);
-
   // Cuota por usuario (SR-26): ≤ 500 documentos y ≤ 2 MB entre members/{uid}/** y lo que el usuario ha
   // publicado en legionData; solo se rechaza lo que crece.
-  async function overQuota(uid, path, existingData, newData) {
+  async function overQuota(dbq, uid, path, existingData, newData) {
     const own = `members/${uid}`;
     // Sin comparaciones de rango sobre path (dependerían de la collation): los hijos se localizan por `parent`.
     const subs = [...MEMBER_SUBS].map((x) => `${own}/${x}`);
-    const rows = (await db.query(
+    const rows = (await dbq(
       `select path, data from docs where path = $1 or parent in (${subs.map((_, i) => `$${i + 3}`).join(',')})
          or (parent like 'legionData/%' and data->>'uid' = $2)`,
       [own, uid, ...subs],
@@ -187,10 +185,19 @@ export default async function docsRoutes(app) {
       }
     }
     if (bytes(finalData) > MAX_DOC_BYTES) return err(reply, 413, 'El documento es demasiado grande');
-    if ((c.root === 'members' || (shared && finalData.uid === ctx.uid)) && await overQuota(ctx.uid, path, existing, finalData)) {
-      return err(reply, 413, 'Has superado el espacio disponible');
-    }
-    await upsert(path, finalData, now);
+    const quotaChecked = c.root === 'members' || (shared && finalData.uid === ctx.uid);
+    // La cuota y la escritura van en una transacción serializada por usuario (SR-26): sin esto, N escrituras
+    // simultáneas comprueban la cuota antes de que las demás la ocupen.
+    const full = await db.tx(async (q) => {
+      if (quotaChecked) {
+        if (db.advisoryLocks) await q('select pg_advisory_xact_lock(hashtext($1))', [ctx.uid]);
+        const cur = (await q('select data from docs where path = $1', [path])).rows[0];
+        if (await overQuota(q, ctx.uid, path, cur ? cur.data : null, finalData)) return true;
+      }
+      await upsertDoc(q, path, finalData, now);
+      return false;
+    });
+    if (full) return err(reply, 413, 'Has superado el espacio disponible');
     return { ok: true, updatedAt: now };
   };
 

@@ -122,14 +122,24 @@
     return m ? m[1] : null;
   }
 
-  async function verifyView() {
+  // Verificar exige la contraseña elegida al registrarse: el enlace queda ligado a ella (anti pre-secuestro, SR-20).
+  function verifyView() {
     const token = takeToken();
-    render('Verificar correo', h('p', { class: 'hint', text: 'Comprobando el enlace…' }));
     const done = (text, kind) => render('Verificar correo', h('p', { class: kind, text }), h('div', { class: 'links' }, h('a', { href: '/login', text: 'Entrar' })));
     if (!token) return done('El enlace no es válido o ha caducado', 'error');
-    const r = await post('/api/auth/verify', { token });
-    if (r.ok) done(r.data.message || 'Correo verificado', 'ok');
-    else done(r.data.error || 'El enlace no es válido o ha caducado', 'error');
+    const f = form({
+      fields: [
+        h('p', { class: 'hint', text: 'Escribe la contraseña que elegiste al registrarte' }),
+        field('password', 'Contraseña', 'password', { autocomplete: 'current-password', maxlength: '128' }),
+      ],
+      submit: 'Verificar correo',
+      async onSubmit(show) {
+        const r = await post('/api/auth/verify', { token, password: val('password') });
+        if (r.ok) return done(r.data.message || 'Correo verificado', 'ok');
+        show(r.data.error || 'El enlace no es válido o ha caducado');
+      },
+    });
+    render('Verificar correo', f);
   }
 
   function resetView() {

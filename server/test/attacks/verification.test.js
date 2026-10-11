@@ -42,7 +42,7 @@ test('ADMIN_EMAIL (o cualquier correo) no da acceso a feedback: solo ADMIN_USER_
       assert.equal((await s.req('GET', '/api/docs/feedback', { cookie: `${AT}=${u.at}` })).statusCode, 403, `${mode}: listar feedback`);
     } else {
       // full: sin verificar ni siquiera entra; verificado tampoco es admin sin ADMIN_USER_ID.
-      await s.req('POST', '/api/auth/verify', { payload: { token: lastToken(s.sent) } });
+      await s.req('POST', '/api/auth/verify', { payload: { token: lastToken(s.sent), password: PW } });
       const u = await apiLogin(s, 'jefe@example.com');
       assert.equal((await s.req('GET', '/api/docs/feedback', { cookie: `${AT}=${u.at}` })).statusCode, 403, `${mode}: listar feedback`);
     }
@@ -71,7 +71,7 @@ test('secuestro previo (atacante primero): la víctima se registra y verifica; l
   await tick();
   await s.req('POST', '/api/auth/register', { payload: { email: 'victima@example.com', password: VICTIM_PW }, ip: freshIp() });
   await tick();
-  assert.equal((await s.req('POST', '/api/auth/verify', { payload: { token: lastToken(s.sent) } })).statusCode, 200);
+  assert.equal((await s.req('POST', '/api/auth/verify', { payload: { token: lastToken(s.sent), password: VICTIM_PW } })).statusCode, 200);
   assert.equal((await s.req('POST', '/api/auth/login', { payload: { email: 'victima@example.com', password: ATTACKER_PW }, ip: freshIp() })).statusCode, 401);
   await apiLogin(s, 'victima@example.com', VICTIM_PW);
   await s.app.close();

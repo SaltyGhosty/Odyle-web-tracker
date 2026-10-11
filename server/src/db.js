@@ -23,6 +23,7 @@ export function createDb({ connectionString, pgMem, ssl = 'off' } = {}) {
     pool.on('error', (err) => { console.error('Error en la conexión inactiva de la base de datos', err && err.code); });
   }
   return {
+    advisoryLocks: !pgMem, // pg_advisory_xact_lock no existe en pg-mem
     async query(text, params) {
       const r = await pool.query(text, params);
       return { rows: r.rows, rowCount: r.rowCount };

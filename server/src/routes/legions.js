@@ -7,6 +7,13 @@ import { normalizeCode, parseLegionName } from '../../../legion.js';
 const HOUR = 3_600_000;
 const TOO_MANY = 'Demasiados intentos. Prueba más tarde.';
 const err = (reply, code, error) => reply.code(code).send({ error });
+const BODY = { bodyLimit: 8192 }; // SR-26
+// El uid basura de 10 KB debe llegar a la validación (400), no cortarse antes: margen sobre los 8 KB generales.
+const KICK_BODY = 12288;
+const UID_RE = /^u_[A-Za-z0-9]{22}$/;
+// Mismas reglas de limpieza que el almacén de documentos: controles, NUL y marcas bidi fuera (SR-4).
+const BAD_CHARS = /[\u0000-\u001F\u007F-\u009F\u202A-\u202E\u2066-\u2069]/g;
+const cleanName = (v) => parseLegionName(typeof v === 'string' ? v.replace(BAD_CHARS, '') : '');
 const isObj = (b) => b && typeof b === 'object' && !Array.isArray(b);
 
 export default async function legionsRoutes(app) {
@@ -76,9 +83,9 @@ export default async function legionsRoutes(app) {
   const pre = { preHandler: requireUser };
   const NOT_LEADER = 'Solo el líder puede hacer esto';
 
-  app.post('/api/legions', pre, async (req, reply) => {
+  app.post('/api/legions', { ...BODY, ...pre }, async (req, reply) => {
     reply.header('cache-control', 'no-store');
-    const name = parseLegionName(isObj(req.body) ? req.body.name : '');
+    const name = cleanName(isObj(req.body) ? req.body.name : '');
     if (!name.ok) return err(reply, 400, name.error);
     const uid = req.user.id;
     const now = app.now();
@@ -96,7 +103,7 @@ export default async function legionsRoutes(app) {
     return out;
   });
 
-  app.post('/api/legions/join', { preHandler: [requireUser, ...joinLimits] }, async (req, reply) => {
+  app.post('/api/legions/join', { ...BODY, preHandler: [requireUser, ...joinLimits] }, async (req, reply) => {
     reply.header('cache-control', 'no-store');
     const code = normalizeCode(isObj(req.body) ? req.body.code : '');
     if (!code) return err(reply, 400, 'Ese código no es válido');
@@ -125,7 +132,7 @@ export default async function legionsRoutes(app) {
     return { code };
   });
 
-  app.post('/api/legions/mine/code', pre, async (req, reply) => {
+  app.post('/api/legions/mine/code', { ...BODY, ...pre }, async (req, reply) => {
     reply.header('cache-control', 'no-store');
     const uid = req.user.id;
     const out = await db.tx(async (q) => {
@@ -138,11 +145,11 @@ export default async function legionsRoutes(app) {
     return out || err(reply, 403, NOT_LEADER);
   });
 
-  app.patch('/api/legions/mine', pre, async (req, reply) => {
+  app.patch('/api/legions/mine', { ...BODY, ...pre }, async (req, reply) => {
     reply.header('cache-control', 'no-store');
     const uid = req.user.id;
     const now = app.now();
-    const name = parseLegionName(isObj(req.body) ? req.body.name : '');
+    const name = cleanName(isObj(req.body) ? req.body.name : '');
     const ok = await db.tx(async (q) => {
       await lockUser(q, uid);
       const l = await leaderLegion(q, uid);
@@ -156,31 +163,38 @@ export default async function legionsRoutes(app) {
     return { ok: true };
   });
 
-  app.post('/api/legions/mine/kick', pre, async (req, reply) => {
+  app.post('/api/legions/mine/kick', { bodyLimit: KICK_BODY, ...pre }, async (req, reply) => {
     reply.header('cache-control', 'no-store');
     const uid = req.user.id;
     const now = app.now();
     const target = isObj(req.body) ? req.body.uid : null;
     const res = await db.tx(async (q) => {
       await lockUser(q, uid);
-      const l = await leaderLegion(q, uid);
+      let l = await leaderLegion(q, uid, '');
       if (!l) return { status: 403, error: NOT_LEADER };
-      if (typeof target !== 'string' || !target || target === uid) return { status: 400, error: 'Miembro no válido' };
-      const m = await readDoc(q, `members/${target}`);
-      const banned = Array.isArray(l.banned) ? l.banned : [];
-      if (!m || m.legionId !== uid || m.legionEpoch !== l.epoch || banned.includes(target)) return { status: 400, error: 'Miembro no válido' };
+      if (typeof target !== 'string' || !UID_RE.test(target) || target === uid) return { status: 400, error: 'Miembro no válido' };
+      const isMine = (m) => m && m.legionId === uid && m.legionEpoch === l.epoch;
+      const isBanned = () => Array.isArray(l.banned) && l.banned.includes(target);
+      // Lectura sin bloqueo: solo se bloquea al objetivo si de verdad pertenece a esta legión (evita interbloqueos entre líderes).
+      if (!isMine(await readDoc(q, `members/${target}`)) || isBanned()) return { status: 400, error: 'Miembro no válido' };
+      // Orden de bloqueo (el mismo que usa join): usuario líder -> usuario objetivo -> legión -> ficha del objetivo.
+      await lockUser(q, target);
+      l = await leaderLegion(q, uid);
+      if (!l) return { status: 403, error: NOT_LEADER };
+      if (isBanned()) return { status: 400, error: 'Miembro no válido' }; // otro kick se adelantó
       await updateLegion(q, uid, (cur) => {
         const b = Array.isArray(cur.banned) ? cur.banned : [];
         return { ...cur, banned: b.includes(target) ? b : [...b, target] };
       }, now);
-      await setMembership(q, target, null, now);
+      // Si mientras tanto se unió a otra legión, queda expulsado (baneado) pero su nueva pertenencia no se toca.
+      if (isMine(await readDoc(q, `members/${target}`, ' for update'))) await setMembership(q, target, null, now);
       await putCode(q, uid, await freshCode(q)); // SR-31: el código que conocía el expulsado deja de servir
       return {};
     });
     return res.error ? err(reply, res.status, res.error) : { ok: true };
   });
 
-  app.post('/api/legions/leave', pre, async (req, reply) => {
+  app.post('/api/legions/leave', { ...BODY, ...pre }, async (req, reply) => {
     reply.header('cache-control', 'no-store');
     const uid = req.user.id;
     const now = app.now();
@@ -194,7 +208,7 @@ export default async function legionsRoutes(app) {
     return res.error ? err(reply, 409, res.error) : { ok: true };
   });
 
-  app.delete('/api/legions/mine', pre, async (req, reply) => {
+  app.delete('/api/legions/mine', { ...BODY, ...pre }, async (req, reply) => {
     reply.header('cache-control', 'no-store');
     const uid = req.user.id;
     const now = app.now();

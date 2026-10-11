@@ -9,6 +9,8 @@ import {
 
 const GENERIC = { message: 'Si el correo es válido, te hemos enviado un enlace' };
 const EMAIL_RE = /^[^\s@]+@[^\s@.]+(\.[^\s@.]+)+$/;
+const CTRL_RE = /[\u0000-\u001F\u007F-\u009F]/;
+const BODY = { bodyLimit: 8192 }; // SR-26
 const VERIFY_TTL_MS = 24 * 3600 * 1000;
 const RESET_TTL_MS = 30 * 60 * 1000;
 const GRACE_MS = 20_000;
@@ -23,7 +25,7 @@ const BAD_LINK = 'El enlace no es válido o ha caducado';
 function normEmail(v) {
   if (typeof v !== 'string') return null;
   const e = v.trim().toLowerCase();
-  return e.length <= 254 && EMAIL_RE.test(e) ? e : null;
+  return e.length <= 254 && !CTRL_RE.test(e) && EMAIL_RE.test(e) ? e : null;
 }
 
 // Ejecuta fn cuando la respuesta ya se ha enviado (SR-16); nunca lanza.
@@ -33,10 +35,10 @@ function afterResponse(reply, req, fn) {
   });
 }
 
-// El token queda ligado a la contraseña de esa petición y anula los anteriores (anti pre-secuestro).
+// El token queda ligado a la contraseña de esa petición; los anteriores siguen valiendo con SU contraseña, así que
+// nadie puede anular el enlace pendiente de la víctima registrando el mismo correo (anti pre-secuestro, SR-20).
 async function createVerifyToken(db, userId, now, pendingHash) {
   const token = randomToken();
-  await db.query("update email_tokens set used_at = $1 where user_id = $2 and kind = 'verify' and used_at is null", [new Date(now), userId]);
   await db.query(
     'insert into email_tokens (id, user_id, kind, token_hash, expires_at, pending_password_hash) values ($1, $2, $3, $4, $5, $6)',
     [randomToken(), userId, 'verify', sha256hex(token), new Date(now + VERIFY_TTL_MS), pendingHash],
@@ -112,9 +114,10 @@ export default async function authRoutes(app) {
   const byIpEmail = (req) => `${req.ip}|${emailKey(req)}`;
   const loginLimits = [limit(30, HOUR, byIp), limit(5, MIN, byIpEmail)];
   const registerLimits = [limit(5, HOUR, byIp)];
+  const verifyLimits = [limit(5, MIN, byIp)];
   const forgotLimits = [limit(10, HOUR, byIp), limit(3, HOUR, (req) => `e|${emailKey(req)}`)];
 
-  app.post('/api/auth/register', { preHandler: registerLimits }, async (req, reply) => {
+  app.post('/api/auth/register', { ...BODY, preHandler: registerLimits }, async (req, reply) => {
     noStore(reply);
     const body = req.body && typeof req.body === 'object' ? req.body : {};
     const email = normEmail(body.email);
@@ -123,7 +126,7 @@ export default async function authRoutes(app) {
     if (policy) return reply.code(400).send({ error: policy });
 
     // Mismo coste exista o no el correo (SR-15).
-    const passwordHash = await hashPassword(body.password);
+    const passwordHash = await hashPassword(body.password, req.arrivedAt);
     const now = app.now();
     let mail = null;
     const existing = (await db.query('select id, email_verified_at from users where email = $1', [email])).rows[0];
@@ -150,24 +153,36 @@ export default async function authRoutes(app) {
     return reply.code(202).send(GENERIC);
   });
 
-  app.post('/api/auth/verify', async (req, reply) => {
+  // Quien abre el enlace demuestra conocer la contraseña ligada a él (anti pre-secuestro, SR-20).
+  app.post('/api/auth/verify', { ...BODY, preHandler: verifyLimits }, async (req, reply) => {
     noStore(reply);
-    const token = req.body && typeof req.body === 'object' ? req.body.token : null;
-    const bad = () => reply.code(400).send({ error: 'El enlace no es válido o ha caducado' });
+    const body = req.body && typeof req.body === 'object' ? req.body : {};
+    const token = body.token;
+    const bad = () => reply.code(400).send({ error: BAD_LINK });
     if (typeof token !== 'string' || token.length < 20 || token.length > 200) return bad();
+    if (typeof body.password !== 'string' || body.password.length > 128) return bad();
     const now = new Date(app.now());
+    const tokenHash = sha256hex(token);
+    const live = (await db.query(
+      "select pending_password_hash from email_tokens where token_hash = $1 and kind = 'verify' and used_at is null and expires_at > $2",
+      [tokenHash, now],
+    )).rows[0];
+    if (!live) return bad();
+    const pending = live.pending_password_hash;
+    if (pending && !(await verifyPassword(pending, body.password, req.arrivedAt))) return bad(); // no consume el token
     const userId = await db.tx(async (q) => {
       const used = await q(
         `update email_tokens set used_at = $1
          where token_hash = $2 and kind = 'verify' and used_at is null and expires_at > $1
          returning user_id, pending_password_hash`,
-        [now, sha256hex(token)],
+        [now, tokenHash],
       );
       if (!used.rows.length) return null;
-      const { user_id: uid, pending_password_hash: pending } = used.rows[0];
-      if (pending) await q('update users set password_hash = $1 where id = $2', [pending, uid]);
+      const { user_id: uid, pending_password_hash: p } = used.rows[0];
+      if (p) await q('update users set password_hash = $1 where id = $2', [p, uid]);
+      await q("update email_tokens set used_at = $1 where user_id = $2 and kind = 'verify' and used_at is null", [now, uid]);
       await q('update users set email_verified_at = $1, token_version = token_version + 1 where id = $2', [now, uid]);
-      await q('update refresh_tokens set revoked_at = $1 where user_id = $2 and revoked_at is null', [now, uid]);
+      await q('update refresh_tokens set revoked_at = $1, grace_token_enc = null where user_id = $2 and revoked_at is null', [now, uid]);
       return uid;
     });
     if (!userId) return bad();
@@ -175,7 +190,7 @@ export default async function authRoutes(app) {
     return { message: 'Correo verificado' };
   });
 
-  app.post('/api/auth/login', { preHandler: loginLimits }, async (req, reply) => {
+  app.post('/api/auth/login', { ...BODY, preHandler: loginLimits }, async (req, reply) => {
     noStore(reply);
     const body = req.body && typeof req.body === 'object' ? req.body : {};
     const email = normEmail(body.email);
@@ -185,7 +200,7 @@ export default async function authRoutes(app) {
     const user = email
       ? (await db.query('select id, email, password_hash, email_verified_at from users where email = $1', [email])).rows[0]
       : null;
-    const ok = await verifyPassword(user ? user.password_hash : DUMMY_HASH, password);
+    const ok = await verifyPassword(user ? user.password_hash : DUMMY_HASH, password, req.arrivedAt);
     if (!user || !ok) {
       if (lockout.fail(lockKey)) req.log.warn('cuenta bloqueada por intentos fallidos');
       return reply.code(401).send({ error: 'Correo o contraseña incorrectos' });
@@ -201,7 +216,7 @@ export default async function authRoutes(app) {
     return { id: user.id, email: user.email, verified: !!user.email_verified_at };
   });
 
-  app.post('/api/auth/logout', async (req, reply) => {
+  app.post('/api/auth/logout', BODY, async (req, reply) => {
     noStore(reply);
     await revokeFamilyOf(db, req.cookies && req.cookies[RT_COOKIE], app.now);
     clearSessionCookies(reply);
@@ -215,7 +230,7 @@ export default async function authRoutes(app) {
   });
 
   // Consume el token de renovación con una sola UPDATE (SR-9) y emite el sucesor en la misma familia.
-  app.post('/api/auth/refresh', async (req, reply) => {
+  app.post('/api/auth/refresh', BODY, async (req, reply) => {
     noStore(reply);
     const fail = () => { clearSessionCookies(reply); return reply.code(401).send({ error: 'Sesión caducada' }); };
     const rt = req.cookies && req.cookies[RT_COOKIE];
@@ -244,19 +259,21 @@ export default async function authRoutes(app) {
       return { ok: true };
     }
 
+    // La hora se vuelve a leer tras perder la carrera por la fila: la ganadora ya escribió su rotated_at (SR-10).
+    const t2 = Math.max(t, app.now());
     const row = (await db.query(
       'select user_id, family_id, revoked_at, rotated_at, replaced_by, grace_token_enc from refresh_tokens where token_hash = $1', [hash],
     )).rows[0];
     if (!row) return fail();
     const inGrace = !row.revoked_at && row.rotated_at && row.grace_token_enc
-      && t - new Date(row.rotated_at).getTime() < GRACE_MS && t >= new Date(row.rotated_at).getTime();
+      && Math.abs(t2 - new Date(row.rotated_at).getTime()) < GRACE_MS; // tolera un reloj que retrocede un poco
     if (inGrace) {
       const succ = (await db.query('select revoked_at, used_at from refresh_tokens where id = $1', [row.replaced_by])).rows[0];
       // Solo el token inmediatamente anterior al vigente: si el sucesor ya se usó, es reutilización.
       const refresh = succ && !succ.revoked_at && !succ.used_at ? decryptCode(config.codeKey, row.grace_token_enc, hash) : null;
       const user = refresh ? (await db.query('select token_version from users where id = $1', [row.user_id])).rows[0] : null;
       if (refresh && user) {
-        const access = await signAccess(config, { sub: row.user_id, ver: Number(user.token_version) }, t);
+        const access = await signAccess(config, { sub: row.user_id, ver: Number(user.token_version) }, t2);
         setSessionCookies(reply, { access, refresh });
         return { ok: true };
       }
@@ -266,7 +283,7 @@ export default async function authRoutes(app) {
     return fail();
   });
 
-  app.post('/api/auth/logout-all', { preHandler: requireUser }, async (req, reply) => {
+  app.post('/api/auth/logout-all', { ...BODY, preHandler: requireUser }, async (req, reply) => {
     noStore(reply);
     const nowD = new Date(app.now());
     await db.tx(async (q) => {
@@ -278,7 +295,7 @@ export default async function authRoutes(app) {
     return { ok: true };
   });
 
-  app.post('/api/auth/forgot', { preHandler: forgotLimits }, async (req, reply) => {
+  app.post('/api/auth/forgot', { ...BODY, preHandler: forgotLimits }, async (req, reply) => {
     noStore(reply);
     if (config.emailMode !== 'full') {
       return reply.code(503).send({ error: 'La recuperación por correo aún no está disponible' });
@@ -306,7 +323,7 @@ export default async function authRoutes(app) {
     return reply.code(202).send(GENERIC);
   });
 
-  app.post('/api/auth/reset', async (req, reply) => {
+  app.post('/api/auth/reset', BODY, async (req, reply) => {
     noStore(reply);
     const body = req.body && typeof req.body === 'object' ? req.body : {};
     const policy = checkPasswordPolicy(body.password);
@@ -320,7 +337,7 @@ export default async function authRoutes(app) {
       [sha256hex(token), now],
     );
     if (!live.rows.length) return reply.code(400).send({ error: BAD_LINK });
-    const passwordHash = await app.hasher(body.password);
+    const passwordHash = await app.hasher(body.password, req.arrivedAt);
     const userId = await db.tx(async (q) => {
       const used = await q(
         `update email_tokens set used_at = $1

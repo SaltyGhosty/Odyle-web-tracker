@@ -55,7 +55,7 @@ export async function apiUser(s, email, password = PW) {
   if (reg.statusCode !== 202) throw new Error(`registro ${reg.statusCode}`);
   await tick();
   if (s.config.emailMode === 'full') {
-    const v = await s.req('POST', '/api/auth/verify', { payload: { token: lastToken(s.sent) } });
+    const v = await s.req('POST', '/api/auth/verify', { payload: { token: lastToken(s.sent), password } });
     if (v.statusCode !== 200) throw new Error(`verify ${v.statusCode}`);
   }
   return apiLogin(s, email, password);

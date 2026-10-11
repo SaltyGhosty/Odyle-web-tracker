@@ -1,3 +1,4 @@
+import { performance } from 'node:perf_hooks';
 import Fastify from 'fastify';
 import helmet from '@fastify/helmet';
 import cookie from '@fastify/cookie';
@@ -61,6 +62,7 @@ export function buildApp({ config, db, mailer, now = Date.now, hasher = hashPass
   app.register(cookie);
   // Sin límite global: cada ruta declara los suyos (SR-17); las claves usan request.ip (SR-18).
   app.register(rateLimit, { global: false });
+  app.addHook('onRequest', async (req) => { req.arrivedAt = performance.now(); });
   app.addHook('onRequest', requireCsrf);
 
   app.addHook('onSend', async (req, reply) => {
@@ -68,6 +70,10 @@ export function buildApp({ config, db, mailer, now = Date.now, hasher = hashPass
   });
 
   app.setErrorHandler((err, req, reply) => {
+    if (err.code === 'BUSY' && err.statusCode === 503) {
+      reply.header('retry-after', '3').header('cache-control', 'no-store');
+      return reply.code(503).send({ error: 'El servidor está ocupado. Inténtalo en unos segundos.' });
+    }
     const status = Number.isInteger(err.statusCode) && err.statusCode >= 400 && err.statusCode < 600 ? err.statusCode : 500;
     if (status >= 500) {
       req.log.error({ code: err.code }, 'error interno');

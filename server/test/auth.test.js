@@ -40,7 +40,7 @@ test('registro: 202, correo con enlace en fragmento, repetir no duplica', async 
 
 test('registro de cuenta verificada no envía correo', async () => {
   const { app, sent } = await registered();
-  await post(app, '/api/auth/verify', { token: tokenFrom(sent) });
+  await post(app, '/api/auth/verify', { token: tokenFrom(sent), password: PW });
   const n = sent.length;
   const r = await post(app, '/api/auth/register', { email: 'ana@example.com', password: PW });
   assert.equal(r.statusCode, 202);
@@ -88,10 +88,10 @@ test('login sin verificar 403; tras verificar 200 con cookies exactas; token de 
   assert.equal(r.statusCode, 403);
   assert.deepEqual(r.json(), { error: 'Verifica tu correo para entrar' });
   const token = tokenFrom(sent);
-  r = await post(app, '/api/auth/verify', { token });
+  r = await post(app, '/api/auth/verify', { token, password: PW });
   assert.equal(r.statusCode, 200);
   assert.deepEqual(r.json(), { message: 'Correo verificado' });
-  r = await post(app, '/api/auth/verify', { token });
+  r = await post(app, '/api/auth/verify', { token, password: PW });
   assert.equal(r.statusCode, 400);
   assert.deepEqual(r.json(), { error: 'El enlace no es válido o ha caducado' });
   r = await post(app, '/api/auth/login', { email: 'ANA@example.com', password: PW });
@@ -133,7 +133,7 @@ test('verify: token caducado o inexistente -> 400', async () => {
 
 test('login: contraseña incorrecta y correo inexistente dan el mismo 401', async () => {
   const { app, sent } = await registered();
-  await post(app, '/api/auth/verify', { token: tokenFrom(sent) });
+  await post(app, '/api/auth/verify', { token: tokenFrom(sent), password: PW });
   const a = await post(app, '/api/auth/login', { email: 'ana@example.com', password: 'otra-contrasena-1' });
   const b = await post(app, '/api/auth/login', { email: 'nadie@example.com', password: PW });
   for (const r of [a, b]) {
@@ -148,7 +148,7 @@ test('login: contraseña incorrecta y correo inexistente dan el mismo 401', asyn
 
 test('me: con cookie devuelve usuario; sin cookie o con cookie falsa 401', async () => {
   const { app, sent } = await registered();
-  await post(app, '/api/auth/verify', { token: tokenFrom(sent) });
+  await post(app, '/api/auth/verify', { token: tokenFrom(sent), password: PW });
   const l = await post(app, '/api/auth/login', { email: 'ana@example.com', password: PW });
   const r = await app.inject({ method: 'GET', url: '/api/auth/me', headers: { cookie: jar(l) } });
   assert.equal(r.statusCode, 200);
@@ -183,7 +183,7 @@ test('me: isAdmin solo para ADMIN_USER_ID con correo verificado (SR-21)', async 
 
 test('me: token_version distinto -> 401 (y la caché se puede invalidar)', async () => {
   const { app, db, sent } = await registered();
-  await post(app, '/api/auth/verify', { token: tokenFrom(sent) });
+  await post(app, '/api/auth/verify', { token: tokenFrom(sent), password: PW });
   const l = await post(app, '/api/auth/login', { email: 'ana@example.com', password: PW });
   const headers = { cookie: jar(l) };
   assert.equal((await app.inject({ method: 'GET', url: '/api/auth/me', headers })).statusCode, 200);
@@ -229,7 +229,7 @@ test('EMAIL_MODE=owner-only: entra sin verificar, sin correos, verified:false', 
 
 test('logout: borra cookies y revoca la familia', async () => {
   const { app, db, sent } = await registered();
-  await post(app, '/api/auth/verify', { token: tokenFrom(sent) });
+  await post(app, '/api/auth/verify', { token: tokenFrom(sent), password: PW });
   const l = await post(app, '/api/auth/login', { email: 'ana@example.com', password: PW });
   const r = await post(app, '/api/auth/logout', undefined, { ...H, cookie: jar(l) });
   assert.equal(r.statusCode, 200);
@@ -248,7 +248,7 @@ test('logout: borra cookies y revoca la familia', async () => {
 
 test('login siempre crea una familia nueva; user_agent truncado', async () => {
   const { app, db, sent } = await registered();
-  await post(app, '/api/auth/verify', { token: tokenFrom(sent) });
+  await post(app, '/api/auth/verify', { token: tokenFrom(sent), password: PW });
   for (let i = 0; i < 2; i++) {
     await post(app, '/api/auth/login', { email: 'ana@example.com', password: PW }, { ...H, 'user-agent': 'x'.repeat(500) });
   }
@@ -297,7 +297,7 @@ test('createMailer: POST a Resend, sin lanzar ni registrar el cuerpo', async () 
   assert.ok(logs.length === 2 && logs.every((l) => !l.includes('re_secret') && !l.includes('cuerpo')));
 });
 
-test('pre-secuestro: la contraseña queda ligada al enlace más reciente', async () => {
+test('pre-secuestro: cada enlace exige la contraseña a la que está ligado', async () => {
   const { app, sent } = await makeTestApp();
   const A = 'contrasena-atacante-1';
   const B = 'contrasena-victima-22';
@@ -308,8 +308,13 @@ test('pre-secuestro: la contraseña queda ligada al enlace más reciente', async
   await tick();
   const newTok = tokenFrom(sent);
   assert.notEqual(oldTok, newTok);
-  assert.equal((await post(app, '/api/auth/verify', { token: oldTok })).statusCode, 400);
-  assert.equal((await post(app, '/api/auth/verify', { token: newTok })).statusCode, 200);
+  // Con la contraseña equivocada (o sin ella) se rechaza SIN consumir el token.
+  assert.equal((await post(app, '/api/auth/verify', { token: newTok, password: A })).statusCode, 400);
+  assert.equal((await post(app, '/api/auth/verify', { token: newTok })).statusCode, 400);
+  assert.equal((await post(app, '/api/auth/verify', { token: oldTok, password: B })).statusCode, 400);
+  assert.equal((await post(app, '/api/auth/verify', { token: newTok, password: B })).statusCode, 200);
+  // Una vez verificada la cuenta, el otro enlace pendiente queda anulado.
+  assert.equal((await post(app, '/api/auth/verify', { token: oldTok, password: A })).statusCode, 400);
   assert.equal((await post(app, '/api/auth/login', { email: 'v@example.com', password: A })).statusCode, 401);
   assert.equal((await post(app, '/api/auth/login', { email: 'v@example.com', password: B })).statusCode, 200);
   await app.close();
@@ -326,7 +331,7 @@ test('verificar sube token_version y revoca las sesiones previas', async () => {
   const { sha256hex } = await import('../src/lib/tokens.js');
   const raw = 'x'.repeat(43);
   await db.query("update email_tokens set token_hash = $1", [sha256hex(raw)]);
-  assert.equal((await post(app, '/api/auth/verify', { token: raw })).statusCode, 200);
+  assert.equal((await post(app, '/api/auth/verify', { token: raw, password: PW })).statusCode, 200);
   assert.equal((await db.query('select token_version from users')).rows[0].token_version, 1);
   assert.ok((await db.query('select revoked_at from refresh_tokens')).rows.every((r) => r.revoked_at));
   const me = await app.inject({ method: 'GET', url: '/api/auth/me', headers: { cookie: jar(l) } });
@@ -336,7 +341,7 @@ test('verificar sube token_version y revoca las sesiones previas', async () => {
 
 test('SR-11: login descarta la familia anterior', async () => {
   const { app, db, sent } = await registered();
-  await post(app, '/api/auth/verify', { token: tokenFrom(sent) });
+  await post(app, '/api/auth/verify', { token: tokenFrom(sent), password: PW });
   const l1 = await post(app, '/api/auth/login', { email: 'ana@example.com', password: PW });
   const l2 = await post(app, '/api/auth/login', { email: 'ana@example.com', password: PW }, { ...H, cookie: jar(l1) });
   assert.equal(l2.statusCode, 200);
@@ -366,7 +371,7 @@ test('caché: ver nuevo en BD se recoge enseguida; ver viejo da 401', async () =
   const { app, db, sent } = await makeTestApp({ __buildApp: { now: () => t } });
   await post(app, '/api/auth/register', { email: 'ana@example.com', password: PW });
   await tick();
-  await post(app, '/api/auth/verify', { token: tokenFrom(sent) });
+  await post(app, '/api/auth/verify', { token: tokenFrom(sent), password: PW });
   const l = await post(app, '/api/auth/login', { email: 'ana@example.com', password: PW });
   const headers = { cookie: jar(l) };
   assert.equal((await app.inject({ method: 'GET', url: '/api/auth/me', headers })).statusCode, 200); // cachea ver 1
