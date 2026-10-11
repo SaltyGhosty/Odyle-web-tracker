@@ -89,3 +89,24 @@ test('cifrado de códigos', () => {
   assert.equal(decryptCode(config.codeKey, 'a.b', 'L1'), null);
   assert.equal(decryptCode(randomBytes(32), b, 'L1'), null);
 });
+
+test('createLimiter: pico de concurrencia <= max, incluso con rechazos', async () => {
+  const { createLimiter } = await import('../src/lib/passwords.js');
+  const limited = createLimiter(4);
+  let running = 0, peak = 0, done = 0;
+  const task = (i) => limited(async () => {
+    running++; peak = Math.max(peak, running);
+    await new Promise((r) => setTimeout(r, 5));
+    running--; done++;
+    if (i % 3 === 0) throw new Error('boom');
+    return i;
+  });
+  const res = await Promise.allSettled(Array.from({ length: 40 }, (_, i) => task(i)));
+  // also launch late arrivals while slots are being released
+  const late = [];
+  for (let i = 0; i < 20; i++) { late.push(task(1)); await new Promise((r) => setImmediate(r)); }
+  await Promise.all(late);
+  assert.equal(done, 60);
+  assert.equal(res.filter((r) => r.status === 'rejected').length, 14);
+  assert.ok(peak <= 4 && peak >= 2, `peak=${peak}`);
+});

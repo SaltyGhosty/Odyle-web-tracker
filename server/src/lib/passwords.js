@@ -4,19 +4,26 @@ import { hash, verify, Algorithm } from '@node-rs/argon2';
 const OPTS = { algorithm: Algorithm.Argon2id, memoryCost: 19456, timeCost: 2, parallelism: 1 };
 const MAX_CONCURRENT = 4; // SR-22
 
-let active = 0;
-const waiting = [];
-async function limited(fn) {
-  if (active >= MAX_CONCURRENT) await new Promise((resolve) => waiting.push(resolve));
-  active++;
-  try {
-    return await fn();
-  } finally {
-    active--;
-    const next = waiting.shift();
-    if (next) next();
-  }
+export function createLimiter(max) {
+  let active = 0;
+  const waiting = [];
+  return async function limited(fn) {
+    if (active >= max) {
+      await new Promise((resolve) => waiting.push(resolve)); // slot handed over directly
+    } else {
+      active++;
+    }
+    try {
+      return await fn();
+    } finally {
+      const next = waiting.shift();
+      if (next) next();
+      else active--;
+    }
+  };
 }
+
+const limited = createLimiter(MAX_CONCURRENT);
 
 export function hashPassword(pw) {
   return limited(() => hash(pw, OPTS));
