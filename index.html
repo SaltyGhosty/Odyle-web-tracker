@@ -615,6 +615,7 @@
   </section>
   <section class="panel online" id="online-panel" aria-labelledby="online-title" hidden>
     <h2 id="online-title">En línea</h2>
+    <p class="hint" id="online-hint" hidden>Únete a una legión para ver quién de ella está en línea y buscar grupo.</p>
     <ul class="online-list" id="online-list"></ul>
     <form id="lfg-form" class="row" novalidate>
       <div class="field"><label for="lfg-act">Busco grupo para</label><select id="lfg-act"></select></div>
@@ -2089,6 +2090,9 @@
   });
   // ---- Legions: create, join with a code, leader tools. A legion's id is its leader's uid. ----
   const myLegion = () => myUid ? legionOf(state.memberData.get(myUid), state.legions, myUid) : null;
+  let syncScope = () => {}, legionDataId = null;
+  const legionUnsubs = [];
+  const legionBase = () => 'legionData/' + legionDataId;
   function myLegionTitle() { return legionTitle(myLegion(), myUid); }
   async function updateMember(patch) {
     const ref = db.doc(my.member);
@@ -2313,7 +2317,7 @@
   const calAlerted = new Set();
   let paintedCal = '';
   function paintCalendar(now) {
-    $('calendar-panel').hidden = !db || ui.noDb;
+    $('calendar-panel').hidden = !db || ui.noDb || !legionDataId;
     if ($('calendar-panel').hidden) return;
     $('cal-form').hidden = !my || ui.readOnly;
     const upcoming = state.calendar.filter(c => c.at + c.durationMin * 60_000 > now).sort((a, b) => a.at - b.at).slice(0, 20);
@@ -2328,7 +2332,7 @@
     if (key === paintedCal || $('cal-list').contains(document.activeElement) && paintedCal.startsWith(JSON.stringify(upcoming))) return; // repaint at most once a minute or on change (keeps focus)
     paintedCal = key;
     const voteBtn = (c, v, label) => el('button', { type: 'button', 'aria-pressed': String(c.rsvp?.[myUid] === v), disabled: !my || ui.readOnly,
-      onclick: () => saveShared(() => db.doc('calendar/' + c.id).update({ rsvp: { [myUid]: v } })) }, label);
+      onclick: () => saveShared(() => db.doc(legionBase() + '/calendar/' + c.id).update({ rsvp: { [myUid]: v } })) }, label);
     $('cal-list').replaceChildren(...(upcoming.length ? upcoming.map(c => {
       const votes = Object.values(c.rsvp || {});
       const n = v => votes.filter(x => x === v).length;
@@ -2338,7 +2342,7 @@
           el('small', {}, `${dateFmt.format(new Date(c.at))} · ${c.durationMin} min · ${live ? 'en curso' : 'en ' + formatDuration(c.at - now)} · por ${c.uid === myUid ? 'ti' : nameOf(c.uid)}`),
           el('small', {}, ` · Voy ${n('yes')} · Quizá ${n('maybe')} · No ${n('no')}`)),
         el('div', { class: 'rsvp' }, voteBtn(c, 'yes', 'Voy'), voteBtn(c, 'maybe', 'Quizá'), voteBtn(c, 'no', 'No'),
-          c.uid === myUid && !ui.readOnly ? el('button', { type: 'button', 'aria-label': `Borrar ${c.title}`, onclick: () => saveShared(() => db.doc('calendar/' + c.id).delete()) }, '✕') : null));
+          c.uid === myUid && !ui.readOnly ? el('button', { type: 'button', 'aria-label': `Borrar ${c.title}`, onclick: () => saveShared(() => db.doc(legionBase() + '/calendar/' + c.id).delete()) }, '✕') : null));
     }) : [el('li', { class: 'muted hint' }, 'No hay citas próximas. Crea la primera.')]));
   }
   $('cal-form').addEventListener('submit', async e => {
@@ -2351,7 +2355,8 @@
     if (!Number.isFinite(at) || at < Date.now() - 60_000) return showError('cal-error', 'Elige una fecha futura');
     if (!Number.isInteger(dur) || dur < 5 || dur > 600) return showError('cal-error', 'Duración entre 5 y 600 minutos');
     showError('cal-error', '');
-    const ref = db.collection('calendar').doc();
+    if (!legionDataId) return;
+    const ref = db.collection(legionBase() + '/calendar').doc();
     if (!await saveShared(() => ref.set({ uid: myUid, title, at, durationMin: dur, rsvp: { [myUid]: 'yes' } }))) return;
     $('cal-title').value = ''; $('cal-at').value = '';
   });
@@ -2359,7 +2364,7 @@
   // ---- Wall: short messages to the legion; authors delete their own ----
   let paintedWall = '';
   function paintWall() {
-    $('wall-panel').hidden = !db || ui.noDb;
+    $('wall-panel').hidden = !db || ui.noDb || !legionDataId;
     if ($('wall-panel').hidden) return;
     $('wall-form').hidden = !my || ui.readOnly;
     const key = JSON.stringify(state.wall) + ui.readOnly + JSON.stringify(state.names);
@@ -2367,7 +2372,7 @@
     paintedWall = key;
     $('wall-list').replaceChildren(...(state.wall.length ? state.wall.map(m => el('li', {},
       el('span', { class: 'w-head' }, el('b', {}, m.uid === myUid ? 'Tú' : nameOf(m.uid)), ' ', el('small', {}, dateFmt.format(new Date(m.at)))),
-      m.uid === myUid && !ui.readOnly ? el('button', { type: 'button', 'aria-label': 'Borrar mensaje', onclick: () => saveShared(() => db.doc('wall/' + m.id).delete()) }, 'Borrar') : null,
+      m.uid === myUid && !ui.readOnly ? el('button', { type: 'button', 'aria-label': 'Borrar mensaje', onclick: () => saveShared(() => db.doc(legionBase() + '/wall/' + m.id).delete()) }, 'Borrar') : null,
       el('p', { class: 'w-text' }, m.text))) : [el('li', { class: 'muted hint' }, 'Aún no hay mensajes.')]));
   }
   $('wall-text').addEventListener('input', e => { $('wall-count').textContent = `${e.target.value.length}/280`; });
@@ -2380,7 +2385,8 @@
     if (Date.now() - lastWallAt < 10_000) return showError('wall-error', 'Espera unos segundos entre mensajes');
     showError('wall-error', '');
     lastWallAt = Date.now();
-    const ref = db.collection('wall').doc();
+    if (!legionDataId) return;
+    const ref = db.collection(legionBase() + '/wall').doc();
     if (!await saveShared(() => ref.set({ uid: myUid, at: Date.now(), text }))) return;
     $('wall-text').value = ''; $('wall-count').textContent = '0/280';
   });
@@ -2399,7 +2405,9 @@
   function paintRank() {
     const now = Date.now();
     const rows = [];
+    const mates = new Set([myUid, ...sameLegion(state.memberData, myUid, state.legions)]);
     for (const [uid, d] of state.memberData) {
+      if (!legionDataId || !mates.has(uid)) continue; // only my legion
       const r = uid === myUid && my ? rankData() : d.rank;
       if (!r || !Number.isFinite(r.updatedAt)) continue;
       rows.push({ uid, weekSpent: now - r.updatedAt < 7 * 86_400_000 ? Number(r.weekSpent) || 0 : 0, cpMax: Number(r.cpMax) || 0, achievements: Number(r.achievements) || 0 });
@@ -2443,10 +2451,12 @@
       if (!people.has(key) || (char && !people.get(key).char)) people.set(key, { uid: p.by, me: p.isMe, char });
     }
     const list = [...people.values()].sort((a, b) => b.me - a.me);
-    $('online-panel').hidden = !room;
-    $('online-pill').hidden = !room || list.length === 0;
+    $('online-panel').hidden = !room || !db || ui.noDb;
+    $('online-pill').hidden = !lroom || list.length === 0;
+    for (const id of ['online-list', 'lfg-form', 'lfg-list', 'lfg-state']) $(id).hidden = !lroom;
+    $('online-hint').hidden = !!lroom;
     $('online-pill').textContent = `● ${list.length} en línea`;
-    $('online-title').textContent = `En línea (${list.length})`;
+    $('online-title').textContent = lroom ? `En línea (${list.length})` : 'En línea';
     $('online-list').replaceChildren(...list.map(u => el('li', { class: u.me ? 'me' : '' },
       u.me ? 'Tú' : nameOf(u.uid), u.char ? el('small', {}, u.char) : null)));
     const now = Date.now();
@@ -2472,25 +2482,25 @@
   const myCharName = () => [...state.characters].sort((a, b) => (a.order || 0) - (b.order || 0))[0]?.name || '';
   let presenceChar = null;
   function syncPresence() {
-    if (!room) return;
+    if (!lroom) return;
     const char = myCharName();
     if (char === presenceChar) return;
     presenceChar = char;
-    room.presence({ uid: myUid || null, char, at: Date.now() }).catch(() => {});
+    lroom.presence({ uid: myUid || null, char, at: Date.now() }).catch(() => {});
   }
   async function replyLfg(o) {
-    if (!room || o.replied) return;
+    if (!lroom || o.replied) return;
     o.replied = true; paintOnline();
-    try { await room.emit('lfg-reply', { id: o.id }); } catch { o.replied = false; paintOnline(); showNotice('No se pudo responder'); }
+    try { await lroom.emit('lfg-reply', { id: o.id }); } catch { o.replied = false; paintOnline(); showNotice('No se pudo responder'); }
   }
   $('lfg-form').addEventListener('submit', async e => {
     e.preventDefault();
-    if (!room || ui.readOnly) return;
+    if (!lroom || ui.readOnly) return;
     if (myLfg && Date.now() - myLfg.at < 30_000) { $('lfg-state').textContent = 'Espera unos segundos antes de volver a avisar'; return; }
     const act = clean($('lfg-act').value, 60), text = clean($('lfg-text').value, 120);
     const id = 'g' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
     myLfg = { id, at: Date.now(), replies: new Set() };
-    try { await room.emit('lfg', { id, act, text, char: myCharName() }); $('lfg-text').value = ''; }
+    try { await lroom.emit('lfg', { id, act, text, char: myCharName() }); $('lfg-text').value = ''; }
     catch (err) { myLfg = null; showNotice(err && err.code === 'not_permitted' ? 'No tienes permiso para avisar al grupo' : 'No se pudo enviar el aviso'); }
     paintOnline();
   });
@@ -2507,15 +2517,34 @@
     sound.chime();
     try { if (window.Notification && Notification.permission === 'granted' && document.hidden) new Notification(tr('Energía Odyle'), { body: tr(text) }); } catch {}
   }
-  async function connectRoom() {
-    try { room = await window.claude.use('room'); } catch { room = null; }
-    if (!room) return;
-    room.onPeers(async change => {
+  // Each legion has its own named room: presence ("en línea") and "Busco grupo" stay inside it.
+  let lroom = null, roomSeq = 0;
+  async function syncRoom() {
+    const id = legionDataId, seq = ++roomSeq;
+    if (lroom) { const old = lroom; lroom = null; old.leave().catch(() => {}); }
+    peers = []; presenceChar = null; lfgs.length = 0; myLfg = null; paintedLfg = '';
+    if (!room || !id) { paintOnline(); return; }
+    let r;
+    try { r = await room.join(await roomName(id)); } catch { paintOnline(); return; }
+    if (seq !== roomSeq) { r.leave().catch(() => {}); return; } // the legion changed meanwhile
+    lroom = r;
+    r.onPeers(async change => {
+      if (lroom !== r) return;
       peers = change.peers;
       await resolveNames(peers.map(p => p.by));
       paintOnline();
-    }, () => { room = null; paintOnline(); });
-    room.on('lfg', async msg => {
+    }, () => { if (lroom === r) { lroom = null; peers = []; paintOnline(); } });
+    r.on('lfg', msg => { if (lroom === r) onLfg(msg); });
+    r.on('lfg-reply', msg => { if (lroom === r) onLfgReply(msg); });
+    syncPresence();
+    paintOnline();
+  }
+  async function connectRoom() {
+    try { room = await window.claude.use('room'); } catch { room = null; }
+    syncRoom();
+  }
+  async function onLfg(msg) {
+    {
       const d = msg.data || {};
       const id = clean(d.id, 24), act = clean(d.act, 60);
       if (!id || !act || lfgs.some(o => o.id === id)) return;
@@ -2527,17 +2556,17 @@
       await resolveNames([msg.by]);
       paintOnline();
       showAlert(`${nameOf(msg.by)} busca grupo: ${act}`, ui.readOnly ? null : () => replyLfg(o), 'Voy');
-    });
-    room.on('lfg-reply', async msg => {
+    }
+  }
+  async function onLfgReply(msg) {
+    {
       const id = clean(msg.data?.id, 24);
       if (!myLfg || id !== myLfg.id || msg.isMe) return;
       myLfg.replies.add(msg.by || msg.peer);
       await resolveNames([msg.by]);
       paintOnline();
       sound.chime();
-    });
-    syncPresence();
-    paintOnline();
+    }
   }
   $('online-pill').addEventListener('click', () => {
     if (DESKTOP.matches) setTab('legion');
@@ -2725,10 +2754,9 @@
     // A view may hold 64 subscriptions; the page keeps 14 of its own, so at most 50 other members.
     const MAX_OTHERS = 64 - 14;
     const memberSubs = new Map();
-    db.collection('members').onSnapshot(async snap => {
-      state.memberData = new Map(snap.docs.map(d => [d.id, d.data() || {}]));
-      membersLoaded = true;
-      const all = snap.docs.map(d => d.id).filter(id => id !== myUid);
+    // Only my legion's members: their characters are watched, everyone else is ignored.
+    syncScope = async () => {
+      const all = sameLegion(state.memberData, myUid, state.legions);
       const ids = all.slice(0, MAX_OTHERS);
       state.hiddenMembers = all.length - ids.length;
       for (const [id, unsub] of memberSubs) if (!ids.includes(id)) { unsub(); memberSubs.delete(id); state.others.delete(id); }
@@ -2741,7 +2769,13 @@
         }, () => { memberSubs.delete(id); state.others.delete(id); render(); })); // retried on the next members snapshot
       }
       await resolveNames(ids); // only ids we haven't named yet
+      syncLegionData();
       render();
+    };
+    db.collection('members').onSnapshot(snap => {
+      state.memberData = new Map(snap.docs.map(d => [d.id, d.data() || {}]));
+      membersLoaded = true;
+      syncScope();
     }, () => {});
     if (my) db.doc(my.stats).onSnapshot(snap => {
       state.stats = snap.exists ? { ...EMPTY_STATS, ...snap.data() } : { ...EMPTY_STATS };
@@ -2786,35 +2820,47 @@
     db.collection('legions').onSnapshot(snap => {
       state.legions = new Map(snap.docs.map(d => [d.id, d.data() || {}]).filter(([, l]) => typeof l.name === 'string')
         .map(([id, l]) => [id, { name: l.name.slice(0, 24), codeHash: l.codeHash, banned: Array.isArray(l.banned) ? l.banned : [] }]));
-      render();
+      syncScope();
     }, () => {});
     if (my) db.doc(my.timers).onSnapshot(snap => {
       const items = snap.exists && Array.isArray(snap.data().items) ? snap.data().items : [];
       state.timers = items.filter(t => t && typeof t.id === 'string' && typeof t.name === 'string' && Number.isFinite(t.endsAt));
       render();
     }, onError);
-    db.collection('calendar').where('at', '>', Date.now() - 86_400_000).orderBy('at').limit(100).onSnapshot(async snap => {
-      const t0 = Date.now(), YEAR = 365 * 86_400_000;
-      state.calendar = snap.docs.map(d => ({ id: d.id, ...d.data() })).filter(c => typeof c.title === 'string' && typeof c.uid === 'string'
-        && Number.isFinite(c.at) && Math.abs(c.at - t0) < YEAR && Number.isInteger(c.durationMin) && c.durationMin >= 5 && c.durationMin <= 600)
-        .map(c => ({ ...c, title: c.title.slice(0, 60), rsvp: c.rsvp && typeof c.rsvp === 'object' ? c.rsvp : {} }));
-      await resolveNames(state.calendar.map(c => c.uid));
-      paintCalendar(Date.now());
-    }, () => {});
-    db.collection('wall').orderBy('at', 'desc').limit(50).onSnapshot(async snap => {
-      const t0 = Date.now();
-      state.wall = snap.docs.map(d => ({ id: d.id, ...d.data() })).filter(m => typeof m.text === 'string' && typeof m.uid === 'string'
-        && Number.isFinite(m.at) && m.at < t0 + 3_600_000 && m.at > t0 - 365 * 86_400_000)
-        .map(m => ({ ...m, text: m.text.slice(0, 280) }));
-      await resolveNames(state.wall.map(m => m.uid));
-      paintWall();
-    }, () => {});
     db.doc('settings/schedule').onSnapshot(snap => {
       state.schedule = snap.exists ? snap.data() : null;
       render();
     }, onError);
   }
 
+  // Calendar and wall of my legion: re-subscribed when I join, leave or change legion.
+  function syncLegionData() {
+    const lg = myLegion();
+    const id = lg ? lg.id : null;
+    if (id === legionDataId) return;
+    legionDataId = id;
+    for (const u of legionUnsubs.splice(0)) u();
+    state.calendar = []; state.wall = []; paintedCal = ''; paintedWall = '';
+    syncRoom();
+    if (!id || !db) { paintCalendar(Date.now()); paintWall(); return; }
+    const base = 'legionData/' + id;
+    legionUnsubs.push(db.collection(base + '/calendar').where('at', '>', Date.now() - 86_400_000).orderBy('at').limit(100).onSnapshot(async snap => {
+      const t0 = Date.now(), YEAR = 365 * 86_400_000;
+      state.calendar = snap.docs.map(d => ({ id: d.id, ...d.data() })).filter(c => typeof c.title === 'string' && typeof c.uid === 'string'
+        && Number.isFinite(c.at) && Math.abs(c.at - t0) < YEAR && Number.isInteger(c.durationMin) && c.durationMin >= 5 && c.durationMin <= 600)
+        .map(c => ({ ...c, title: c.title.slice(0, 60), rsvp: c.rsvp && typeof c.rsvp === 'object' ? c.rsvp : {} }));
+      await resolveNames(state.calendar.map(c => c.uid));
+      paintCalendar(Date.now());
+    }, () => {}));
+    legionUnsubs.push(db.collection(base + '/wall').orderBy('at', 'desc').limit(50).onSnapshot(async snap => {
+      const t0 = Date.now();
+      state.wall = snap.docs.map(d => ({ id: d.id, ...d.data() })).filter(m => typeof m.text === 'string' && typeof m.uid === 'string'
+        && Number.isFinite(m.at) && m.at < t0 + 3_600_000 && m.at > t0 - 365 * 86_400_000)
+        .map(m => ({ ...m, text: m.text.slice(0, 280) }));
+      await resolveNames(state.wall.map(m => m.uid));
+      paintWall();
+    }, () => {}));
+  }
   connectRoom(); // after db/user: presence carries this viewer's id
   connectAssistant();
 
