@@ -39,13 +39,25 @@ export function parseProfile({ nick, server, bio, faction, mainCharId } = {}, ch
   return { ok: true, value: { nick: n, server: sv, bio: b, faction, mainCharId: charIds.includes(mainCharId) ? mainCharId : null } };
 }
 
-// The legion a member really belongs to: it exists and has not banned them.
+// The proof ties an invite code to ONE legion: copying a legion's public fields into another
+// legion doc does not make the code work there, because the proof is checked against the id.
+export const proofFor = (legionId, code) => sha256('proof:' + legionId + ':' + code);
+export async function pickLegion(candidates, code) {
+  for (const c of candidates) if (c && c.proof && c.proof === await proofFor(c.id, code)) return c;
+  return null;
+}
+
+// The legion a member really belongs to: it exists, is the same incarnation they joined
+// (a leader who dissolves and re-creates gets a new epoch) and has not banned them.
 export function legionOf(memberDoc, legions, uid) {
   const id = memberDoc && typeof memberDoc.legionId === 'string' ? memberDoc.legionId : null;
   const l = id ? legions.get(id) : null;
-  if (!l || (Array.isArray(l.banned) && l.banned.includes(uid))) return null;
+  if (!l || !l.epoch || memberDoc.legionEpoch !== l.epoch) return null;
+  if (Array.isArray(l.banned) && l.banned.includes(uid)) return null;
   return { id, ...l };
 }
+// Where a legion's shared data and room live: one place per incarnation.
+export const legionKey = legion => legion ? `${legion.id}-${legion.epoch}` : null;
 
 // The other members of my legion.
 export function sameLegion(memberData, myUid, legions) {

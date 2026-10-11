@@ -28,16 +28,22 @@ const STUB = () => {
     'members/u_me/characters/c2': { name: 'Shutaruku', classId: 'gladiador', energy: 200, recordedAt: now, order: 2 },
     'members/u_me/settings/presets': { items: [{ id: 'p1', name: 'Mazmorra', cost: 40 }] },
     // Ana leads "Guardianes" (code K7Q2XM9P); in the leader scenario she is a member of my legion instead
-    ...(window.__leader ? { 'members/u_ana_x': {} } : { 'legions/u_ana': { name: 'Guardianes', codeHash: 'f55d80307efb8130b5768dc57d8cc0534bf13252195f36a4db55d629be3a1fba', banned: [], createdAt: now } }),
-    'members/u_ana': { joinedAt: now, legionId: window.__leader ? 'u_me' : 'u_ana', profile: { nick: 'AnaDaeva', server: 'Israphel', bio: '', faction: 'elyos', mainCharId: 'a1' }, rank: { weekSpent: 400, cpMax: 90000, achievements: 5, updatedAt: now } },
-    'legions/u_bob': { name: 'Otros', codeHash: 'x'.repeat(64), banned: [], createdAt: now },
-    'members/u_bob': { joinedAt: now, legionId: 'u_bob', profile: { nick: 'BobOtro', server: 'Israphel', bio: '', faction: 'elyos', mainCharId: 'b1' }, rank: { weekSpent: 900, cpMax: 200000, achievements: 9, updatedAt: now } },
+    ...(window.__leader ? { 'members/u_ana_x': {} } : {
+      'legions/u_ana': { name: 'Guardianes', epoch: 'ep1', codeHash: 'f55d80307efb8130b5768dc57d8cc0534bf13252195f36a4db55d629be3a1fba', proof: 'a002748188da70352af0609b604e23261274851660e638b96f69b265cabfcef1', banned: [], createdAt: now },
+      // an impostor copied Guardianes' public fields: the code must not take anyone there
+      'legions/u_evil': { name: 'Falsa', epoch: 'ev', codeHash: 'f55d80307efb8130b5768dc57d8cc0534bf13252195f36a4db55d629be3a1fba', proof: 'a002748188da70352af0609b604e23261274851660e638b96f69b265cabfcef1', banned: [], createdAt: now - 1 },
+    }),
+    ...(window.__prefsAsmodian ? { 'members/u_me/settings/prefs': { faction: 'asmodian' } } : {}),
+    'members/u_ana': { joinedAt: now, legionId: window.__leader ? null : 'u_ana', legionEpoch: 'ep1', profile: { nick: 'AnaDaeva', server: 'Israphel', bio: '', faction: 'elyos', mainCharId: 'a1' }, rank: { weekSpent: 400, cpMax: 90000, achievements: 5, updatedAt: now } },
+    'legions/u_bob': { name: 'Otros', epoch: 'b', codeHash: 'x'.repeat(64), proof: 'y', banned: [], createdAt: now },
+    'members/u_bob': { joinedAt: now, legionId: 'u_bob', legionEpoch: 'b', profile: { nick: 'BobOtro', server: 'Israphel', bio: '', faction: 'elyos', mainCharId: 'b1' }, rank: { weekSpent: 900, cpMax: 200000, achievements: 9, updatedAt: now } },
     'members/u_bob/characters/b1': { name: 'Bobby', classId: 'templario', energy: 600, recordedAt: now, order: 1 },
     'members/u_ana/characters/a1': { name: 'Anita', classId: 'clerigo', energy: 500, recordedAt: now, order: 1 },
   }));
   window.__docs = docs;
   const subs = new Set(); let n = 0;
   const notify = () => setTimeout(() => subs.forEach(f => f()), 0);
+  window.__notify = notify;
   const parentOf = k => k.slice(0, k.lastIndexOf('/'));
   const clone = v => JSON.parse(JSON.stringify(v));
   const merge = (a, b) => { const o = { ...a }; for (const [k, v] of Object.entries(b)) o[k] = v && typeof v === 'object' && !Array.isArray(v) && o[k] && typeof o[k] === 'object' ? merge(o[k], v) : v; return o; };
@@ -45,8 +51,8 @@ const STUB = () => {
   const doc = p => ({
     id: p.split('/').pop(), path: p,
     get: async () => snapDoc(p),
-    set: async d => { docs.set(p, clone(d)); notify(); },
-    update: async d => { if (!docs.has(p)) throw { code: 'not_found' }; docs.set(p, merge(docs.get(p), clone(d))); notify(); },
+    set: async d => { if (window.__failLegion && p.startsWith('legions/')) throw { code: 'invalid_argument' }; docs.set(p, clone(d)); notify(); },
+    update: async d => { if (window.__failLegion && p.startsWith('legions/')) throw { code: 'invalid_argument' }; if (!docs.has(p)) throw { code: 'not_found' }; docs.set(p, merge(docs.get(p), clone(d))); notify(); },
     delete: async () => { docs.delete(p); notify(); },
     onSnapshot(next) { const f = () => next(snapDoc(p)); subs.add(f); setTimeout(f, 0); return () => subs.delete(f); },
     collection: sub => collection(p + '/' + sub),
@@ -136,6 +142,7 @@ async function open(width, height = 900, opts = {}) {
   page.on('console', m => { if (m.type() === 'error' && !/favicon|Failed to load resource/.test(m.text())) errors.push(`${width}px console: ${m.text()}`); });
   if (opts.noProfile) await page.addInitScript(() => { window.__noProfile = true; });
   if (opts.leader) await page.addInitScript(() => { window.__leader = true; });
+  if (opts.prefsAsmodian) await page.addInitScript(() => { window.__prefsAsmodian = true; });
   await page.addInitScript(STUB);
   await page.addInitScript(() => { try { localStorage.setItem('odyle-lang', 'es'); localStorage.removeItem('odyle-tab'); } catch {} });
   await page.goto(BASE);
@@ -163,7 +170,7 @@ const visible = (page, sel) => page.locator(sel).first().isVisible();
   await page.fill('#lg-code', 'AAAA-BBBB'); await page.click('#lg-join button[type=submit]'); await page.waitForTimeout(300);
   check('legión: código incorrecto', /no es válido/.test(await text(page, '#lg-error')));
   await page.fill('#lg-code', 'k7q2-xm9p'); await page.click('#lg-join button[type=submit]'); await page.waitForTimeout(500);
-  check('legión: te unes con el código', (await db(page, 'members/u_me')).legionId === 'u_ana' && /Guardianes/.test(await text(page, '#lg-mine')));
+  check('legión: te unes con el código (a la de verdad, no a la copia)', (await db(page, 'members/u_me')).legionId === 'u_ana' && (await db(page, 'members/u_me')).legionEpoch === 'ep1' && /Guardianes/.test(await text(page, '#lg-mine')));
   check('legión: el título sale bajo tu nombre', (await text(page, '#pc-title')) === '‹Guardianes›');
   check('legión: un miembro no ve el código, puede salir', !(await visible(page, '#lg-leader')) && await visible(page, '#lg-leave'));
   await page.waitForTimeout(300);
@@ -268,7 +275,7 @@ const visible = (page, sel) => page.locator(sel).first().isVisible();
   check('calendario: la cita aparece', /Asedio/.test(await text(page, '#cal-list')) && /Voy 1 · Quizá 0 · No 0/.test(await text(page, '#cal-list')));
   await page.click('#cal-list .rsvp button:nth-child(2)');
   await page.waitForTimeout(400);
-  const cal = await page.evaluate(() => [...window.__docs].find(([k]) => k.startsWith('legionData/u_ana/calendar/')));
+  const cal = await page.evaluate(() => [...window.__docs].find(([k]) => k.startsWith('legionData/u_ana-ep1/calendar/')));
   check('calendario: "Quizá" se guarda', cal && cal[1].rsvp.u_me === 'maybe' && /Voy 0 · Quizá 1/.test(await text(page, '#cal-list')));
   await page.evaluate(k => { window.__docs.get(k).rsvp.u_ana = 'yes'; }, cal[0]);
   await page.click('#cal-list .rsvp button:nth-child(1)'); await page.waitForTimeout(400);
@@ -277,10 +284,10 @@ const visible = (page, sel) => page.locator(sel).first().isVisible();
   await page.click('#cal-form button[type=submit]');
   check('calendario: rechaza fechas pasadas', (await text(page, '#cal-error')) === 'Elige una fecha futura');
   await page.click('#cal-list .rsvp button[aria-label^="Borrar"]'); await page.waitForTimeout(300);
-  check('calendario: el autor la borra', !(await page.evaluate(() => [...window.__docs.keys()].some(k => k.startsWith('legionData/u_ana/calendar/')))));
+  check('calendario: el autor la borra', !(await page.evaluate(() => [...window.__docs.keys()].some(k => k.startsWith('legionData/u_ana-ep1/calendar/')))));
 
   // calendar alert 15 min before
-  await page.evaluate(() => { window.__docs.set('legionData/u_ana/calendar/soon', { uid: 'u_ana', title: 'Kaira', at: Date.now() + 10 * 60_000, durationMin: 30, rsvp: {} }); });
+  await page.evaluate(() => { window.__docs.set('legionData/u_ana-ep1/calendar/soon', { uid: 'u_ana', title: 'Kaira', at: Date.now() + 10 * 60_000, durationMin: 30, rsvp: {} }); });
   await page.click('#cal-list'); // any action; then trigger a db notify via a harmless write
   await page.fill('#wall-text', 'hola legión'); await page.click('#wall-form button[type=submit]');
   await page.waitForTimeout(1500);
@@ -291,7 +298,7 @@ const visible = (page, sel) => page.locator(sel).first().isVisible();
   await page.fill('#wall-text', 'otro'); await page.click('#wall-form button[type=submit]');
   check('muro: espera entre mensajes', (await text(page, '#wall-error')) === 'Espera unos segundos entre mensajes');
   await page.click('#wall-list button'); await page.waitForTimeout(300);
-  check('muro: el autor borra su mensaje', !(await page.evaluate(() => [...window.__docs.keys()].some(k => k.startsWith('legionData/u_ana/wall/')))));
+  check('muro: el autor borra su mensaje', !(await page.evaluate(() => [...window.__docs.keys()].some(k => k.startsWith('legionData/u_ana-ep1/wall/')))));
 
   // ranking
   check('ranking: visible con Ana y contigo', await visible(page, '#rank-panel') && /AnaDaeva/.test(await text(page, '#rank-cols')) && /Tú/.test(await text(page, '#rank-cols')));
@@ -344,8 +351,9 @@ const visible = (page, sel) => page.locator(sel).first().isVisible();
 
 // ================= First visit: create your profile =================
 {
-  const page = await open(1280, 900, { noProfile: true });
+  const page = await open(1280, 900, { noProfile: true, prefsAsmodian: true });
   await page.waitForTimeout(300);
+  check('primera visita: la facción viene de tus ajustes', (await page.inputValue('#profile-faction')) === 'asmodian');
   check('primera visita: se abre "Tu perfil"', await visible(page, '#profile-modal') && await page.evaluate(() => document.activeElement?.id === 'profile-nick'));
   await page.fill('#profile-nick', 'S');
   await page.click('#profile-form button[type=submit]');
@@ -379,11 +387,21 @@ const visible = (page, sel) => page.locator(sel).first().isVisible();
   check('líder: código nuevo', priv2.code !== priv.code && (await db(page, 'legions/u_me')).codeHash !== lg.codeHash && (await text(page, '#lg-code-text')) === priv2.code);
   await page.fill('#lg-rename', 'Alba Eterna'); await page.click('#lg-rename-form button[type=submit]'); await page.waitForTimeout(400);
   check('líder: renombra', (await db(page, 'legions/u_me')).name === 'Alba Eterna' && /Alba Eterna/.test(await text(page, '#pc-title')));
+  await page.evaluate(() => { const ep = window.__docs.get('legions/u_me').epoch; Object.assign(window.__docs.get('members/u_ana'), { legionId: 'u_me', legionEpoch: ep }); window.__notify(); });
+  await page.waitForTimeout(300);
   check('líder: ve a AnaDaeva como miembro', /AnaDaeva/.test(await text(page, '#lg-members')));
   await page.click('#lg-members button'); await page.click('#lg-members button'); await page.waitForTimeout(400);
   check('líder: expulsa (con confirmación)', (await db(page, 'legions/u_me')).banned.includes('u_ana') && !/AnaDaeva/.test(await text(page, '#lg-members')));
   await page.click('#lg-dissolve'); await page.click('#lg-dissolve'); await page.waitForTimeout(500);
   check('líder: disuelve la legión', !(await db(page, 'legions/u_me')) && !(await db(page, 'members/u_me')).legionId && await visible(page, '#lg-create') && (await text(page, '#pc-title')) === '');
+  // re-create: old members (Ana, kicked or not) do not come back by themselves
+  await page.evaluate(() => { const a = window.__docs.get('members/u_ana'); a.legionId = 'u_me'; window.__notify(); });
+  await page.fill('#lg-name', 'Nueva Era'); await page.click('#lg-create button[type=submit]'); await page.waitForTimeout(600);
+  check('líder: al volver a crearla, los antiguos miembros no entran solos', !/AnaDaeva/.test(await text(page, '#lg-members')) && (await db(page, 'legions/u_me')).banned.length === 0);
+  // a refused legion write does not lock the page
+  await page.evaluate(() => { window.__failLegion = true; });
+  await page.click('#lg-new-code'); await page.waitForTimeout(400);
+  check('líder: un fallo al guardar la legión no bloquea la página', await page.locator('#cards button.spend').count() > 0 && !(await page.evaluate(() => document.getElementById('add-btn').hidden)) && /permiso/.test(await text(page, '#notice')));
   await page.close();
 }
 

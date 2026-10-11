@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { makeCode, normalizeCode, hashCode, roomName, parseLegionName, parseProfile, legionOf, sameLegion, legionTitle } from './legion.js';
+import { makeCode, normalizeCode, hashCode, roomName, parseLegionName, parseProfile, legionOf, sameLegion, legionTitle, proofFor, pickLegion, legionKey } from './legion.js';
 
 test('makeCode: 8 caracteres sin letras confusas', () => {
   const seq = [0, 0.5, 0.99, 0.1, 0.2, 0.3, 0.4, 0.6];
@@ -40,18 +40,34 @@ test('parseProfile: válido y errores', () => {
   assert.equal(parseProfile({ nick: 'Salty', faction: 'elyos', bio: 'x'.repeat(81) }, []).ok, false);
   assert.equal(parseProfile({ nick: 'Salty', faction: 'asmodian', mainCharId: 'zz' }, ['c1']).value.mainCharId, null);
 });
-test('legionOf: existe y no estás expulsado', () => {
-  const legions = new Map([['L1', { name: 'A', banned: ['u3'] }]]);
-  assert.equal(legionOf({ legionId: 'L1' }, legions, 'u2').name, 'A');
-  assert.equal(legionOf({ legionId: 'L1' }, legions, 'u3'), null);
-  assert.equal(legionOf({ legionId: 'L9' }, legions, 'u2'), null);
+test('legionOf: existe, misma época y no estás expulsado', () => {
+  const legions = new Map([['L1', { name: 'A', epoch: 'e2', banned: ['u3'] }]]);
+  assert.equal(legionOf({ legionId: 'L1', legionEpoch: 'e2' }, legions, 'u2').name, 'A');
+  assert.equal(legionOf({ legionId: 'L1', legionEpoch: 'e2' }, legions, 'u3'), null);
+  assert.equal(legionOf({ legionId: 'L9', legionEpoch: 'e2' }, legions, 'u2'), null);
   assert.equal(legionOf({}, legions, 'u2'), null);
+  // a legion dissolved and re-created by the same leader does not take old members back
+  assert.equal(legionOf({ legionId: 'L1', legionEpoch: 'e1' }, legions, 'u2'), null);
+  assert.equal(legionOf({ legionId: 'L1' }, legions, 'u2'), null);
 });
 test('sameLegion: solo compañeros válidos de mi legión', () => {
-  const legions = new Map([['L1', { name: 'A', banned: ['u4'] }], ['L2', { name: 'B', banned: [] }]]);
-  const members = new Map([['me', { legionId: 'L1' }], ['u2', { legionId: 'L1' }], ['u3', { legionId: 'L2' }], ['u4', { legionId: 'L1' }], ['u5', {}]]);
+  const legions = new Map([['L1', { name: 'A', epoch: 'x', banned: ['u4'] }], ['L2', { name: 'B', epoch: 'y', banned: [] }]]);
+  const m = (id, ep) => ({ legionId: id, legionEpoch: ep });
+  const members = new Map([['me', m('L1', 'x')], ['u2', m('L1', 'x')], ['u3', m('L2', 'y')], ['u4', m('L1', 'x')], ['u5', {}], ['u6', m('L1', 'old')]]);
   assert.deepEqual(sameLegion(members, 'me', legions), ['u2']);
-  assert.deepEqual(sameLegion(new Map([['me', {}], ['u2', { legionId: 'L1' }]]), 'me', legions), []);
+  assert.deepEqual(sameLegion(new Map([['me', {}], ['u2', m('L1', 'x')]]), 'me', legions), []);
+});
+test('legionKey: id y época', () => {
+  assert.equal(legionKey({ id: 'u_A', epoch: 'k1' }), 'u_A-k1');
+  assert.equal(legionKey(null), null);
+});
+test('pickLegion: el código solo vale para la legión que lo creó (no para copias)', async () => {
+  const code = 'K7Q2XM9P';
+  const real = { id: 'u_leader', proof: await proofFor('u_leader', code) };
+  const clone = { id: 'u_thief', proof: real.proof }; // copied fields from the public legion doc
+  assert.equal((await pickLegion([clone, real], code)).id, 'u_leader');
+  assert.equal(await pickLegion([clone], code), null);
+  assert.equal(await pickLegion([real], 'K7Q2XM9Q'), null);
 });
 test('legionTitle', () => {
   assert.equal(legionTitle({ id: 'L1', name: 'Alba' }, 'u2'), '‹Alba›');

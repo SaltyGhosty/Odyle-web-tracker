@@ -896,7 +896,7 @@
   import { DEFAULT_TASKS, progressFor, withCount, parseTask, nextDailyReset } from './tasks.js';
   import { EMPTY_STATS, bumped, unlocked, streak, weekTotals } from './achievements.js';
   const sound = createSound();
-  import { makeCode, normalizeCode, hashCode, roomName, parseLegionName, parseProfile, legionOf, sameLegion, legionTitle } from './legion.js';
+  import { makeCode, normalizeCode, hashCode, roomName, parseLegionName, parseProfile, legionOf, sameLegion, legionTitle, proofFor, pickLegion, legionKey } from './legion.js';
   import { formatClock, detectGains, rollValue, becameFull, sceneOptions } from './motion.js';
 
   // Data comes only from db snapshots. Writes happen only after a user action.
@@ -2143,14 +2143,14 @@
     paintLegionPanel();
   }
   async function newCode() {
-    const code = makeCode(), codeHash = await hashCode(code);
-    if (!await save(() => db.doc('legions/' + myUid).update({ codeHash }))) return;
-    if (!await save(() => db.doc(my.legionSecret).set({ code }))) return;
+    const code = makeCode(), codeHash = await hashCode(code), proof = await proofFor(myUid, code);
+    if (!await saveShared(() => db.doc('legions/' + myUid).update({ codeHash, proof }))) return;
+    if (!await saveShared(() => db.doc(my.legionSecret).set({ code }))) return;
     shownCode = code; paintLegionPanel();
   }
   const kickMember = uid => {
     const lg = myLegion(); if (!lg || lg.id !== myUid) return;
-    return save(() => db.doc('legions/' + myUid).update({ banned: [...new Set([...(lg.banned || []), uid])] }));
+    return saveShared(() => db.doc('legions/' + myUid).update({ banned: [...new Set([...(lg.banned || []), uid])] }));
   };
   $('lg-create').addEventListener('submit', async e => {
     e.preventDefault();
@@ -2158,10 +2158,12 @@
     const r = parseLegionName($('lg-name').value);
     if (!r.ok) return showError('lg-error', r.error);
     showError('lg-error', '');
-    const code = makeCode(), codeHash = await hashCode(code);
-    if (!await save(() => db.doc('legions/' + myUid).set({ name: r.value, codeHash, banned: [], createdAt: Date.now() }))) return;
-    if (!await save(() => db.doc(my.legionSecret).set({ code }))) return;
-    if (!await save(() => updateMember({ legionId: myUid }))) return;
+    // a fresh epoch per creation: members of an earlier incarnation of this legion don't come back
+    const code = makeCode(), codeHash = await hashCode(code), proof = await proofFor(myUid, code);
+    const epoch = Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
+    if (!await saveShared(() => db.doc('legions/' + myUid).set({ name: r.value, epoch, codeHash, proof, banned: [], createdAt: Date.now() }))) return;
+    if (!await saveShared(() => db.doc(my.legionSecret).set({ code }))) return;
+    if (!await saveShared(() => updateMember({ legionId: myUid, legionEpoch: epoch }))) return;
     shownCode = code; $('lg-name').value = '';
     render();
   });
@@ -2171,13 +2173,15 @@
     const code = normalizeCode($('lg-code').value);
     if (!code) return showError('lg-error', 'Ese código no es válido');
     let found = null;
-    try { const snap = await db.collection('legions').where('codeHash', '==', await hashCode(code)).limit(1).get(); found = snap.docs[0] || null; }
-    catch { return showError('lg-error', 'No se pudo comprobar el código'); }
-    if (!found) return showError('lg-error', 'Ese código no es válido');
-    const banned = found.data().banned;
-    if (Array.isArray(banned) && banned.includes(myUid)) return showError('lg-error', 'No puedes unirte a esta legión');
+    try {
+      const snap = await db.collection('legions').where('codeHash', '==', await hashCode(code)).limit(10).get();
+      // copies of a legion's public fields fail the proof, so only the legion that made the code matches
+      found = await pickLegion(snap.docs.map(d => ({ id: d.id, ...d.data() })), code);
+    } catch { return showError('lg-error', 'No se pudo comprobar el código'); }
+    if (!found || !found.epoch) return showError('lg-error', 'Ese código no es válido');
+    if (Array.isArray(found.banned) && found.banned.includes(myUid)) return showError('lg-error', 'No puedes unirte a esta legión');
     showError('lg-error', '');
-    if (!await save(() => updateMember({ legionId: found.id }))) return;
+    if (!await saveShared(() => updateMember({ legionId: found.id, legionEpoch: found.epoch }))) return;
     $('lg-code').value = '';
     render();
   });
@@ -2193,20 +2197,20 @@
     const r = parseLegionName($('lg-rename').value);
     if (!r.ok) return showError('lg-error', r.error);
     showError('lg-error', '');
-    if (await save(() => db.doc('legions/' + myUid).update({ name: r.value }))) $('lg-rename').value = '';
+    if (await saveShared(() => db.doc('legions/' + myUid).update({ name: r.value }))) $('lg-rename').value = '';
   });
   $('lg-leave').addEventListener('click', e => confirmClick(e.currentTarget, 'Salir de la legión', async () => {
-    if (await save(() => updateMember({ legionId: null }))) render();
+    if (await saveShared(() => updateMember({ legionId: null, legionEpoch: null }))) render();
   }));
   $('lg-dissolve').addEventListener('click', e => confirmClick(e.currentTarget, 'Disolver legión', async () => {
-    if (!await save(() => db.doc('legions/' + myUid).delete())) return;
-    await save(() => db.doc(my.legionSecret).delete());
-    await save(() => updateMember({ legionId: null }));
+    if (!await saveShared(() => db.doc('legions/' + myUid).delete())) return;
+    await saveShared(() => db.doc(my.legionSecret).delete());
+    await saveShared(() => updateMember({ legionId: null, legionEpoch: null }));
     shownCode = null; render();
   }));
 
   // ---- Profile: how others see you (name, main character, server, faction, phrase) ----
-  let membersLoaded = false, profilePrompted = false;
+  let membersLoaded = false, profilePrompted = false, prefsLoaded = false;
   const myProfile = () => (myUid && state.memberData.get(myUid)?.profile) || null;
   function modalKeys(modal, close) {
     modal.addEventListener('click', e => { if (e.target === modal || e.target.closest('.modal-close')) close(); });
@@ -2231,7 +2235,7 @@
     $('pc-title').textContent = myLegionTitle();
     $('profile-chip').setAttribute('aria-label', `Tu perfil: ${$('pc-name').textContent} ${$('pc-title').textContent}`.trim());
     // first visit: ask for a profile once per load
-    if (!prof && !profilePrompted && ui.loaded && !ui.readOnly && $('add-modal').hidden && $('keys-help').hidden) { profilePrompted = true; openProfile(); }
+    if (!prof && !profilePrompted && prefsLoaded && ui.loaded && !ui.readOnly && $('add-modal').hidden && $('keys-help').hidden && $('ai-panel').hidden) { profilePrompted = true; openProfile(); }
   }
   function openProfile() {
     if (!my || ui.readOnly) return;
@@ -2435,7 +2439,7 @@
   let myLfg = null; // {id, at, replies: Set}
   const LFG_TTL = 15 * 60_000;
   const clean = (v, n) => typeof v === 'string' ? v.replace(/[\u0000-\u001f\u007f]/g, ' ').trim().slice(0, n) : '';
-  const nameOf = uid => (uid && (state.memberData.get(uid)?.profile?.nick || state.names[uid])) || 'Alguien';
+  const nameOf = uid => (uid && String(state.memberData.get(uid)?.profile?.nick || state.names[uid] || '').slice(0, 24)) || 'Alguien';
   async function resolveNames(ids) {
     const need = [...new Set(ids.filter(id => id && !(id in state.names)))];
     if (!user || !need.length) return;
@@ -2807,6 +2811,7 @@
         faction: d.faction === 'asmodian' ? 'asmodian' : 'elyos',
         ...(LANGS[d.lang] ? { lang: d.lang } : {}) };
       applyFaction(state.prefs.faction);
+      prefsLoaded = true;
       if (LANGS[d.lang] && d.lang !== LANG) setLang(d.lang);
       if (document.activeElement !== $('quiet-start')) $('quiet-start').value = state.prefs.quietStart;
       if (document.activeElement !== $('quiet-end')) $('quiet-end').value = state.prefs.quietEnd;
@@ -2819,7 +2824,7 @@
     }, onError);
     db.collection('legions').onSnapshot(snap => {
       state.legions = new Map(snap.docs.map(d => [d.id, d.data() || {}]).filter(([, l]) => typeof l.name === 'string')
-        .map(([id, l]) => [id, { name: l.name.slice(0, 24), codeHash: l.codeHash, banned: Array.isArray(l.banned) ? l.banned : [] }]));
+        .map(([id, l]) => [id, { name: l.name.slice(0, 24), epoch: typeof l.epoch === 'string' ? l.epoch : null, codeHash: l.codeHash, banned: Array.isArray(l.banned) ? l.banned : [] }]));
       syncScope();
     }, () => {});
     if (my) db.doc(my.timers).onSnapshot(snap => {
@@ -2835,8 +2840,7 @@
 
   // Calendar and wall of my legion: re-subscribed when I join, leave or change legion.
   function syncLegionData() {
-    const lg = myLegion();
-    const id = lg ? lg.id : null;
+    const id = legionKey(myLegion()); // one place per legion incarnation
     if (id === legionDataId) return;
     legionDataId = id;
     for (const u of legionUnsubs.splice(0)) u();
