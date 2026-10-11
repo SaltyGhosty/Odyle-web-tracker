@@ -44,7 +44,7 @@ test('POST con text/plain -> 415; JSON se acepta', async () => {
   const bad = await app.inject({ method: 'POST', url: '/__test/echo', headers: { 'content-type': 'text/plain' }, payload: 'hola' });
   assert.equal(bad.statusCode, 415);
   assert.ok(typeof bad.json().error === 'string');
-  const good = await app.inject({ method: 'POST', url: '/__test/echo', headers: { 'content-type': 'application/json' }, payload: '{"a":1}' });
+  const good = await app.inject({ method: 'POST', url: '/__test/echo', headers: { 'content-type': 'application/json', origin: 'https://odyle.test', 'x-odyle-csrf': '1' }, payload: '{"a":1}' });
   assert.equal(good.statusCode, 200);
   await app.close();
 });
