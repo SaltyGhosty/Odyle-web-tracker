@@ -191,6 +191,8 @@ const visible = (page, sel) => page.locator(sel).first().isVisible();
   await page.click('#topnav [data-tab=legion]');
   await page.waitForTimeout(200);
   check('en línea: 2 personas (Tú y Ana)', (await text(page, '#online-title')) === 'En línea (2)' && /Tú/.test(await text(page, '#online-list')) && /Ana/.test(await text(page, '#online-list')));
+  const acts = await page.$$eval('#lfg-act option', os => os.map(o => o.textContent));
+  check('busco grupo: sin reinicios en las opciones', !acts.some(t => /Reinicio/.test(t)) && acts.includes('Festival Shugo'), acts.join(','));
   check('en línea: aviso en la cabecera', (await text(page, '#online-pill')) === '● 2 en línea');
   check('presencia: publica tu primer personaje', await page.evaluate(() => window.__presence?.char) === 'SaltyGhosty');
   await page.evaluate(() => window.__room.receive('lfg', { id: 'gana1', act: 'Shugo', text: 'faltan 2', char: 'Anita' }));

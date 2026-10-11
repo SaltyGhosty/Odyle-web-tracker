@@ -2188,7 +2188,8 @@
   }
   function fillLfgActivities() {
     const keep = $('lfg-act').value;
-    $('lfg-act').replaceChildren(...EVENTS.map(e => el('option', { value: e.name }, e.name)),
+    // resets are moments, not activities to group up for
+    $('lfg-act').replaceChildren(...EVENTS.filter(e => e.id !== 'daily' && e.id !== 'weekly').map(e => el('option', { value: e.name }, e.name)),
       el('option', { value: 'Mazmorra' }, 'Mazmorra'), el('option', { value: 'Otra' }, 'Otra (escríbela en el detalle)'));
     if (keep) $('lfg-act').value = keep;
   }
