@@ -231,6 +231,8 @@
       return null; // 'room' y 'sample' no existen en la web
     },
     __refreshAll: refreshAll,
+    // Petición compartida (CSRF, renovación única + un reintento, redirección a /login). Devuelve la Response.
+    __fetch: (method, url, body) => send(method, url, body),
   };
   window.odyleWeb = {
     logout: () => endSession('/api/auth/logout'),

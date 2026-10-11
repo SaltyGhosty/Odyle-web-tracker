@@ -203,6 +203,21 @@ await pb.evaluate(() => window.claude.__refreshAll());
 await pb.waitForTimeout(800);
 check('legión: B ve a A entre los miembros', /AnaDaeva/.test(await text(pb, '#legion')), await text(pb, '#lg-members'));
 
+// ================= Renovación silenciosa (401 -> refresh -> reintento) =================
+{
+  const cookies = await A.ctx.cookies();
+  const rt = cookies.find((c) => c.name === '__Secure-odyle_rt');
+  const before = cookies.find((c) => c.name === '__Host-odyle_at');
+  await A.ctx.clearCookies({ name: '__Host-odyle_at' });
+  check('renovación: sin cookie de acceso pero con la de renovación', !!rt && !(await A.ctx.cookies()).some((c) => c.name === '__Host-odyle_at'));
+  // acción de legión (líder A) por la API compartida del adaptador
+  const got = await pa.evaluate(() => window.odyleLegionApi.rename('Guardianes II').then(() => 'ok', (e) => 'err:' + e.message));
+  check('renovación: la acción de legión tiene éxito tras renovar en silencio', got === 'ok', got);
+  const after = (await A.ctx.cookies()).find((c) => c.name === '__Host-odyle_at');
+  check('renovación: hay cookie de acceso nueva y seguimos en la página', !!after && after.value !== before.value && new URL(pa.url()).pathname === '/', pa.url());
+  check('renovación: el nombre se cambió en el servidor', (await dbRows('legions/'))[0]?.data.name === 'Guardianes II');
+}
+
 // ================= Cerrar sesión =================
 await pa.click('#profile-chip');
 await pa.waitForSelector('#profile-modal:not([hidden])');
@@ -215,13 +230,18 @@ const me = await pa.evaluate(async () => (await fetch('/api/auth/me', { credenti
 check('cerrar sesión: /api/auth/me da 401', me === 401, String(me));
 await pa.goto(`${ORIGIN}/`);
 await pa.waitForURL(/\/login\?next=/);
-check('cerrar sesión: / ya no entra', true);
+check('cerrar sesión: el navegador está en /login', new URL(pa.url()).pathname === '/login', pa.url());
 
-// B: cerrar todas las sesiones
+// B: cerrar todas las sesiones; guardamos sus cookies de antes para repetirlas
+const bCookies = await B.ctx.cookies();
+const bHeader = (names) => bCookies.filter((c) => names.includes(c.name)).map((c) => `${c.name}=${c.value}`).join('; ');
 await pb.click('#profile-chip');
 await pb.click('#profile-logout-all');
 await pb.waitForURL(`${ORIGIN}/login`);
-check('cerrar todas las sesiones: vuelve a /login', true);
+check('cerrar todas las sesiones: vuelve a /login', new URL(pb.url()).pathname === '/login');
+const replay = async (url, method, cookie) => (await fetch(ORIGIN + url, { method, headers: { cookie, origin: ORIGIN, 'x-odyle-csrf': '1', 'content-type': 'application/json' }, body: method === 'POST' ? '{}' : undefined })).status;
+check('cerrar todas: la cookie de acceso vieja de B da 401 en /api/auth/me', (await replay('/api/auth/me', 'GET', bHeader(['__Host-odyle_at']))) === 401);
+check('cerrar todas: la cookie de renovación vieja de B no renueva', (await replay('/api/auth/refresh', 'POST', bHeader(['__Secure-odyle_rt']))) === 401);
 
 check('consola: ningún error de CSP, Trusted Types ni JavaScript', errors.length === 0, '\n  ' + errors.join('\n  '));
 check('CSP: ningún evento securitypolicyviolation', violations.length === 0, violations.join(', '));

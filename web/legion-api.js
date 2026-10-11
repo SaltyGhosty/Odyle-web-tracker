@@ -4,14 +4,7 @@
 
   async function call(method, url, body) {
     let res;
-    try {
-      res = await fetch(url, {
-        method, credentials: 'same-origin', cache: 'no-store',
-        headers: method === 'GET' ? undefined
-          : body === undefined ? { 'X-Odyle-CSRF': '1' } : { 'Content-Type': 'application/json', 'X-Odyle-CSRF': '1' },
-        body: body === undefined ? undefined : JSON.stringify(body),
-      });
-    } catch { throw new Error('No se pudo conectar. Inténtalo de nuevo.'); }
+    try { res = await window.claude.__fetch(method, url, body); } catch { throw new Error('No se pudo conectar. Inténtalo de nuevo.'); }
     let data = null;
     try { data = await res.json(); } catch { /* sin cuerpo */ }
     if (!res.ok) throw new Error((data && typeof data.error === 'string' && data.error) || 'No se pudo completar la acción.');

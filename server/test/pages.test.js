@@ -1,7 +1,8 @@
 import { test, before } from 'node:test';
 import assert from 'node:assert/strict';
 import { execFileSync } from 'node:child_process';
-import { readFileSync, readdirSync, statSync, writeFileSync, rmSync, existsSync } from 'node:fs';
+import { readFileSync, readdirSync, statSync, writeFileSync, rmSync, existsSync, cpSync, mkdtempSync } from 'node:fs';
+import { tmpdir } from 'node:os';
 import { fileURLToPath } from 'node:url';
 import path from 'node:path';
 import { makeTestApp } from './helpers.js';
@@ -86,20 +87,23 @@ test('páginas de cuenta: auth.html con no-referrer y no-store (SR-19)', async (
 });
 
 test('estáticos: sin dotfiles, sin listado, sin *.map, nada fuera de public (SR-34)', async () => {
-  writeFileSync(path.join(PUBLIC, '.env'), 'SECRET=1');
-  writeFileSync(path.join(PUBLIC, 'app.js.map'), '{}');
+  // Copia privada: la prueba escribe .env y .map sin tocar el server/public compartido con otras pruebas.
+  const dir = mkdtempSync(path.join(tmpdir(), 'odyle-public-'));
+  cpSync(PUBLIC, dir, { recursive: true });
+  writeFileSync(path.join(dir, '.env'), 'SECRET=1');
+  writeFileSync(path.join(dir, 'app.js.map'), '{}');
   try {
-    const { app } = await makeTestApp();
+    const { app } = await makeTestApp({ __buildApp: { publicDir: dir } });
+    assert.equal((await app.inject({ method: 'GET', url: '/app.js' })).statusCode, 200);
     for (const url of ['/.env', '/app.js.map', '/vendor/', '/vendor', '/fonts/', '/package.json', '/server/src/app.js',
-      '/../package.json', '/%2e%2e/package.json', '/index.html/', '/.%65nv']) {
+      '/../package.json', '/%2e%2e/package.json', '/index.html/', '/.%65nv', '/auth.html', '/index.html', '/AUTH.HTML']) {
       const r = await app.inject({ method: 'GET', url });
       assert.equal(r.statusCode, 404, `${url} -> ${r.statusCode}`);
       assert.ok(!r.body.includes('SECRET'));
     }
     await app.close();
   } finally {
-    rmSync(path.join(PUBLIC, '.env'), { force: true });
-    rmSync(path.join(PUBLIC, 'app.js.map'), { force: true });
+    rmSync(dir, { recursive: true, force: true });
   }
 });
 

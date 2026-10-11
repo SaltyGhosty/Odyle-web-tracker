@@ -1,4 +1,4 @@
-import { existsSync, readFileSync } from 'node:fs';
+import { readFileSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import fastifyStatic from '@fastify/static';
@@ -11,20 +11,26 @@ const ACCOUNT_PAGES = ['/login', '/registro', '/verificar', '/restablecer'];
 export function allowedStaticPath(pathName) {
   const segs = String(pathName).split('/');
   if (String(pathName).endsWith('/')) return false;
+  // Estas dos solo salen por sus rutas explícitas (con las cabeceras de cada una).
+  if (/^\/?(index|auth)\.html$/i.test(pathName)) return false;
   return !segs.some((s) => s.startsWith('.')) && !/\.map$/i.test(pathName);
 }
 
 export default async function pagesRoutes(app, opts = {}) {
   const publicDir = opts.publicDir || DEFAULT_PUBLIC_DIR;
-  const built = existsSync(path.join(publicDir, 'index.html')) && existsSync(path.join(publicDir, 'auth.html'));
+  // Cualquier fallo de lectura (carpeta ausente o a medio intercambiar) cuenta como "sin compilar", nunca como caída.
+  let index = null;
+  let auth = null;
+  try {
+    index = readFileSync(path.join(publicDir, 'index.html'), 'utf8');
+    auth = readFileSync(path.join(publicDir, 'auth.html'), 'utf8');
+  } catch { index = null; }
 
-  if (!built) {
+  if (index === null || auth === null) {
     for (const url of ['/', ...ACCOUNT_PAGES]) app.get(url, async (req, reply) => reply.code(503).header('cache-control', 'no-store').send(NOT_BUILT));
     return;
   }
 
-  const index = readFileSync(path.join(publicDir, 'index.html'), 'utf8');
-  const auth = readFileSync(path.join(publicDir, 'auth.html'), 'utf8');
   const html = (reply) => reply.type('text/html; charset=utf-8');
 
   app.get('/', async (req, reply) => html(reply).header('cache-control', 'no-cache').send(index));
@@ -39,7 +45,6 @@ export default async function pagesRoutes(app, opts = {}) {
     list: false,
     dotfiles: 'deny',
     wildcard: true,
-    serveDotFiles: false,
     allowedPath: (pathName) => allowedStaticPath(pathName),
     decorateReply: false,
   });

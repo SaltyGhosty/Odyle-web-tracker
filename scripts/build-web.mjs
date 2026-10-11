@@ -1,12 +1,14 @@
 // Compila la página para la web: server/public/ (artefacto de compilación, fuera de git).
 // Uso: npm run build:web   (desde la raíz del repositorio)
-import { readFileSync, writeFileSync, mkdirSync, rmSync, readdirSync, copyFileSync, existsSync } from 'node:fs';
+import { readFileSync, writeFileSync, mkdirSync, rmSync, readdirSync, copyFileSync, existsSync, renameSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import path from 'node:path';
 
 const ROOT = fileURLToPath(new URL('../', import.meta.url));
-const OUT = path.join(ROOT, 'server/public');
-const fail = (msg) => { console.error(`build-web: ${msg}`); process.exit(1); };
+const FINAL = path.join(ROOT, 'server/public');
+// Se compila en una carpeta temporal contigua y se intercambia al final: nadie ve un public/ a medias.
+const OUT = path.join(ROOT, `server/.public-build-${process.pid}`);
+const fail = (msg) => { console.error(`build-web: ${msg}`); rmSync(OUT, { recursive: true, force: true }); process.exit(1); };
 const need = (p) => { if (!existsSync(p)) fail(`falta ${path.relative(ROOT, p)}`); return p; };
 const read = (p) => readFileSync(need(p), 'utf8');
 
@@ -76,4 +78,8 @@ for (const [pkg, family, weights] of FONTS) {
   }
 }
 writeFileSync(path.join(OUT, 'fonts.css'), fontsCss);
-console.log(`build-web: ${path.relative(ROOT, OUT)} listo (${modules.length} módulos)`);
+const OLD = path.join(ROOT, `server/.public-old-${process.pid}`);
+if (existsSync(FINAL)) renameSync(FINAL, OLD);
+renameSync(OUT, FINAL);
+rmSync(OLD, { recursive: true, force: true });
+console.log(`build-web: ${path.relative(ROOT, FINAL)} listo (${modules.length} módulos)`);
