@@ -5,9 +5,8 @@ import { safeMerge, isPlain } from '../lib/merge.js';
 
 const MAX_DOCS = 500;
 const MAX_BYTES = 2 * 1024 * 1024;
-const FETCH_CAP = 5000;
 const LEGION_FIELDS = ['name', 'epoch', 'banned', 'createdAt', 'leader'];
-const OPS = { '==': (a, b) => a === b, '!=': (a, b) => a !== b, '<': (a, b) => a < b, '<=': (a, b) => a <= b, '>': (a, b) => a > b, '>=': (a, b) => a >= b };
+const SQL_OPS = { '==': '=', '!=': '<>', '<': '<', '<=': '<=', '>': '>', '>=': '>=' };
 const NUM_RE = /^-?\d+(\.\d+)?$/;
 const bytes = (v) => Buffer.byteLength(JSON.stringify(v));
 const err = (reply, code, error) => reply.code(code).send({ error });
@@ -34,7 +33,7 @@ function parseQuery(q) {
     if (list.length > 2) return { error: 'Consulta no válida' };
     for (const w of list) {
       const p = typeof w === 'string' ? w.split(',') : [];
-      if (p.length !== 3 || p[0] !== 'at' || !(p[1] in OPS) || !NUM_RE.test(p[2])) return { error: 'Consulta no válida' };
+      if (p.length !== 3 || p[0] !== 'at' || !Object.hasOwn(SQL_OPS, p[1]) || !NUM_RE.test(p[2])) return { error: 'Consulta no válida' };
       out.where.push({ op: p[1], value: Number(p[2]) });
     }
   }
@@ -100,46 +99,42 @@ export default async function docsRoutes(app) {
     if (q.error) return err(reply, 400, q.error);
     if (!(await canRead(ctx, segs))) return denyRead(reply, segs);
 
-    // La regla de lectura se aplica al elegir las filas, antes de filtrar y limitar (SR-27).
-    let rows;
+    // La regla de lectura, where, orderBy y limit se aplican en SQL: nunca se cargan más de `limit` filas (SR-27).
+    const params = [];
+    const add = (v) => { params.push(v); return `$${params.length}`; };
+    const conds = [];
     if (c.type === 'members') {
       const m = await membership(ctx);
-      const paths = [`members/${ctx.uid}`, ...[...m.mates].map((u) => `members/${u}`)];
-      const ph = paths.map((_, i) => `$${i + 1}`).join(',');
-      rows = (await db.query(`select path, data from docs where path in (${ph}) order by path`, paths)).rows;
+      conds.push(`path in (${[`members/${ctx.uid}`, ...[...m.mates].map((u) => `members/${u}`)].map(add).join(',')})`);
     } else {
-      rows = (await db.query(`select path, data from docs where parent = $1 order by path limit ${FETCH_CAP}`, [path])).rows;
+      conds.push(`parent = ${add(path)}`);
     }
-    let docs = rows.map((r) => ({ id: r.path.slice(r.path.lastIndexOf('/') + 1), data: c.root === 'legions' ? publicLegion(r.data) : r.data }));
-    const at = (d) => (typeof d.data.at === 'number' ? d.data.at : null);
-    for (const w of q.where) docs = docs.filter((d) => at(d) !== null && OPS[w.op](at(d), w.value));
-    if (q.orderBy) {
-      const dir = q.orderBy === 'desc' ? -1 : 1;
-      docs = docs.map((d, i) => ({ d, i })).sort((x, y) => {
-        const a = at(x.d), b = at(y.d);
-        if (a === null || b === null) return a === b ? x.i - y.i : (a === null ? 1 : -1);
-        return a === b ? x.i - y.i : (a - b) * dir;
-      }).map((x) => x.d);
-    }
-    return { docs: docs.slice(0, q.limit) };
+    for (const w of q.where) conds.push(`sort_at ${SQL_OPS[w.op]} ${add(w.value)}`);
+    if (q.orderBy) conds.push('sort_at is not null');
+    const order = q.orderBy ? `sort_at ${q.orderBy === 'desc' ? 'desc' : 'asc'}, path` : 'path';
+    const rows = (await db.query(`select path, data from docs where ${conds.join(' and ')} order by ${order} limit ${q.limit}`, params)).rows;
+    const docs = rows.map((r) => ({ id: r.path.slice(r.path.lastIndexOf('/') + 1), data: c.root === 'legions' ? publicLegion(r.data) : r.data }));
+    return { docs };
   });
 
   // ---- Escritura ----
   const upsert = async (path, data, now) => {
     const parent = path.slice(0, path.lastIndexOf('/'));
     await db.query(
-      `insert into docs (path, parent, data, updated_at) values ($1, $2, $3::jsonb, $4)
-       on conflict (path) do update set data = excluded.data, updated_at = excluded.updated_at`,
-      [path, parent, JSON.stringify(data), now],
+      `insert into docs (path, parent, data, updated_at, sort_at) values ($1, $2, $3::jsonb, $4, $5)
+       on conflict (path) do update set data = excluded.data, updated_at = excluded.updated_at, sort_at = excluded.sort_at`,
+      [path, parent, JSON.stringify(data), now, typeof data.at === 'number' ? data.at : null],
     );
   };
 
-  // Cuota por usuario (SR-26): ≤ 500 documentos y ≤ 2 MB bajo members/{uid}; solo se rechaza lo que crece.
+  // Cuota por usuario (SR-26): ≤ 500 documentos y ≤ 2 MB entre members/{uid}/** y lo que el usuario ha
+  // publicado en legionData; solo se rechaza lo que crece.
   async function overQuota(uid, path, existingData, newData) {
     const own = `members/${uid}`;
     const rows = (await db.query(
-      'select path, data from docs where path = $1 or (path >= $2 and path < $3)',
-      [own, `${own}/`, `${own}0`],
+      `select path, data from docs where path = $1 or (path >= $2 and path < $3)
+         or (path >= 'legionData/' and path < 'legionData0' and data->>'uid' = $4)`,
+      [own, `${own}/`, `${own}0`, uid],
     )).rows;
     const oldSize = existingData ? bytes(existingData) : 0;
     const total = rows.reduce((s, r) => s + bytes(r.data), 0) - oldSize + bytes(newData);
@@ -196,7 +191,7 @@ export default async function docsRoutes(app) {
       }
     }
     if (bytes(finalData) > MAX_DOC_BYTES) return err(reply, 413, 'El documento es demasiado grande');
-    if (c.root === 'members' && await overQuota(ctx.uid, path, existing, finalData)) {
+    if ((c.root === 'members' || (shared && finalData.uid === ctx.uid)) && await overQuota(ctx.uid, path, existing, finalData)) {
       return err(reply, 413, 'Has superado el espacio disponible');
     }
     await upsert(path, finalData, now);
@@ -204,6 +199,6 @@ export default async function docsRoutes(app) {
   };
 
   for (const method of ['PUT', 'PATCH', 'DELETE']) {
-    app.route({ method, url: '/api/docs/*', preHandler: [requireUser, limitWrites], handler: mutate });
+    app.route({ method, url: '/api/docs/*', bodyLimit: 65536, preHandler: [requireUser, limitWrites], handler: mutate });
   }
 }

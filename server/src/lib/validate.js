@@ -2,18 +2,18 @@
 import { FORBIDDEN_KEYS, isPlain } from './merge.js';
 
 export const MAX_DOC_BYTES = 64 * 1024;
-const SEG_RE = /^[A-Za-z0-9_~-]+$/;
+const SEG_RE = /^[A-Za-z0-9_~-]{1,128}$/;
 export const UID_RE = /^u_[A-Za-z0-9]{22}$/;
 const MAX_PATH = 512;
 const MAX_DEPTH = 6;
 const MAX_JSON_DEPTH = 8;
 const MAX_KEYS = 500;
 const MAX_KEY_LEN = 128;
-// Control (salvo \n y \t que se tratan aparte), \u0000, DEL, C1 y marcas de dirección bidi.
-const BAD_CHARS = /[\u0000-\u0009\u000B-\u001F\u007F-\u009F‪-‮⁦-⁩]/g;
-const BAD_KEY = /[\u0000-\u001F\u007F-\u009F‪-‮⁦-⁩]/;
+// Controles (incluido \t; el \n se quita aparte salvo en notas/texto), \u0000, DEL, C1 y marcas de dirección bidi.
+const BAD_CHARS = /[\u0000-\u0009\u000B-\u001F\u007F-\u009F\u202A-\u202E\u2066-\u2069]/g;
+const BAD_KEY = /[\u0000-\u001F\u007F-\u009F\u202A-\u202E\u2066-\u2069]/;
 const MULTILINE_KEYS = new Set(['notes', 'text']);
-const LIMITS = { nick: 20, server: 20, bio: 80, name: 60, notes: 500, title: 60, text: 1000 };
+const LIMITS = Object.assign(Object.create(null), { nick: 20, server: 20, bio: 80, name: 60, notes: 500, title: 60, text: 1000 });
 const DEFAULT_LIMIT = 500;
 
 const bad = (error, status = 400) => ({ error, status });
@@ -95,7 +95,13 @@ const schemas = {
       faction: (v) => v === 'elyos' || v === 'asmodian',
     },
   },
-  'settings:stats': { allowed: null },
+  'settings:stats': {
+    allowed: ['daysLog', 'spentTotal', 'spendCount', 'tasksDone', 'fullDays', 'bestStreak'],
+    fields: {
+      daysLog: (v) => isObj(v) && Object.keys(v).length <= 120 && Object.entries(v).every(([k, e]) => DAY_RE.test(k) && isObj(e) && subKeys(e, ['spent', 'tasks']) && num(e.spent) && num(e.tasks)),
+      spentTotal: num, spendCount: num, tasksDone: num, fullDays: num, bestStreak: num,
+    },
+  },
   'settings:schedule': { allowed: ['anchorMs'], fields: { anchorMs: num } },
   events: {
     allowed: ['at', 'characterId', 'presetId', 'kind', 'amount'],
@@ -105,7 +111,10 @@ const schemas = {
     allowed: ['points'],
     fields: { points: (v) => Array.isArray(v) && v.length <= 2000 && v.every((p) => isObj(p) && subKeys(p, ['at', 'cp']) && num(p.at) && num(p.cp)) },
   },
-  progress: { allowed: null },
+  progress: {
+    allowed: ['daily', 'weekly'],
+    fields: { daily: period, weekly: period },
+  },
   calendar: {
     allowed: ['uid', 'title', 'at', 'durationMin', 'rsvp'],
     required: ['title', 'at', 'durationMin'],
@@ -128,6 +137,13 @@ const schemas = {
   },
 };
 
+const DAY_RE = /^\d{4}-\d{2}-\d{2}$/;
+const TASK_ID_RE = /^[A-Za-z0-9_-]{1,40}$/;
+// {key, done:{taskId: veces}} (tasks.js withCount).
+function period(v) {
+  return isObj(v) && subKeys(v, ['key', 'done']) && num(v.key) && isObj(v.done) && Object.keys(v.done).length <= 50
+    && Object.entries(v.done).every(([k, n]) => TASK_ID_RE.test(k) && num(n) && n >= 0 && n <= 1000);
+}
 function subKeys(o, allowed) { return Object.keys(o).every((k) => allowed.includes(k)); }
 function itemsOf(v) { return Array.isArray(v) && v.length <= 200 && v.every(isObj); }
 

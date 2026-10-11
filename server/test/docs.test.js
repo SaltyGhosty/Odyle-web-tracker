@@ -16,8 +16,8 @@ async function setup({ adminVerified = true, adminIsolated = false } = {}) {
   const t = await makeTestApp({ ADMIN_USER_ID: ids.ADM, __buildApp: { now: () => NOW } });
   const { db, config } = t;
   const put = (path, data) => db.query(
-    'insert into docs (path, parent, data, updated_at) values ($1, $2, $3::jsonb, $4)',
-    [path, path.slice(0, path.lastIndexOf('/')), JSON.stringify(data), NOW]);
+    'insert into docs (path, parent, data, updated_at, sort_at) values ($1, $2, $3::jsonb, $4, $5)',
+    [path, path.slice(0, path.lastIndexOf('/')), JSON.stringify(data), NOW, typeof data.at === 'number' ? data.at : null]);
   for (const [k, id] of Object.entries(ids)) {
     await db.query('insert into users (id, email, password_hash, email_verified_at) values ($1, $2, $3, $4)',
       [id, `${k.toLowerCase()}@example.com`, 'x', k === 'ADM' && !adminVerified ? null : new Date(NOW)]);
@@ -139,12 +139,12 @@ test('rutas raras → 400 (nunca 500); raíz desconocida → 403', async () => {
 
 test('documento grande → 413; limit y consultas inválidas → 400', async () => {
   const s = await setup();
-  const p = `members/${s.ids.A}/settings/stats`;
-  const big = (n) => Object.fromEntries(Array.from({ length: n }, (_, i) => [`k${i}`, 'x'.repeat(400)]));
+  const p = `members/${s.ids.A}/settings/presets`;
+  const big = (n) => ({ items: Array.from({ length: n }, () => ({ a: 'x'.repeat(400) })) });
   assert.equal((await s.call('PUT', p, 'A', big(190))).statusCode, 413); // > cuerpo máximo
-  assert.equal((await s.call('PUT', p, 'A', big(166))).statusCode, 413); // ≈ 66 KB: pasa el cuerpo, no los 64 KB del documento
+  assert.equal((await s.call('PUT', p, 'A', big(166))).statusCode, 413); // ≈ 68 KB: por encima del cuerpo máximo
   assert.equal((await s.call('PUT', p, 'A', big(100))).statusCode, 200);
-  assert.equal(validateDoc(`members/${s.ids.A}/settings/stats`, big(166)) !== null, true);
+  assert.equal(validateDoc(`members/${s.ids.A}/settings/presets`, big(166)) !== null, true);
   const col = `members/${s.ids.A}/characters`;
   for (const q of ['limit=500', 'limit=0', 'limit=-1', 'limit=1.5', 'limit=abc', 'where=name,==,1', 'where=at,~,1', 'where=at,>,x',
     'orderBy=name,asc', 'orderBy=at,up', 'foo=1', 'where=at,>', 'where=at,>,1&where=at,<,2&where=at,<,3']) {
@@ -245,13 +245,13 @@ test('feedback: solo el dueño escribe; lee el dueño y el administrador verific
 test('SR-4: \\u0000, control y marcas bidi se limpian (sin 500); \\n solo en notas/muro/feedback', async () => {
   const s = await setup();
   const p = `members/${s.ids.A}/characters/c1`;
-  const w = await s.call('PUT', p, 'A', { name: 'Ka\u0000e‮li⁦\u0007\n', classId: 'a', notes: 'l1\nl2\u0000\t' });
+  const w = await s.call('PUT', p, 'A', { name: 'Ka\u0000e\u202Eli\u2066\u0007\n', classId: 'a', notes: 'l1\nl2\u0000\t' });
   assert.equal(w.statusCode, 200);
   assert.deepEqual((await get(s, p, 'A')).json().data, { name: 'Kaeli', classId: 'a', notes: 'l1\nl2' });
   const raw = await s.rawBody('PUT', p, 'A', '{"name":"a\\u0000b","classId":"x"}');
   assert.equal(raw.statusCode, 200);
   assert.equal((await get(s, p, 'A')).json().data.name, 'ab');
-  assert.equal(validateDoc(p, { name: '\u0000‮' }), 'Valor no válido en «name»'); // queda vacío
+  assert.equal(validateDoc(p, { name: '\u0000\u202E' }), 'Valor no válido en «name»'); // queda vacío
   await s.app.close();
 });
 
@@ -280,12 +280,12 @@ test('límites de texto por colección', async () => {
 
 test('profundidad > 8, > 500 claves, cuerpo no objeto, claves de control → 400', async () => {
   const s = await setup();
-  const p = `members/${s.ids.A}/settings/stats`;
+  const p = `members/${s.ids.A}/settings/presets`;
   let deep = { v: 1 }; for (let i = 0; i < 8; i++) deep = { d: deep };
-  assert.equal((await s.call('PUT', p, 'A', deep)).statusCode, 400);
-  let ok = { v: 1 }; for (let i = 0; i < 6; i++) ok = { d: ok };
-  assert.equal((await s.call('PUT', p, 'A', ok)).statusCode, 200);
-  assert.equal((await s.call('PUT', p, 'A', Object.fromEntries(Array.from({ length: 501 }, (_, i) => [`k${i}`, 1])))).statusCode, 400);
+  assert.equal((await s.call('PUT', p, 'A', { items: [deep] })).statusCode, 400);
+  let ok = { v: 1 }; for (let i = 0; i < 4; i++) ok = { d: ok };
+  assert.equal((await s.call('PUT', p, 'A', { items: [ok] })).statusCode, 200);
+  assert.equal((await s.call('PUT', p, 'A', { items: [Object.fromEntries(Array.from({ length: 501 }, (_, i) => [`k${i}`, 1]))] })).statusCode, 400);
   for (const body of ['[]', 'null', '"x"', '5']) assert.equal((await s.rawBody('PUT', p, 'A', body)).statusCode, 400, body);
   assert.equal((await s.rawBody('PUT', p, 'A', '{"a\\u0000b":1}')).statusCode, 400);
   await s.app.close();
@@ -302,12 +302,12 @@ test('cuota: 500 documentos o 2 MB → 413 (SR-26)', async () => {
   assert.equal((await s.call('DELETE', `members/${s.ids.A}/events/ok`, 'A')).statusCode, 200);
   assert.equal((await s.call('PUT', `members/${s.ids.A}/events/extra`, 'A', { at: 1, kind: 'k' })).statusCode, 200);
   // bytes: B llena ~2 MB con documentos de ~60 KB
-  const blob = Object.fromEntries(Array.from({ length: 110 }, (_, i) => [`k${i}`, 'x'.repeat(500)]));
-  for (let i = 0; i < 38; i++) await s.put(`members/${s.ids.B}/progress/p${i}`, blob);
-  assert.equal((await s.call('PUT', `members/${s.ids.B}/progress/more`, 'B', blob)).statusCode, 413);
-  assert.equal((await s.call('PUT', `members/${s.ids.B}/progress/small`, 'B', { a: 1 })).statusCode, 413); // sigue sin espacio
-  assert.equal((await s.call('DELETE', `members/${s.ids.B}/progress/p0`, 'B')).statusCode, 200);
-  assert.equal((await s.call('PUT', `members/${s.ids.B}/progress/small`, 'B', { a: 1 })).statusCode, 200);
+  const blob = { items: Array.from({ length: 110 }, () => ({ a: 'x'.repeat(500) })) };
+  for (let i = 0; i < 38; i++) await s.put(`members/${s.ids.B}/characters/p${i}`, blob);
+  assert.equal((await s.call('PUT', `members/${s.ids.B}/settings/presets`, 'B', blob)).statusCode, 413);
+  assert.equal((await s.call('PUT', `members/${s.ids.B}/settings/prefs`, 'B', { lang: 'es' })).statusCode, 413); // sigue sin espacio
+  assert.equal((await s.call('DELETE', `members/${s.ids.B}/characters/p0`, 'B')).statusCode, 200);
+  assert.equal((await s.call('PUT', `members/${s.ids.B}/settings/prefs`, 'B', { lang: 'es' })).statusCode, 200);
   await s.app.close();
 });
 
@@ -392,4 +392,79 @@ test('safeMerge: fusiona objetos, sustituye listas, admite null, no muta, rechaz
   assert.throws(() => safeMerge({}, { a: { constructor: 1 } }));
   assert.throws(() => safeMerge({}, { a: [{ prototype: 1 }] }));
   assert.equal(({}).polluted, undefined);
+});
+
+test('muro con más de 200 documentos: orderBy=at,desc&limit=50 trae los más nuevos', async () => {
+  const s = await setup();
+  const w = `legionData/${s.key}/wall`;
+  for (let i = 0; i < 250; i++) await s.put(`${w}/m${String(i).padStart(3, '0')}`, { uid: s.ids.B, at: i, text: `t${i}` });
+  const r = (await get(s, `${w}?orderBy=at,desc&limit=50`, 'A')).json().docs;
+  assert.equal(r.length, 50);
+  assert.deepEqual(r.map((d) => d.data.at), Array.from({ length: 50 }, (_, i) => 249 - i));
+  const all = (await get(s, w, 'A')).json().docs;
+  assert.equal(all.length, 200);
+  const old = (await get(s, `${w}?where=at,<,10&orderBy=at,asc`, 'A')).json().docs;
+  assert.deepEqual(old.map((d) => d.data.at), [0, 1, 2, 3, 4, 5, 6, 7, 8, 9]);
+  await s.app.close();
+});
+
+test('cuota: los mensajes de muro del autor cuentan junto a members/{uid} (413)', async () => {
+  const s = await setup();
+  const w = `legionData/${s.key}/wall`;
+  for (let i = 0; i < 499; i++) await s.put(`${w}/m${i}`, { uid: s.ids.A, at: i, text: 'x' });
+  await s.put(`members/${s.ids.A}/events/e1`, { at: 1, kind: 'k' }); // 500 en total
+  assert.equal((await s.call('PUT', `${w}/mx`, 'A', { at: 1, text: 'uno más' })).statusCode, 413);
+  assert.equal((await s.call('PUT', `members/${s.ids.A}/events/e2`, 'A', { at: 1, kind: 'k' })).statusCode, 413);
+  assert.equal((await s.call('PUT', `${w}/m1`, 'A', { at: 5, text: 'editado' })).statusCode, 200); // reemplazar cabe
+  assert.equal((await s.call('PUT', `${w}/mb`, 'B', { at: 1, text: 'de B' })).statusCode, 200); // otro usuario, su propia cuota
+  assert.equal((await s.call('DELETE', `${w}/m2`, 'A')).statusCode, 200);
+  assert.equal((await s.call('PUT', `${w}/mx`, 'A', { at: 1, text: 'ahora sí' })).statusCode, 200);
+  await s.app.close();
+});
+
+test('claves como toString/valueOf no esquivan los límites de longitud', async () => {
+  const s = await setup();
+  assert.equal((await s.call('PUT', `members/${s.ids.A}/settings/stats`, 'A', { toString: 'x'.repeat(30000) })).statusCode, 400);
+  assert.equal((await s.call('PUT', `members/${s.ids.A}/settings/presets`, 'A', { items: [{ id: 'p', valueOf: 'x'.repeat(30000) }] })).statusCode, 400);
+  assert.equal((await s.call('PUT', `members/${s.ids.A}/settings/tasks`, 'A', { items: [{ id: 'p', hasOwnProperty: 'x'.repeat(501) }] })).statusCode, 400);
+  await s.app.close();
+});
+
+test('stats y progress tienen esquema propio; claves desconocidas → 400', async () => {
+  const s = await setup();
+  const st = `members/${s.ids.A}/settings/stats`;
+  const good = { daysLog: { '2026-10-11': { spent: 300, tasks: 2 } }, spentTotal: 300, spendCount: 1, tasksDone: 2, fullDays: 0, bestStreak: 1 };
+  assert.equal((await s.call('PUT', st, 'A', good)).statusCode, 200);
+  assert.equal((await s.call('PUT', st, 'A', { daysLog: {} })).statusCode, 200);
+  for (const bad of [
+    { ...good, extra: 1 }, { spentTotal: 'x' }, { daysLog: { hoy: { spent: 1, tasks: 1 } } },
+    { daysLog: { '2026-10-11': { spent: 1, tasks: 1, z: 1 } } }, { daysLog: { '2026-10-11': 5 } }, { daysLog: [] },
+    { daysLog: Object.fromEntries(Array.from({ length: 121 }, (_, i) => [`2026-01-${String(i).padStart(3, '0')}`, { spent: 1, tasks: 1 }])) },
+  ]) assert.equal((await s.call('PUT', st, 'A', bad)).statusCode, 400, JSON.stringify(bad).slice(0, 60));
+  const pg = `members/${s.ids.A}/progress/c1`;
+  assert.equal((await s.call('PUT', pg, 'A', { daily: { key: 20000, done: { 'd-abyss': 1, 't-abc123': 3 } }, weekly: { key: 400, done: { 'w-dungeon': 2 } } })).statusCode, 200);
+  assert.equal((await s.call('PUT', pg, 'A', {})).statusCode, 200);
+  for (const bad of [
+    { other: 1 }, { daily: { key: 1, done: {}, x: 1 } }, { daily: { key: 'a', done: {} } }, { daily: { key: 1, done: { 'a b': 1 } } },
+    { daily: { key: 1, done: { a: 'x' } } }, { daily: 5 }, { weekly: { key: 1, done: Object.fromEntries(Array.from({ length: 51 }, (_, i) => [`t${i}`, 1])) } },
+  ]) assert.equal((await s.call('PUT', pg, 'A', bad)).statusCode, 400, JSON.stringify(bad).slice(0, 60));
+  await s.app.close();
+});
+
+test('segmento de 129 caracteres → 400; cuerpo de 66 000 bytes → 413', async () => {
+  const s = await setup();
+  const base = `members/${s.ids.A}/characters`;
+  assert.equal((await get(s, `${base}/${'a'.repeat(128)}`, 'A')).statusCode, 200);
+  assert.equal((await get(s, `${base}/${'a'.repeat(129)}`, 'A')).statusCode, 400);
+  const body = JSON.stringify({ name: 'x', classId: 'a', pad: 'p'.repeat(66000) });
+  assert.equal((await s.rawBody('PUT', `${base}/c1`, 'A', body)).statusCode, 413);
+  await s.app.close();
+});
+
+test('el código fuente no contiene marcas bidi literales', async () => {
+  const { readFileSync, readdirSync } = await import('node:fs');
+  const dirs = ['src/lib', 'src/routes', 'test'].map((d) => new URL(`../${d}/`, import.meta.url));
+  for (const d of dirs) for (const f of readdirSync(d).filter((x) => x.endsWith('.js'))) {
+    assert.ok(!/[\u202A-\u202E\u2066-\u2069]/.test(readFileSync(new URL(f, d), 'utf8')), f);
+  }
 });
