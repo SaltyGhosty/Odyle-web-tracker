@@ -3,6 +3,7 @@ import helmet from '@fastify/helmet';
 import cookie from '@fastify/cookie';
 import rateLimit from '@fastify/rate-limit';
 import { requireCsrf } from './lib/csrf.js';
+import { hashPassword } from './lib/passwords.js';
 import authRoutes from './routes/auth.js';
 
 export const CSP = "default-src 'self'; script-src 'self'; style-src 'self'; style-src-attr 'unsafe-inline'; font-src 'self'; img-src 'self' data: blob:; connect-src 'self'; object-src 'none'; base-uri 'none'; form-action 'self'; frame-ancestors 'none'; require-trusted-types-for 'script'; trusted-types 'none'";
@@ -19,7 +20,7 @@ export const PROD_LOGGER = {
   },
 };
 
-export function buildApp({ config, db, mailer, now = Date.now, logger = PROD_LOGGER }) {
+export function buildApp({ config, db, mailer, now = Date.now, hasher = hashPassword, logger = PROD_LOGGER }) {
   const app = Fastify({
     // Exactamente un salto (el balanceador de Render), nunca `true` (SR-18). Con un número, Fastify 5.12 no confía
     // en nadie y request.ip sería siempre la IP del proxy; esta función equivale a "1 salto": solo el par inmediato.
@@ -32,6 +33,7 @@ export function buildApp({ config, db, mailer, now = Date.now, logger = PROD_LOG
   app.decorate('db', db);
   app.decorate('mailer', mailer);
   app.decorate('now', now);
+  app.decorate('hasher', hasher);
 
   // Solo application/json (SR-13): se quita el parser text/plain por defecto.
   app.removeContentTypeParser('text/plain');

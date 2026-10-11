@@ -313,3 +313,60 @@ test('registro: 5/h por IP; forgot: 3/h por correo y 10/h por IP', async () => {
   assert.equal((await post(app, '/api/auth/forgot', { email: 'f9@example.com' })).statusCode, 429);
   await app.close();
 });
+
+// ---- Fix round 1 ----
+test('gracia: el texto cifrado del predecesor se borra pasados 20 s (en cualquier refresh o login)', async () => {
+  for (const trigger of ['refresh', 'login']) {
+    const { app, clock, db } = await setup();
+    const l = await login(app);
+    const rt0 = cookieVal(l, RT);
+    const r1 = await refresh(app, rt0);
+    assert.ok((await db.query('select 1 from refresh_tokens where grace_token_enc is not null')).rows.length === 1);
+    clock.t += 21_000;
+    if (trigger === 'refresh') assert.equal((await refresh(app, cookieVal(r1, RT))).statusCode, 200);
+    else assert.equal((await login(app)).statusCode, 200);
+    const left = (await db.query('select count(*)::int as n from refresh_tokens where grace_token_enc is not null and rotated_at < $1', [new Date(clock.t - 20_000)])).rows[0].n;
+    assert.equal(left, 0, trigger);
+    await app.close();
+  }
+});
+
+test('gracia: solo el token inmediatamente anterior; rt0 tras rt0->rt1->rt2 revoca la familia', async () => {
+  const { app, clock, db } = await setup();
+  const rt0 = cookieVal(await login(app), RT);
+  const r1 = await refresh(app, rt0);
+  clock.t += 1000;
+  const r2 = await refresh(app, cookieVal(r1, RT));
+  assert.equal(r2.statusCode, 200);
+  clock.t += 1000;
+  const bad = await refresh(app, rt0);
+  assert.equal(bad.statusCode, 401);
+  assert.equal((await refresh(app, cookieVal(r2, RT))).statusCode, 401);
+  assert.equal((await db.query('select count(*)::int as n from refresh_tokens where revoked_at is null')).rows[0].n, 0);
+  await app.close();
+});
+
+test('reset: un token inválido no calcula argon2', async () => {
+  let calls = 0;
+  const { hashPassword } = await import('../src/lib/passwords.js');
+  const { app, sent } = await setup({ __buildApp: { hasher: (pw) => { calls++; return hashPassword(pw); } } });
+  const n0 = calls;
+  const r = await post(app, '/api/auth/reset', { token: 'q'.repeat(43), password: 'nueva-contrasena-77' });
+  assert.equal(r.statusCode, 400);
+  assert.equal(calls, n0);
+  await post(app, '/api/auth/forgot', { email: 'ana@example.com' }); await tick();
+  assert.equal((await post(app, '/api/auth/reset', { token: tokenFrom(sent), password: 'nueva-contrasena-77' })).statusCode, 200);
+  assert.equal(calls, n0 + 1);
+  await app.close();
+});
+
+test('reset: limpia el bloqueo del correo', async () => {
+  const { app, sent } = await setup();
+  const ipH = (i) => ({ ...H, 'x-forwarded-for': `10.2.0.${i}` });
+  for (let i = 0; i < 10; i++) await login(app, 'ana@example.com', 'mala-contrasena-1', ipH(i + 1));
+  assert.equal((await login(app, 'ana@example.com', PW, ipH(40))).statusCode, 429);
+  await post(app, '/api/auth/forgot', { email: 'ana@example.com' }, ipH(41)); await tick();
+  assert.equal((await post(app, '/api/auth/reset', { token: tokenFrom(sent), password: 'nueva-contrasena-77' }, ipH(42))).statusCode, 200);
+  assert.equal((await login(app, 'ana@example.com', 'nueva-contrasena-77', ipH(43))).statusCode, 200);
+  await app.close();
+});

@@ -84,6 +84,11 @@ export default async function authRoutes(app) {
   const { config, db, mailer } = app;
   const noStore = (reply) => reply.header('cache-control', 'no-store');
   const lockout = createLockout(app.now);
+  // La copia cifrada del token vigente solo existe durante la ventana de gracia (SR-10).
+  const purgeGrace = (t) => db.query(
+    'update refresh_tokens set grace_token_enc = null where grace_token_enc is not null and rotated_at < $1',
+    [new Date(t - GRACE_MS)],
+  );
 
   // Cada límite tiene su propio almacén; se aplican en preHandler para poder usar el correo del cuerpo (SR-17, SR-18).
   const limit = (max, timeWindow, keyOf) => {
@@ -189,6 +194,7 @@ export default async function authRoutes(app) {
     if (config.emailMode === 'full' && !user.email_verified_at) {
       return reply.code(403).send({ error: 'Verifica tu correo para entrar' });
     }
+    await purgeGrace(app.now());
     await revokeFamilyOf(db, req.cookies && req.cookies[RT_COOKIE], app.now);
     const session = await issueSession(db, config, user.id, req.headers['user-agent'], undefined, app.now);
     setSessionCookies(reply, session);
@@ -216,6 +222,7 @@ export default async function authRoutes(app) {
     const hash = sha256hex(rt);
     const t = app.now();
     const nowD = new Date(t);
+    await purgeGrace(t);
 
     const issued = await db.tx(async (q) => {
       const newId = randomToken();
@@ -243,8 +250,9 @@ export default async function authRoutes(app) {
     const inGrace = !row.revoked_at && row.rotated_at && row.grace_token_enc
       && t - new Date(row.rotated_at).getTime() < GRACE_MS && t >= new Date(row.rotated_at).getTime();
     if (inGrace) {
-      const succ = (await db.query('select revoked_at from refresh_tokens where id = $1', [row.replaced_by])).rows[0];
-      const refresh = succ && !succ.revoked_at ? decryptCode(config.codeKey, row.grace_token_enc, hash) : null;
+      const succ = (await db.query('select revoked_at, used_at from refresh_tokens where id = $1', [row.replaced_by])).rows[0];
+      // Solo el token inmediatamente anterior al vigente: si el sucesor ya se usó, es reutilización.
+      const refresh = succ && !succ.revoked_at && !succ.used_at ? decryptCode(config.codeKey, row.grace_token_enc, hash) : null;
       const user = refresh ? (await db.query('select token_version from users where id = $1', [row.user_id])).rows[0] : null;
       if (refresh && user) {
         const access = await signAccess(config, { sub: row.user_id, ver: Number(user.token_version) }, t);
@@ -304,8 +312,14 @@ export default async function authRoutes(app) {
     if (policy) return reply.code(400).send({ error: policy });
     const token = body.token;
     if (typeof token !== 'string' || token.length < 20 || token.length > 200) return reply.code(400).send({ error: BAD_LINK });
-    const passwordHash = await hashPassword(body.password);
     const now = new Date(app.now());
+    // Consulta barata antes de gastar argon2: un token inexistente no ocupa las plazas de hash (SR-22).
+    const live = await db.query(
+      "select 1 from email_tokens where token_hash = $1 and kind = 'reset' and used_at is null and expires_at > $2",
+      [sha256hex(token), now],
+    );
+    if (!live.rows.length) return reply.code(400).send({ error: BAD_LINK });
+    const passwordHash = await app.hasher(body.password);
     const userId = await db.tx(async (q) => {
       const used = await q(
         `update email_tokens set used_at = $1
@@ -327,6 +341,8 @@ export default async function authRoutes(app) {
     });
     if (!userId) return reply.code(400).send({ error: BAD_LINK });
     invalidateUserCache(userId);
+    const u = (await db.query('select email from users where id = $1', [userId])).rows[0];
+    if (u) lockout.reset(u.email);
     return { message: 'Contraseña cambiada. Ya puedes entrar.' };
   });
 }
