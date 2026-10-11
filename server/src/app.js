@@ -1,5 +1,8 @@
 import Fastify from 'fastify';
 import helmet from '@fastify/helmet';
+import cookie from '@fastify/cookie';
+import { requireCsrf } from './lib/csrf.js';
+import authRoutes from './routes/auth.js';
 
 export const CSP = "default-src 'self'; script-src 'self'; style-src 'self'; style-src-attr 'unsafe-inline'; font-src 'self'; img-src 'self' data: blob:; connect-src 'self'; object-src 'none'; base-uri 'none'; form-action 'self'; frame-ancestors 'none'; require-trusted-types-for 'script'; trusted-types 'none'";
 
@@ -47,6 +50,9 @@ export function buildApp({ config, db, mailer, now = Date.now, logger = PROD_LOG
     crossOriginResourcePolicy: { policy: 'same-origin' },
   });
 
+  app.register(cookie);
+  app.addHook('preHandler', requireCsrf);
+
   app.addHook('onSend', async (req, reply) => {
     reply.header('content-security-policy', CSP);
   });
@@ -67,6 +73,8 @@ export function buildApp({ config, db, mailer, now = Date.now, logger = PROD_LOG
   app.setNotFoundHandler((req, reply) => reply.code(404).send({ error: 'No encontrado.' }));
 
   app.get('/api/health', async () => ({ ok: true }));
+
+  app.register(authRoutes);
 
   return app;
 }
