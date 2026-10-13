@@ -139,6 +139,17 @@ Formato: **amenaza → defensa del diseño → riesgo residual → prueba** (tod
 | I/D | Copias de seguridad: la base gratuita caduca y no tiene copias; una copia filtrada expone correos y hashes | — | Alto en plan gratuito (pérdida de datos) | Revisión manual |
 | D | HTTP sin TLS | HSTS | Primera visita | `headers.test.js` (redirección por `x-forwarded-proto`) |
 
+### 4.9 Social y tiempo real (`/api/profiles`, `/api/friends`, `/api/blocks`, `/api/messages`, `/api/conversations`, `/api/reports`, `/api/stream`)
+
+| Amenaza (STRIDE) | Ejemplo | Mitigación |
+|---|---|---|
+| Revelación (I) | Leer la energía o los mensajes de alguien que no es tu amigo cambiando el uid | Reglas en `social-rules.js`; energía solo con amistad + `shareEnergy` (SR-40, SR-41) |
+| Revelación (I) | Saber si alguien te bloqueó o si un uid existe por la respuesta | Respuesta 404 idéntica para desconocido, bloqueado y "me bloqueó" (SR-42) |
+| Manipulación (T) | Mensaje con HTML, controles o marcas bidi | `cleanText` + pintado con `textContent` + CSP (SR-43) |
+| Suplantación (S) | Abrir el stream de otro con un token en la URL o caducado | Solo cookie de sesión; cierre al `exp`; 3 conexiones máx. (SR-44) |
+| Revelación (I) | Contenido de mensajes en el canal `NOTIFY` o entregado tras perder la amistad | `NOTIFY` solo con ids; el receptor relee y vuelve a comprobar (SR-45) |
+| Denegación (D) | Spam de solicitudes, mensajes, búsquedas o conexiones | Límites por usuario y máximo de 50 solicitudes pendientes (SR-46) |
+
 ## 5. Requisitos de seguridad
 
 Cada requisito es comprobable; entre corchetes, las amenazas (secciones) que cubre.
@@ -194,6 +205,16 @@ Cada requisito es comprobable; entre corchetes, las amenazas (secciones) que cub
 - **SR-36** `package-lock.json` versionado, `npm ci` en el despliegue, `npm audit --omit=dev` sin fallos altos en CI, versiones fijadas; Three.js vendorizado con su SHA-256 anotado. [4.8] **[Añadido por el agente de seguridad]**
 - **SR-37** Secretos solo en el panel de Render (en `render.yaml` con `sync: false`); vistas previas de PR desactivadas o sin secretos de producción; Postgres sin acceso externo (lista de IP vacía) y con TLS. [4.8] **[Añadido por el agente de seguridad]**
 - **SR-38** Antes de datos reales: plan de Postgres con copias diarias; las copias exportadas se cifran y nunca se guardan junto a `CODE_KEY`/`JWT_SECRET`; retención definida. [4.8] **[Añadido por el agente de seguridad]**
+- **SR-39** Las rutas sociales solo devuelven campos de una lista blanca (`toPublic`, `toMessage`): nunca correo, hashes ni datos internos de la legión.
+- **SR-40** La energía y los personajes de otro usuario solo se devuelven con amistad aceptada, sin bloqueo y con `shareEnergy`.
+- **SR-41** No se pueden enviar mensajes sin amistad aceptada; el bloqueo corta perfil, solicitudes, mensajes e historial en ambos sentidos.
+- **SR-42** Para un uid desconocido, mal formado, bloqueado o que te bloqueó, la respuesta es la misma: `404 {"error":"No encontrado."}`.
+- **SR-43** Los textos de mensajes y denuncias pasan por `cleanText` (controles y bidi fuera, máximos 1000/500) y el cliente los pinta con `textContent`.
+- **SR-44** `/api/stream` exige la cookie de sesión (nunca token en la URL), es de solo lectura, admite 3 conexiones por usuario, se cierra al caducar el token de acceso y también al cerrar el servidor.
+- **SR-45** La carga útil de `NOTIFY` lleva solo `{to, type, id}`; el servidor relee el dato y vuelve a comprobar los permisos antes de enviarlo.
+- **SR-46** Límites por usuario: búsqueda 30/min, perfil 60/min, cambios de amistad 20/min, mensajes 30/min, denuncias 10/h, stream 10/min; máximo 50 solicitudes pendientes y 500 amigos (límite de amigos también al aceptar una solicitud).
+- **SR-47** Los ids de mensajes y denuncias son aleatorios de 256 bits (`randomToken`).
+- **SR-48** Borrar un usuario borra en cascada sus amistades, bloqueos, mensajes y denuncias; los mensajes caducan a los 365 días.
 
 ## 6. Pruebas de ataque a escribir (`server/test/attacks/`)
 
@@ -225,5 +246,10 @@ Cada requisito es comprobable; entre corchetes, las amenazas (secciones) que cub
 | `logging-secrets.test.js` | Con el logger capturado, tras register/login/refresh/reset no aparecen contraseñas, cookies, tokens ni valores de las variables secretas (SR-33) |
 | `static-files.test.js` | `/.env`, `/server/src/app.js`, `/package.json`, `/app.js.map`, `/vendor/` ⇒ 404 (SR-34) |
 | `error-leak.test.js` | JSON roto, tipos erróneos y fallos forzados de la base ⇒ respuesta sin traza ni SQL (SR-33) |
+| `social-idor.test.js` | C no lee la conversación de A y B; la energía no sale sin amistad; el perfil no expone correo ni campos internos (SR-39, SR-40, SR-41) |
+| `social-enum.test.js` | Desconocido, bloqueado y "me bloqueó" dan respuesta idéntica en perfil, amistad, aceptar y mensajes; la búsqueda los omite (SR-42) |
+| `social-xss.test.js` | HTML y bidi en mensajes salen limpios y como JSON con CSP (SR-43) |
+| `social-sse.test.js` | Token por URL o alterado ⇒ 401; un evento ajeno se filtra al releer (SR-44, SR-45) |
+| `social-cascade.test.js` | Borrar un usuario vacía sus filas sociales (SR-48; solo con Postgres real) |
 
 Revisión manual (no automatizable aquí): SR-36 (CI), SR-37 (panel de Render) y SR-38 (copias de seguridad).
