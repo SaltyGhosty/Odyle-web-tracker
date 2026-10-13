@@ -90,3 +90,49 @@ test('el stream se cierra al caducar el token (Review Focus 1)', async (t) => {
   for (let i = 0; i < 100 && !a.ended; i++) await new Promise((r) => setTimeout(r, 10));
   assert.equal(a.ended, true);
 });
+
+const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+async function until(fn, ms = 1500) { for (let t = 0; t < ms; t += 10) { if (fn()) return true; await sleep(10); } return fn(); }
+
+test('abortar durante el aviso de presencia no deja presencia ni suscripción', async (t) => {
+  const s = await live(2); t.after(() => s.app.close());
+  await s.befriend('A', 'B');
+  const orig = s.app.bus.publish.bind(s.app.bus);
+  s.app.bus.publish = async (...args) => { await sleep(150); return orig(...args); };
+  const a = await open(s.base, s.tokens.A);
+  a.close();
+  assert.equal(await until(() => s.app.presence.count(s.ids.A) === 0), true);
+  await sleep(400);
+  assert.equal(s.app.presence.count(s.ids.A), 0);
+  assert.equal((await s.call('GET', '/api/friends', 'B')).json().friends[0].online, false);
+});
+
+test('bus.publish que falla no impide abrir el stream y la presencia vuelve a 0', async (t) => {
+  const s = await live(2); t.after(() => s.app.close());
+  await s.befriend('A', 'B');
+  s.app.bus.publish = async () => { throw new Error('boom'); };
+  const a = await open(s.base, s.tokens.A);
+  assert.equal(a.res.status, 200);
+  assert.deepEqual(await a.next('hello'), { uid: s.ids.A });
+  assert.equal(s.app.presence.count(s.ids.A), 1);
+  a.close();
+  assert.equal(await until(() => s.app.presence.count(s.ids.A) === 0), true);
+});
+
+test('app.close() con un stream abierto termina pronto y el cliente ve el fin', async (t) => {
+  const s = await live(2);
+  const a = await open(s.base, s.tokens.A); await a.next('hello');
+  const t0 = Date.now();
+  await s.app.close();
+  assert.ok(Date.now() - t0 < 2000);
+  assert.equal(await until(() => a.ended), true);
+});
+
+test('la conexión rechazada con 429 no altera la presencia', async (t) => {
+  const s = await live(); t.after(() => s.app.close());
+  const xs = [];
+  for (let i = 0; i < 3; i++) { const x = await open(s.base, s.tokens.A); await x.next('hello'); xs.push(x); }
+  assert.equal((await open(s.base, s.tokens.A)).res.status, 429);
+  assert.equal(s.app.presence.count(s.ids.A), 3);
+  xs.forEach((x) => x.close());
+});

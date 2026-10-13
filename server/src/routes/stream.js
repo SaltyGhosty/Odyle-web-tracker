@@ -15,8 +15,11 @@ export default async function streamRoutes(app) {
   const q = (t, p) => db.query(t, p);
   const connectLimit = perUser(app, 10, 60_000, 'stream');
   const announce = async (uid, online) => {
-    for (const f of await friendIds(q, uid)) await bus.publish(f, { type: 'presence', id: uid, online });
+    const ids = await friendIds(q, uid);
+    await Promise.allSettled(ids.map((f) => bus.publish(f, { type: 'presence', id: uid, online })));
   };
+  const open = new Set();
+  app.addHook('preClose', async () => { for (const c of [...open]) await c(); });
 
   app.get('/api/stream', { preHandler: [requireUser, connectLimit] }, async (req, reply) => {
     const me = req.user.id;
@@ -38,25 +41,39 @@ export default async function streamRoutes(app) {
       'x-content-type-options': 'nosniff',
       'content-security-policy': CSP,
     });
-    const send = (type, data) => { if (!res.writableEnded) res.write(`event: ${type}\ndata: ${JSON.stringify(data)}\n\n`); };
-    send('hello', { uid: me });
-
-    const unsubscribe = bus.subscribe(me, async (evt) => {
-      const payload = await resolveEvent(q, me, evt);
-      if (payload) send(evt.type, payload);
-    });
-    if (presence.add(me)) await announce(me, true);
-
-    const heartbeat = setInterval(() => { if (!res.writableEnded) res.write(': ping\n\n'); }, HEARTBEAT_MS);
     let closed = false;
+    let unsubscribe = null;
+    let heartbeat = null;
+    let expiry = null;
+    let added = false;
     const close = async () => {
       if (closed) return;
       closed = true;
-      clearInterval(heartbeat); clearTimeout(expiry); unsubscribe();
+      open.delete(close);
+      clearInterval(heartbeat); clearTimeout(expiry);
+      if (unsubscribe) unsubscribe();
       if (!res.writableEnded) res.end();
-      if (presence.remove(me)) await announce(me, false).catch(() => {});
+      if (added && presence.remove(me)) await announce(me, false).catch(() => {});
     };
-    const expiry = setTimeout(close, ttl);
-    req.raw.on('close', close);
+    open.add(close);
+    const write = (chunk) => {
+      if (closed || res.writableEnded) return;
+      res.write(chunk);
+      if (res.writableLength > 1_000_000) close();
+    };
+    const send = (type, data) => write(`event: ${type}\ndata: ${JSON.stringify(data)}\n\n`);
+    heartbeat = setInterval(() => write(': ping\n\n'), HEARTBEAT_MS);
+    expiry = setTimeout(close, ttl);
+    res.on('close', close); res.on('error', close); req.raw.on('close', close);
+    send('hello', { uid: me });
+
+    unsubscribe = bus.subscribe(me, async (evt) => {
+      try {
+        const payload = await resolveEvent(q, me, evt);
+        if (payload) send(evt.type, payload);
+      } catch { /* sin evento */ }
+    });
+    added = true;
+    if (presence.add(me)) announce(me, true).catch(() => {});
   });
 }
