@@ -64,3 +64,13 @@ test('búsqueda: 31.ª en un minuto → 429', async () => {
   for (let i = 0; i < 30; i++) assert.equal((await s.call('GET', '/api/profiles/search?q=na', 'A')).statusCode, 200);
   assert.equal((await s.call('GET', '/api/profiles/search?q=na', 'A')).statusCode, 429);
 });
+
+test('búsqueda: nicks con _ o % se encuentran y los comodines no amplían (M4)', async () => {
+  const s = await withProfiles();
+  await s.doc(`members/${s.ids.E || 'u_extra_dk'}`, { joinedAt: 1, profile: { nick: 'Dark_Knight' } });
+  await s.doc('members/u_extra_dx', { joinedAt: 1, profile: { nick: 'DarkXKnight' } });
+  const r = (await s.call('GET', '/api/profiles/search?q=dark_k', 'A')).json().results;
+  assert.deepEqual(r.map((x) => x.nick), ['Dark_Knight']);
+  assert.equal((await s.call('GET', '/api/profiles/search?q=%25%25', 'A')).statusCode, 400);
+  assert.equal((await s.call('GET', '/api/profiles/search?q=__', 'A')).statusCode, 400);
+});

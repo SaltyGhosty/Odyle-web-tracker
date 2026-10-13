@@ -15,14 +15,19 @@ export default async function profilesRoutes(app) {
 
   app.get('/api/profiles/search', { preHandler: [requireUser, searchLimit] }, async (req, reply) => {
     reply.header('cache-control', 'no-store');
-    const raw = typeof req.query.q === 'string' ? req.query.q.replace(/[%_\\]/g, '') : '';
+    const raw = typeof req.query.q === 'string' ? req.query.q : '';
     const term = cleanText(raw, 20);
-    if (!term || term.length < 2) return reply.code(400).send({ error: 'Escribe entre 2 y 20 caracteres.' });
+    if (!term || term.replace(/[%_\\]/g, '').length < 2) return reply.code(400).send({ error: 'Escribe entre 2 y 20 caracteres.' });
     const me = req.user.id;
-    const rows = (await q(
-      "select path from docs where parent = 'members' and lower(data->'profile'->>'nick') like $1 order by lower(data->'profile'->>'nick') limit 60",
-      [`${term.toLowerCase()}%`],
+    // pg-mem no admite ESCAPE: la consulta usa solo el prefijo anterior al primer comodín (sin comodines no hay ambigüedad)
+    // y el prefijo completo, con _ y % literales, se comprueba en JS.
+    const lower = term.toLowerCase();
+    const head = lower.split(/[%_\\]/)[0];
+    const candidates = (await q(
+      "select path, lower(data->'profile'->>'nick') as nick from docs where parent = 'members' and lower(data->'profile'->>'nick') like $1 order by lower(data->'profile'->>'nick') limit 500",
+      [`${head}%`],
     )).rows;
+    const rows = candidates.filter((r) => typeof r.nick === 'string' && r.nick.startsWith(lower)).slice(0, 60);
     const blocked = await blockedEither(q, me);
     const results = [];
     for (const r of rows) {
