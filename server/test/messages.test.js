@@ -105,3 +105,35 @@ test('31.º mensaje en un minuto → 429', async () => {
   for (let i = 0; i < 30; i++) assert.equal((await say(s, 'A', 'B', `m${i}`)).statusCode, 200);
   assert.equal((await say(s, 'A', 'B', 'm30')).statusCode, 429);
 });
+
+test('conversaciones: un interlocutor con 500+ mensajes no oculta a los demás', async () => {
+  const s = await socialSetup(3);
+  await s.befriend('A', 'B'); await s.befriend('A', 'C');
+  const pk = [s.ids.A, s.ids.B].sort().join('|');
+  for (let i = 0; i < 501; i++) {
+    await s.db.query(`insert into messages (id, pair_key, sender, recipient, kind, body, created_at, client_id) values ($1, $2, $3, $4, 'text', $5::jsonb, $6, $1)`,
+      [`b${i}`, pk, s.ids.B, s.ids.A, JSON.stringify({ text: String(i) }), s.NOW + 1000 + i]);
+  }
+  await say(s, 'C', 'A', 'hola');
+  const c = (await s.call('GET', '/api/conversations', 'A')).json().conversations.map((x) => x.profile.uid).sort();
+  assert.deepEqual(c, [s.ids.B, s.ids.C].sort());
+});
+
+test('marcas de tiempo estrictamente crecientes con reloj congelado', async () => {
+  const s = await socialSetup(2);
+  await s.befriend('A', 'B');
+  const ms = [];
+  for (const t of ['uno', 'dos', 'tres']) ms.push((await say(s, 'A', 'B', t)).json().message);
+  assert.ok(ms[0].at < ms[1].at && ms[1].at < ms[2].at);
+  const h = (await s.call('GET', `/api/messages/${s.ids.B}`, 'A')).json().messages.map((m) => m.body.text);
+  assert.deepEqual(h, ['tres', 'dos', 'uno']);
+});
+
+test('invitación con fecha fuera de ±366 días → 400', async () => {
+  const s = await socialSetup(2);
+  await s.befriend('A', 'B');
+  const inv = (at) => s.call('POST', `/api/messages/${s.ids.B}`, 'A', { kind: 'invite', title: 'x', at, slots: 2, cost: 0 });
+  assert.equal((await inv(s.NOW + 367 * 86400_000)).statusCode, 400);
+  assert.equal((await inv(s.NOW - 367 * 86400_000)).statusCode, 400);
+  assert.equal((await inv(s.NOW + 365 * 86400_000)).statusCode, 200);
+});

@@ -15,7 +15,7 @@ const bad = (reply, error) => reply.code(400).send({ error });
 const isInt = (v, lo, hi) => Number.isInteger(v) && v >= lo && v <= hi;
 
 // Devuelve { kind, body } limpio o { error }.
-function parseBody(b) {
+function parseBody(b, now) {
   if (!b || typeof b !== 'object' || Array.isArray(b)) return { error: 'Mensaje no válido.' };
   if (b.kind === 'text') {
     const text = cleanText(b.text, 1000, true);
@@ -23,7 +23,7 @@ function parseBody(b) {
   }
   if (b.kind === 'invite') {
     const title = cleanText(b.title, 60);
-    if (!title || typeof b.at !== 'number' || !Number.isFinite(b.at) || !isInt(b.slots, 1, 12) || !isInt(b.cost, 0, 840)) {
+    if (!title || typeof b.at !== 'number' || !Number.isFinite(b.at) || Math.abs(b.at - now) > 366 * 86_400_000 || !isInt(b.slots, 1, 12) || !isInt(b.cost, 0, 840)) {
       return { error: 'Invitación no válida.' };
     }
     return { kind: 'invite', body: { title, at: b.at, slots: b.slots, cost: b.cost } };
@@ -48,7 +48,7 @@ export default async function messagesRoutes(app) {
   app.post('/api/messages/:uid', { preHandler: [requireUser, sendLimit] }, async (req, reply) => {
     const me = req.user.id; const { uid } = req.params;
     if (!(await visible(q, me, uid)) || (await relation(q, me, uid)) !== 'friends') return notFound(reply);
-    const parsed = parseBody(req.body);
+    const parsed = parseBody(req.body, app.now());
     if (parsed.error) return bad(reply, parsed.error);
     const clientId = typeof req.body.clientId === 'string' && CLIENT_ID_RE.test(req.body.clientId) ? req.body.clientId : randomToken();
     const id = randomToken();
@@ -91,11 +91,13 @@ export default async function messagesRoutes(app) {
   app.get('/api/conversations', { preHandler: [requireUser, listLimit] }, async (req, reply) => {
     reply.header('cache-control', 'no-store');
     const me = req.user.id;
-    const rows = (await q('select * from messages where sender = $1 or recipient = $1 order by created_at desc limit 500', [me])).rows;
+    const pairs = (await q('select pair_key, max(created_at) as last from messages where sender = $1 or recipient = $1 group by pair_key order by max(created_at) desc limit 100', [me])).rows;
     const unread = new Map((await q('select sender, count(*)::int as n from messages where recipient = $1 and read_at is null group by sender', [me])).rows.map((r) => [r.sender, r.n]));
     const blocked = await blockedEither(q, me);
     const seen = new Map();
-    for (const r of rows) {
+    for (const p of pairs) {
+      const r = (await q('select * from messages where pair_key = $1 and created_at = $2 limit 1', [p.pair_key, p.last])).rows[0];
+      if (!r) continue;
       const other = r.sender === me ? r.recipient : r.sender;
       if (!blocked.has(other) && !seen.has(other) && UID_RE.test(other)) seen.set(other, r);
       if (seen.size === 50) break;
