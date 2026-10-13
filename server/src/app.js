@@ -8,6 +8,7 @@ import { hashPassword } from './lib/passwords.js';
 import authRoutes from './routes/auth.js';
 import docsRoutes from './routes/docs.js';
 import legionsRoutes from './routes/legions.js';
+import profilesRoutes from './routes/profiles.js';
 import pagesRoutes from './routes/pages.js';
 import { MemoryBus } from './lib/bus.js';
 
@@ -98,6 +99,7 @@ export function buildApp({ config, db, mailer, now = Date.now, hasher = hashPass
   app.register(authRoutes);
   app.register(docsRoutes);
   app.register(legionsRoutes);
+  app.register(profilesRoutes);
   app.register(pagesRoutes, { publicDir });
 
   return app;
