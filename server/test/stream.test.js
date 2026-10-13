@@ -55,6 +55,8 @@ test('sin sesión → 401; con sesión → hello y cabeceras correctas', async (
   assert.match(a.res.headers.get('content-type'), /^text\/event-stream/);
   assert.equal(a.res.headers.get('cache-control'), 'no-store');
   assert.ok(a.res.headers.get('content-security-policy'));
+  assert.equal(a.res.headers.get('x-frame-options'), 'DENY');
+  assert.equal(a.res.headers.get('cross-origin-resource-policy'), 'same-origin');
   assert.deepEqual(await a.next('hello'), { uid: s.ids.A });
   a.close();
 });
@@ -76,12 +78,17 @@ test('presencia: solo a amigos; sigue en línea con dos pestañas hasta cerrar l
   b.close(); c.close();
 });
 
-test('cuarta conexión del mismo usuario → 429', async (t) => {
+test('cuarta conexión del mismo usuario: cierra la más antigua y acepta la nueva', async (t) => {
   const s = await live(); t.after(() => s.app.close());
   const open3 = [];
   for (let i = 0; i < 3; i++) { const x = await open(s.base, s.tokens.A); await x.next('hello'); open3.push(x); }
-  assert.equal((await open(s.base, s.tokens.A)).res.status, 429);
-  open3.forEach((x) => x.close());
+  const d = await open(s.base, s.tokens.A);
+  assert.equal(d.res.status, 200);
+  assert.deepEqual(await d.next('hello'), { uid: s.ids.A });
+  assert.equal(await until(() => open3[0].ended), true);
+  assert.equal(open3[1].ended, false);
+  assert.equal(s.app.presence.count(s.ids.A), 3);
+  open3.forEach((x) => x.close()); d.close();
 });
 
 test('el stream se cierra al caducar el token (Review Focus 1)', async (t) => {
@@ -126,13 +133,4 @@ test('app.close() con un stream abierto termina pronto y el cliente ve el fin', 
   await s.app.close();
   assert.ok(Date.now() - t0 < 2000);
   assert.equal(await until(() => a.ended), true);
-});
-
-test('la conexión rechazada con 429 no altera la presencia', async (t) => {
-  const s = await live(); t.after(() => s.app.close());
-  const xs = [];
-  for (let i = 0; i < 3; i++) { const x = await open(s.base, s.tokens.A); await x.next('hello'); xs.push(x); }
-  assert.equal((await open(s.base, s.tokens.A)).res.status, 429);
-  assert.equal(s.app.presence.count(s.ids.A), 3);
-  xs.forEach((x) => x.close());
 });

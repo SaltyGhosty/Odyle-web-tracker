@@ -17,7 +17,8 @@ import pagesRoutes from './routes/pages.js';
 import { MemoryBus } from './lib/bus.js';
 import { createPresence } from './lib/presence.js';
 
-export const CSP = "default-src 'self'; script-src 'self'; style-src 'self'; style-src-attr 'unsafe-inline'; font-src 'self'; img-src 'self' data: blob:; connect-src 'self'; object-src 'none'; base-uri 'none'; form-action 'self'; frame-ancestors 'none'; require-trusted-types-for 'script'; trusted-types 'none'";
+import { CSP } from './lib/headers.js';
+export { CSP } from './lib/headers.js';
 
 export const PROD_LOGGER = {
   level: 'info',
