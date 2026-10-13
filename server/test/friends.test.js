@@ -150,3 +150,10 @@ test('aceptar con 500 amigos → 409', async () => {
   assert.equal(r.statusCode, 409);
   assert.deepEqual(r.json(), { error: 'Has llegado al máximo de amigos.' });
 });
+
+test('bus.publish que falla no rompe las acciones de amistad (best-effort)', async () => {
+  const s = await socialSetup(2);
+  s.app.bus.publish = async () => { throw new Error('boom'); };
+  assert.equal((await s.call('POST', `/api/friends/${s.ids.B}`, 'A')).statusCode, 200);
+  assert.equal((await s.call('POST', `/api/friends/${s.ids.A}/accept`, 'B')).statusCode, 200);
+});

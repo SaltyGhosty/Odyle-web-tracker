@@ -137,3 +137,14 @@ test('invitación con fecha fuera de ±366 días → 400', async () => {
   assert.equal((await inv(s.NOW - 367 * 86400_000)).statusCode, 400);
   assert.equal((await inv(s.NOW + 365 * 86400_000)).statusCode, 200);
 });
+
+test('bus.publish que falla no rompe enviar mensaje ni marcar leído (best-effort)', async () => {
+  const s = await socialSetup(2);
+  await s.befriend('A', 'B');
+  s.app.bus.publish = async () => { throw new Error('boom'); };
+  const r = await say(s, 'A', 'B', 'hola');
+  assert.equal(r.statusCode, 200);
+  const rows = (await s.db.query('select * from messages')).rows;
+  assert.equal(rows.length, 1);
+  assert.equal((await s.call('POST', `/api/messages/${s.ids.A}/read`, 'B')).statusCode, 200);
+});

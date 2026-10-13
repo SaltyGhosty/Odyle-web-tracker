@@ -15,7 +15,8 @@ export default async function friendsRoutes(app) {
   const q = (t, p) => db.query(t, p);
   const readLimit = perUser(app, 60, MIN, 'friends-read');
   const writeLimit = perUser(app, 20, MIN, 'friends-write');
-  const notify = (to, other) => bus.publish(to, { type: 'friend', id: other });
+  const notify = (req, to, other) => Promise.resolve().then(() => bus.publish(to, { type: 'friend', id: other }))
+    .catch((e) => req.log.warn({ code: e && e.code }, 'bus publish falló'));
   const profiles = async (uids) => Promise.all(uids.map(async (u) => toPublic(await publicProfile(q, u))));
 
   // Un bloqueo en cualquier sentido.
@@ -33,12 +34,12 @@ export default async function friendsRoutes(app) {
   };
 
   // Acepta una solicitud recibida pendiente. Devuelve la respuesta de la ruta.
-  const acceptFrom = async (me, uid, reply) => {
+  const acceptFrom = async (req, me, uid, reply) => {
     if ((await friendIds(q, me)).length >= MAX_FRIENDS) return reply.code(409).send({ error: FULL });
     const [a, b] = pairOf(me, uid);
     const r = await q("update friendships set status = 'accepted', accepted_at = $1 where user_a = $2 and user_b = $3 and status = 'pending'", [app.now(), a, b]);
     if (!r.rowCount || (await undoIfBlocked(me, uid))) return notFound(reply);
-    await notify(me, uid); await notify(uid, me);
+    await notify(req, me, uid); await notify(req, uid, me);
     return { status: 'friends' };
   };
 
@@ -63,7 +64,7 @@ export default async function friendsRoutes(app) {
     if (!(await visible(q, me, uid))) return notFound(reply);
     const rel = await relation(q, me, uid);
     if (rel === 'friends' || rel === 'pending-out') return { status: rel };
-    if (rel === 'pending-in') return acceptFrom(me, uid, reply);
+    if (rel === 'pending-in') return acceptFrom(req, me, uid, reply);
     const pending = (await q("select count(*)::int as n from friendships where status = 'pending' and requested_by = $1", [me])).rows[0].n;
     if (pending >= MAX_PENDING) return reply.code(409).send({ error: 'Tienes demasiadas solicitudes pendientes.' });
     if ((await friendIds(q, me)).length >= MAX_FRIENDS) return reply.code(409).send({ error: FULL });
@@ -75,19 +76,19 @@ export default async function friendsRoutes(app) {
       if (err.code !== '23505') throw err;
       // Solicitud cruzada concurrente o duplicado: se decide con el estado real, sin notificaciones duplicadas.
       const now = await relation(q, me, uid);
-      if (now === 'pending-in') return acceptFrom(me, uid, reply);
+      if (now === 'pending-in') return acceptFrom(req, me, uid, reply);
       if (now === 'friends' || now === 'pending-out') return { status: now };
       return notFound(reply);
     }
     if (await undoIfBlocked(me, uid)) return notFound(reply);
-    await notify(me, uid); await notify(uid, me);
+    await notify(req, me, uid); await notify(req, uid, me);
     return { status: 'pending-out' };
   });
 
   app.post('/api/friends/:uid/accept', { preHandler: [requireUser, writeLimit] }, async (req, reply) => {
     const me = req.user.id; const { uid } = req.params;
     if (!(await visible(q, me, uid)) || (await relation(q, me, uid)) !== 'pending-in') return notFound(reply);
-    return acceptFrom(me, uid, reply);
+    return acceptFrom(req, me, uid, reply);
   });
 
   app.delete('/api/friends/:uid', { preHandler: [requireUser, writeLimit] }, async (req) => {
@@ -95,7 +96,7 @@ export default async function friendsRoutes(app) {
     if (UID_RE.test(uid) && uid !== me) {
       const [a, b] = pairOf(me, uid);
       const r = await q('delete from friendships where user_a = $1 and user_b = $2', [a, b]);
-      if (r.rowCount) { await notify(me, uid); await notify(uid, me); }
+      if (r.rowCount) { await notify(req, me, uid); await notify(req, uid, me); }
     }
     return { ok: true };
   });
@@ -114,7 +115,7 @@ export default async function friendsRoutes(app) {
     // Orden fijo: primero el bloqueo, luego la amistad (ver undoIfBlocked).
     await q('insert into blocks (blocker, blocked, created_at) values ($1, $2, $3) on conflict (blocker, blocked) do nothing', [me, uid, app.now()]);
     await q('delete from friendships where user_a = $1 and user_b = $2', [a, b]);
-    await notify(me, uid);
+    await notify(req, me, uid);
     return { ok: true };
   });
 

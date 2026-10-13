@@ -33,6 +33,8 @@ function parseBody(b, now) {
 
 export default async function messagesRoutes(app) {
   const { db, bus } = app;
+  const pub = (req, to, evt) => Promise.resolve().then(() => bus.publish(to, evt))
+    .catch((e) => req.log.warn({ code: e && e.code }, 'bus publish falló'));
   const q = (t, p) => db.query(t, p);
   const sendLimit = perUser(app, 30, MIN, 'msg-send');
   const readLimit = perUser(app, 120, MIN, 'msg-read');
@@ -61,7 +63,7 @@ export default async function messagesRoutes(app) {
       [id, pairKey(me, uid), me, uid, parsed.kind, JSON.stringify(parsed.body), at, clientId],
     );
     const row = (await q('select * from messages where sender = $1 and client_id = $2', [me, clientId])).rows[0];
-    if (row.id === id) { await bus.publish(uid, { type: 'message', id }); await bus.publish(me, { type: 'message', id }); }
+    if (row.id === id) { await pub(req, uid, { type: 'message', id }); await pub(req, me, { type: 'message', id }); }
     return { message: toMessage(row) };
   });
 
@@ -84,7 +86,7 @@ export default async function messagesRoutes(app) {
     const me = req.user.id; const { uid } = req.params;
     if (!(await canReadHistory(me, uid))) return notFound(reply);
     const r = await q('update messages set read_at = $1 where pair_key = $2 and recipient = $3 and read_at is null', [app.now(), pairKey(me, uid), me]);
-    if (r.rowCount) await bus.publish(uid, { type: 'read', id: me });
+    if (r.rowCount) await pub(req, uid, { type: 'read', id: me });
     return { ok: true };
   });
 
