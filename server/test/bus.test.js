@@ -121,3 +121,32 @@ test('PgBus: publish solo envía los campos del contrato de evento', async () =>
   assert.equal(sent.length, 1);
   assert.deepEqual(JSON.parse(sent[0][1]), { to: 'u_a', type: 'presence', id: 'u_b', online: true });
 });
+
+test('PgBus: keepAlive con retardo inicial y sonda que detecta un LISTEN muerto', async () => {
+  resetFake();
+  const bus = new PgBus({ query: async () => ({}) }, {}, { Client: FakeClient, retryMs: 5, probeMs: 20, probeTimeoutMs: 20 });
+  await bus.start();
+  const first = FakeClient.instances[0];
+  assert.equal(first.opts.keepAliveInitialDelayMillis, 10_000);
+  first.query = () => new Promise(() => {}); // nunca responde
+  await wait(120);
+  assert.equal(first.ended, true);
+  assert.equal(FakeClient.instances.length, 2);
+  await bus.close();
+});
+
+test('PgBus: close() detiene la sonda', async () => {
+  resetFake();
+  let probes = 0;
+  const bus = new PgBus({ query: async () => ({}) }, {}, { Client: FakeClient, retryMs: 5, probeMs: 10, probeTimeoutMs: 10 });
+  await bus.start();
+  const c = FakeClient.instances[0];
+  c.query = async (sql) => { if (/select 1/i.test(sql)) probes++; };
+  await wait(40);
+  assert.ok(probes > 0);
+  await bus.close();
+  const n = probes;
+  await wait(50);
+  assert.equal(probes, n);
+  assert.equal(FakeClient.instances.length, 1);
+});

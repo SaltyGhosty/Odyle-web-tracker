@@ -34,11 +34,14 @@ export class MemoryBus {
 export class PgBus {
   // db: el objeto de createDb (para NOTIFY por el pool); clientOptions: para la conexión dedicada de LISTEN.
   // Client y retryMs son inyectables para probar sin Postgres.
-  constructor(db, clientOptions, { Client = pg.Client, retryMs = 2000 } = {}) {
+  constructor(db, clientOptions, { Client = pg.Client, retryMs = 2000, probeMs = 60_000, probeTimeoutMs = 5000 } = {}) {
     this.db = db;
     this.opts = clientOptions;
     this.Client = Client;
     this.retryMs = retryMs;
+    this.probeMs = probeMs;
+    this.probeTimeoutMs = probeTimeoutMs;
+    this.probe = null; // intervalo de sonda del LISTEN vigente
     this.subs = new Subscribers();
     this.closed = false;
     this.client = null; // único cliente de LISTEN vigente
@@ -47,7 +50,7 @@ export class PgBus {
 
   async start() {
     if (this.closed) return;
-    const client = new this.Client({ ...this.opts, keepAlive: true });
+    const client = new this.Client({ ...this.opts, keepAlive: true, keepAliveInitialDelayMillis: 10_000 });
     this.client = client;
     client.on('notification', (n) => {
       if (client !== this.client) return; // notificación de un cliente ya reemplazado
@@ -67,15 +70,37 @@ export class PgBus {
       throw err;
     }
     // close() pudo ocurrir mientras conectaba: no dejar un cliente vivo.
-    if (this.closed) this.#drop(client);
+    if (this.closed) { this.#drop(client); return; }
+    this.#startProbe(client);
   }
+
+  // Sonda periódica: un `select 1` con plazo detecta un LISTEN muerto sin error TCP visible.
+  #startProbe(client) {
+    this.#stopProbe();
+    if (!(this.probeMs > 0)) return;
+    this.probe = setInterval(async () => {
+      if (client !== this.client || this.closed) return;
+      let timer;
+      try {
+        await Promise.race([
+          client.query('select 1'),
+          new Promise((_, rej) => { timer = setTimeout(() => rej(new Error('sonda sin respuesta')), this.probeTimeoutMs); timer.unref?.(); }),
+        ]);
+      } catch {
+        if (client === this.client && !this.closed) { this.#drop(client); this.#scheduleRetry(); }
+      } finally { clearTimeout(timer); }
+    }, this.probeMs);
+    this.probe.unref?.();
+  }
+
+  #stopProbe() { if (this.probe) { clearInterval(this.probe); this.probe = null; } }
 
   // Quita los listeners, cierra el cliente y deja de considerarlo vigente. Los errores tardíos se absorben.
   #drop(client) {
     client.removeAllListeners('notification');
     client.removeAllListeners('error');
     client.on('error', () => {});
-    if (this.client === client) this.client = null;
+    if (this.client === client) { this.client = null; this.#stopProbe(); }
     try { Promise.resolve(client.end()).catch(() => {}); } catch { /* ya cerrado */ }
   }
 
@@ -98,6 +123,7 @@ export class PgBus {
 
   async close() {
     this.closed = true;
+    this.#stopProbe();
     if (this.timer) { clearTimeout(this.timer); this.timer = null; }
     const client = this.client;
     if (client) this.#drop(client);
