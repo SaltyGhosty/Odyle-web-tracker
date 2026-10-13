@@ -37,7 +37,7 @@ Un tracker de **Energía Odyle** para Aion 2: llevas la cuenta de la energía de
 - Perfil con nombre, personaje principal, servidor, facción y frase. El título de tu legión aparece debajo de tu nombre.
 - Calendario, muro y ranking. Solo ves los de **tu** legión.
 - «Busco grupo» para encontrar compañeros (solo en la versión artifact, que tiene salas en tiempo real).
-- **Amigos, chat en vivo y búsqueda de perfiles** (solo versión web): busca jugadores por nombre, envía solicitudes, chatea en tiempo real con tus amigos e invítalos a grupo. Cada uno decide si aparece en la búsqueda y si comparte su energía.
+- **Amigos, chat en vivo y búsqueda de perfiles** (solo versión web; la interfaz llega en la próxima fase): busca jugadores por nombre, envía solicitudes, chatea en tiempo real con tus amigos e invítalos a grupo. Cada uno decide si aparece en la búsqueda y si comparte su energía. La API ya está lista; las pantallas llegan con la interfaz.
 
 **Interfaz**
 - Barra de navegación a cualquier ancho de pantalla.

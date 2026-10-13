@@ -146,9 +146,13 @@ Formato: **amenaza → defensa del diseño → riesgo residual → prueba** (tod
 | Revelación (I) | Leer la energía o los mensajes de alguien que no es tu amigo cambiando el uid | Reglas en `social-rules.js`; energía solo con amistad + `shareEnergy` (SR-40, SR-41) |
 | Revelación (I) | Saber si alguien te bloqueó o si un uid existe por la respuesta | Respuesta 404 idéntica para desconocido, bloqueado y "me bloqueó" (SR-42) |
 | Manipulación (T) | Mensaje con HTML, controles o marcas bidi | `cleanText` + pintado con `textContent` + CSP (SR-43) |
-| Suplantación (S) | Abrir el stream de otro con un token en la URL o caducado | Solo cookie de sesión; cierre al `exp`; 3 conexiones máx. (SR-44) |
+| Suplantación (S) | Abrir el stream de otro con un token en la URL o caducado | Solo cookie de sesión; cierre al `exp`; 3 conexiones máx.; la 4.ª cierra la más antigua (SR-44) |
 | Revelación (I) | Contenido de mensajes en el canal `NOTIFY` o entregado tras perder la amistad | `NOTIFY` solo con ids; el receptor relee y vuelve a comprobar (SR-45) |
 | Denegación (D) | Spam de solicitudes, mensajes, búsquedas o conexiones | Límites por usuario y máximo de 50 solicitudes pendientes (SR-46) |
+
+**Riesgos residuales (4.9)**
+- Un stream abierto sigue entregando eventos hasta que caduca su token de acceso (≤ 15 min) tras un restablecimiento de contraseña o un logout; el cierre al `exp` acota la ventana, pero no la elimina.
+- Los compañeros de legión conservan su visibilidad actual de miembros y personajes en `/api/docs`, independiente de `shareEnergy` y de los bloqueos sociales: la visibilidad de legión es un mecanismo aparte.
 
 ## 5. Requisitos de seguridad
 
