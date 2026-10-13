@@ -9,6 +9,7 @@ import authRoutes from './routes/auth.js';
 import docsRoutes from './routes/docs.js';
 import legionsRoutes from './routes/legions.js';
 import pagesRoutes from './routes/pages.js';
+import { MemoryBus } from './lib/bus.js';
 
 export const CSP = "default-src 'self'; script-src 'self'; style-src 'self'; style-src-attr 'unsafe-inline'; font-src 'self'; img-src 'self' data: blob:; connect-src 'self'; object-src 'none'; base-uri 'none'; form-action 'self'; frame-ancestors 'none'; require-trusted-types-for 'script'; trusted-types 'none'";
 
@@ -24,7 +25,7 @@ export const PROD_LOGGER = {
   },
 };
 
-export function buildApp({ config, db, mailer, now = Date.now, hasher = hashPassword, logger = PROD_LOGGER, publicDir }) {
+export function buildApp({ config, db, mailer, now = Date.now, hasher = hashPassword, logger = PROD_LOGGER, publicDir, bus = new MemoryBus() }) {
   const app = Fastify({
     // Exactamente N saltos de confianza (TRUST_PROXY_HOPS, por defecto 1 = el balanceador de Render), nunca `true` (SR-18).
     // Con un número, Fastify 5.12 no confía en nadie; esta función confía solo en los N pares más cercanos al socket,
@@ -39,6 +40,7 @@ export function buildApp({ config, db, mailer, now = Date.now, hasher = hashPass
   app.decorate('mailer', mailer);
   app.decorate('now', now);
   app.decorate('hasher', hasher);
+  app.decorate('bus', bus);
 
   // Solo application/json (SR-13): se quita el parser text/plain por defecto.
   app.removeContentTypeParser('text/plain');
