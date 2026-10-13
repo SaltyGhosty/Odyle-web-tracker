@@ -205,16 +205,16 @@ Cada requisito es comprobable; entre corchetes, las amenazas (secciones) que cub
 - **SR-36** `package-lock.json` versionado, `npm ci` en el despliegue, `npm audit --omit=dev` sin fallos altos en CI, versiones fijadas; Three.js vendorizado con su SHA-256 anotado. [4.8] **[Añadido por el agente de seguridad]**
 - **SR-37** Secretos solo en el panel de Render (en `render.yaml` con `sync: false`); vistas previas de PR desactivadas o sin secretos de producción; Postgres sin acceso externo (lista de IP vacía) y con TLS. [4.8] **[Añadido por el agente de seguridad]**
 - **SR-38** Antes de datos reales: plan de Postgres con copias diarias; las copias exportadas se cifran y nunca se guardan junto a `CODE_KEY`/`JWT_SECRET`; retención definida. [4.8] **[Añadido por el agente de seguridad]**
-- **SR-39** Las rutas sociales solo devuelven campos de una lista blanca (`toPublic`, `toMessage`): nunca correo, hashes ni datos internos de la legión.
-- **SR-40** La energía y los personajes de otro usuario solo se devuelven con amistad aceptada, sin bloqueo y con `shareEnergy`.
-- **SR-41** No se pueden enviar mensajes sin amistad aceptada; el bloqueo corta perfil, solicitudes, mensajes e historial en ambos sentidos.
-- **SR-42** Para un uid desconocido, mal formado, bloqueado o que te bloqueó, la respuesta es la misma: `404 {"error":"No encontrado."}`.
-- **SR-43** Los textos de mensajes y denuncias pasan por `cleanText` (controles y bidi fuera, máximos 1000/500) y el cliente los pinta con `textContent`.
-- **SR-44** `/api/stream` exige la cookie de sesión (nunca token en la URL), es de solo lectura, admite 3 conexiones por usuario, se cierra al caducar el token de acceso y también al cerrar el servidor.
-- **SR-45** La carga útil de `NOTIFY` lleva solo `{to, type, id}`; el servidor relee el dato y vuelve a comprobar los permisos antes de enviarlo.
-- **SR-46** Límites por usuario: búsqueda 30/min, perfil 60/min, cambios de amistad 20/min, mensajes 30/min, denuncias 10/h, stream 10/min; máximo 50 solicitudes pendientes y 500 amigos (límite de amigos también al aceptar una solicitud).
-- **SR-47** Los ids de mensajes y denuncias son aleatorios de 256 bits (`randomToken`).
-- **SR-48** Borrar un usuario borra en cascada sus amistades, bloqueos, mensajes y denuncias; los mensajes caducan a los 365 días.
+- **SR-39** Las rutas sociales solo devuelven campos de una lista blanca (`toPublic`, `toMessage`): nunca correo, hashes ni datos internos de la legión. [4.9]
+- **SR-40** La energía y los personajes de otro usuario solo se devuelven con amistad aceptada, sin bloqueo y con `shareEnergy`. [4.9]
+- **SR-41** No se pueden enviar mensajes sin amistad aceptada; el bloqueo corta perfil, solicitudes, mensajes e historial en ambos sentidos. [4.9]
+- **SR-42** Para un uid desconocido, mal formado, bloqueado o que te bloqueó, la respuesta es la misma: `404 {"error":"No encontrado."}`. [4.9]
+- **SR-43** Los textos de mensajes y denuncias pasan por `cleanText` (controles y bidi fuera, máximos 1000/500) y el cliente los pinta con `textContent`. Las invitaciones de grupo (`at`) deben caer a ±366 días de ahora. [4.9]
+- **SR-44** `/api/stream` exige la cookie de sesión (nunca token en la URL), es de solo lectura, admite 3 conexiones por usuario, se cierra al caducar el token de acceso y también al cerrar el servidor. [4.9]
+- **SR-45** La carga útil de `NOTIFY` lleva solo `{to, type, id}`; el servidor relee el dato y vuelve a comprobar los permisos antes de enviarlo. [4.9]
+- **SR-46** Límites por usuario: búsqueda 30/min, perfil 60/min, cambios de amistad 20/min, mensajes 30/min, denuncias 10/h, stream 10/min; máximo 50 solicitudes pendientes y 500 amigos (límite de amigos también al aceptar una solicitud). [4.9]
+- **SR-47** Los ids de mensajes y denuncias son aleatorios de 256 bits (`randomToken`). [4.9]
+- **SR-48** Borrar un usuario borra en cascada sus amistades, bloqueos, mensajes y denuncias; los mensajes caducan a los 365 días. [4.9]
 
 ## 6. Pruebas de ataque a escribir (`server/test/attacks/`)
 
