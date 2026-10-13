@@ -73,9 +73,11 @@ const schemas = {
     reserved: ['legionId', 'legionEpoch'],
     fields: {
       joinedAt: num,
-      profile: (v) => isObj(v) && subKeys(v, ['nick', 'server', 'bio', 'faction', 'mainCharId'])
+      profile: (v) => isObj(v) && subKeys(v, ['nick', 'server', 'bio', 'faction', 'mainCharId', 'searchable', 'shareEnergy'])
         && (v.faction === undefined || v.faction === 'elyos' || v.faction === 'asmodian')
-        && (v.mainCharId === undefined || v.mainCharId === null || str(v.mainCharId)),
+        && (v.mainCharId === undefined || v.mainCharId === null || str(v.mainCharId))
+        && (v.searchable === undefined || typeof v.searchable === 'boolean')
+        && (v.shareEnergy === undefined || typeof v.shareEnergy === 'boolean'),
       rank: (v) => isObj(v) && subKeys(v, ['weekSpent', 'cpMax', 'achievements', 'updatedAt']),
     },
   },
@@ -88,11 +90,12 @@ const schemas = {
   'settings:tasks': { allowed: ['items'], fields: { items: itemsOf } },
   'settings:timers': { allowed: ['items'], fields: { items: itemsOf } },
   'settings:prefs': {
-    allowed: ['quietStart', 'quietEnd', 'favEvents', 'faction', 'lang'],
+    allowed: ['quietStart', 'quietEnd', 'favEvents', 'faction', 'lang', 'theme'],
     fields: {
       quietStart: str, quietEnd: str, lang: str,
       favEvents: (v) => Array.isArray(v) && v.length <= 100 && v.every(str),
       faction: (v) => v === 'elyos' || v === 'asmodian',
+      theme: (v) => v === 'elyos' || v === 'asmodian',
     },
   },
   'settings:stats': {
@@ -174,6 +177,16 @@ function walk(value) {
     throw bad('Valor no válido');
   };
   return go(value, 1, '');
+}
+
+// Limpieza de un texto suelto (mensajes del chat, notas de denuncia): mismas reglas que walk (SR-4, SR-43).
+export function cleanText(v, max, multiline = false) {
+  if (typeof v !== 'string') return null;
+  let s = v.replace(BAD_CHARS, '');
+  if (!multiline) s = s.replace(/\n/g, '');
+  s = s.trim();
+  if (!s.length || s.length > max) return null;
+  return s;
 }
 
 // Devuelve { data } con el documento limpio, o { error, status }.
