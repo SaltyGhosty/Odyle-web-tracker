@@ -11,6 +11,7 @@ import legionsRoutes from './routes/legions.js';
 import profilesRoutes from './routes/profiles.js';
 import friendsRoutes from './routes/friends.js';
 import streamRoutes from './routes/stream.js';
+import messagesRoutes from './routes/messages.js';
 import pagesRoutes from './routes/pages.js';
 import { MemoryBus } from './lib/bus.js';
 import { createPresence } from './lib/presence.js';
@@ -107,6 +108,7 @@ export function buildApp({ config, db, mailer, now = Date.now, hasher = hashPass
   app.register(profilesRoutes);
   app.register(friendsRoutes);
   app.register(streamRoutes);
+  app.register(messagesRoutes);
   app.register(pagesRoutes, { publicDir });
 
   return app;
