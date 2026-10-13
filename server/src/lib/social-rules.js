@@ -1,6 +1,7 @@
 // Única fuente de verdad de los permisos sociales (spec 2026-10-13 §2, SR-39..SR-42).
 // q: (text, params) => Promise<{rows}> (db.query o el q de una transacción).
 import { UID_RE } from './validate.js';
+import { legionOf } from '../../../legion.js';
 
 export const NOT_FOUND = 'No encontrado.';
 export const pairOf = (a, b) => (a < b ? [a, b] : [b, a]);
@@ -43,7 +44,8 @@ export async function publicProfile(q, uid) {
   let legion = null;
   if (typeof m.legionId === 'string') {
     const l = await docData(q, `legions/${m.legionId}`);
-    if (l && typeof l.name === 'string') legion = l.name;
+    const lg = legionOf(m, new Map(l ? [[m.legionId, l]] : []), uid);
+    if (lg && typeof lg.name === 'string') legion = lg.name;
   }
   let mainClass = null;
   if (typeof p.mainCharId === 'string') {

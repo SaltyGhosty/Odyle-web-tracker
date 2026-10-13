@@ -73,3 +73,19 @@ test('publicProfile: lista blanca, legión por nombre, clase del principal y opc
   const empty = await publicProfile(s.q, s.ids.B);
   assert.deepEqual(empty, { uid: s.ids.B, nick: '', server: '', faction: null, bio: '', legion: null, mainClass: null, searchable: true, shareEnergy: true });
 });
+
+test('publicProfile: la legión respeta época y expulsiones (igual que legionOf)', async () => {
+  const s = await setup();
+  const { A, B, C } = s.ids;
+  // época distinta: la legión se disolvió y se recreó, el miembro pertenece a la anterior
+  await s.doc(`members/${A}`, { joinedAt: 1, legionId: A, legionEpoch: 'old', profile: { nick: 'Salty' } });
+  await s.doc(`legions/${A}`, { name: 'Alas', epoch: 'new', banned: [], createdAt: 1, leader: A });
+  assert.equal((await publicProfile(s.q, A)).legion, null);
+  // expulsado: su uid está en banned
+  await s.doc(`members/${B}`, { joinedAt: 1, legionId: A, legionEpoch: 'new', profile: { nick: 'Bea' } });
+  await s.q('update docs set data = $2::jsonb where path = $1', [`legions/${A}`, JSON.stringify({ name: 'Alas', epoch: 'new', banned: [B], createdAt: 1, leader: A })]);
+  assert.equal((await publicProfile(s.q, B)).legion, null);
+  // legionId colgante: la legión no existe
+  await s.doc(`members/${C}`, { joinedAt: 1, legionId: 'u_gone', legionEpoch: 'e', profile: { nick: 'Cy' } });
+  assert.equal((await publicProfile(s.q, C)).legion, null);
+});
