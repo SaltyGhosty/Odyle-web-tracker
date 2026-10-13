@@ -18,7 +18,7 @@ test('prefs acepta theme elyos|asmodian y rechaza otros', () => {
 });
 
 test('cleanText quita controles y bidi, recorta y aplica el máximo', () => {
-  assert.equal(cleanText('  hola‮ mundo\u0007 ', 100), 'hola mundo');
+  assert.equal(cleanText('  hola\u202E mundo\u0007 ', 100), 'hola mundo');
   assert.equal(cleanText('a\nb', 100), 'ab');
   assert.equal(cleanText('a\nb', 100, true), 'a\nb');
   assert.equal(cleanText('   ', 100), null);
