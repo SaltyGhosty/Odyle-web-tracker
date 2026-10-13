@@ -9,8 +9,10 @@ import authRoutes from './routes/auth.js';
 import docsRoutes from './routes/docs.js';
 import legionsRoutes from './routes/legions.js';
 import profilesRoutes from './routes/profiles.js';
+import friendsRoutes from './routes/friends.js';
 import pagesRoutes from './routes/pages.js';
 import { MemoryBus } from './lib/bus.js';
+import { createPresence } from './lib/presence.js';
 
 export const CSP = "default-src 'self'; script-src 'self'; style-src 'self'; style-src-attr 'unsafe-inline'; font-src 'self'; img-src 'self' data: blob:; connect-src 'self'; object-src 'none'; base-uri 'none'; form-action 'self'; frame-ancestors 'none'; require-trusted-types-for 'script'; trusted-types 'none'";
 
@@ -42,6 +44,7 @@ export function buildApp({ config, db, mailer, now = Date.now, hasher = hashPass
   app.decorate('now', now);
   app.decorate('hasher', hasher);
   app.decorate('bus', bus);
+  app.decorate('presence', createPresence());
 
   // Solo application/json (SR-13): se quita el parser text/plain por defecto.
   app.removeContentTypeParser('text/plain');
@@ -100,6 +103,7 @@ export function buildApp({ config, db, mailer, now = Date.now, hasher = hashPass
   app.register(docsRoutes);
   app.register(legionsRoutes);
   app.register(profilesRoutes);
+  app.register(friendsRoutes);
   app.register(pagesRoutes, { publicDir });
 
   return app;
