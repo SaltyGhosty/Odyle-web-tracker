@@ -69,3 +69,84 @@ test('eventos friend al pedir, aceptar y eliminar; bloquear solo avisa a quien b
   assert.deepEqual(got.A, ['friend', 'friend', 'friend']);
   assert.deepEqual(got.B, ['friend', 'friend']);
 });
+
+const pairIds = (s, x, y) => (s.ids[x] < s.ids[y] ? [s.ids[x], s.ids[y]] : [s.ids[y], s.ids[x]]);
+
+test('bloqueo previo: aceptar o pedir a quien te bloqueó → 404 y sin amistad', async () => {
+  const s = await socialSetup(2);
+  await s.call('POST', `/api/friends/${s.ids.B}`, 'A');
+  await s.block('B', 'A');
+  assert.equal((await s.call('POST', `/api/friends/${s.ids.A}/accept`, 'B')).statusCode, 404);
+  assert.equal((await s.call('POST', `/api/friends/${s.ids.B}`, 'A')).statusCode, 404);
+  assert.equal((await s.db.query("select 1 from friendships where status = 'accepted'")).rows.length, 0);
+});
+
+test('bloqueo entre la comprobación y la escritura: la aceptación se deshace sin notificar', async () => {
+  const s = await socialSetup(2);
+  const got = []; s.app.bus.subscribe(s.ids.B, (e) => got.push(e.type));
+  await s.call('POST', `/api/friends/${s.ids.B}`, 'A');
+  await new Promise((r) => setTimeout(r, 10)); got.length = 0;
+  const orig = s.db.query.bind(s.db);
+  let injected = false;
+  s.db.query = async (text, params) => {
+    if (!injected && text.startsWith("update friendships set status = 'accepted'")) {
+      injected = true;
+      await orig('insert into blocks (blocker, blocked, created_at) values ($1, $2, $3)', [s.ids.A, s.ids.B, s.NOW]);
+    }
+    return orig(text, params);
+  };
+  assert.equal((await s.call('POST', `/api/friends/${s.ids.A}/accept`, 'B')).statusCode, 404);
+  assert.equal((await orig('select 1 from friendships', [])).rows.length, 0);
+  await new Promise((r) => setTimeout(r, 10));
+  assert.deepEqual(got, []);
+});
+
+test('aceptar tras borrar la solicitud → 404 sin evento', async () => {
+  const s = await socialSetup(2);
+  await s.call('POST', `/api/friends/${s.ids.B}`, 'A');
+  const got = []; s.app.bus.subscribe(s.ids.B, (e) => got.push(e.type));
+  await s.call('DELETE', `/api/friends/${s.ids.B}`, 'A');
+  await new Promise((r) => setTimeout(r, 10)); got.length = 0;
+  assert.equal((await s.call('POST', `/api/friends/${s.ids.A}/accept`, 'B')).statusCode, 404);
+  await new Promise((r) => setTimeout(r, 10));
+  assert.deepEqual(got, []);
+});
+
+test('amistad obsoleta con bloqueo: no aparece en la lista', async () => {
+  const s = await socialSetup(2);
+  await s.befriend('A', 'B');
+  await s.block('B', 'A');
+  const list = (await s.call('GET', '/api/friends', 'A')).json();
+  assert.deepEqual(list.friends.map((x) => x.uid), []);
+});
+
+test('solicitud cruzada concurrente: el INSERT pierde contra la contraparte y se acepta', async () => {
+  const s = await socialSetup(2);
+  const [a, b] = pairIds(s, 'A', 'B');
+  const orig = s.db.query.bind(s.db);
+  let injected = false;
+  s.db.query = async (text, params) => {
+    if (!injected && text.startsWith('insert into friendships')) {
+      injected = true;
+      await orig("insert into friendships (user_a, user_b, status, requested_by, created_at) values ($1, $2, 'pending', $3, 1)", [a, b, s.ids.B]);
+    }
+    return orig(text, params);
+  };
+  assert.deepEqual((await s.call('POST', `/api/friends/${s.ids.B}`, 'A')).json(), { status: 'friends' });
+  assert.equal((await orig("select status from friendships where status = 'accepted'", [])).rows.length, 1);
+});
+
+test('aceptar con 500 amigos → 409', async () => {
+  const s = await socialSetup(2);
+  const { newUserId } = await import('../src/lib/tokens.js');
+  for (let i = 0; i < 500; i++) {
+    const u = newUserId();
+    await s.db.query('insert into users (id, email, password_hash) values ($1, $2, $3)', [u, `${u}@x.test`, 'x']);
+    const [a, b] = s.ids.B < u ? [s.ids.B, u] : [u, s.ids.B];
+    await s.db.query("insert into friendships (user_a, user_b, status, requested_by, created_at, accepted_at) values ($1, $2, 'accepted', $3, 1, 1)", [a, b, u]);
+  }
+  await s.call('POST', `/api/friends/${s.ids.B}`, 'A');
+  const r = await s.call('POST', `/api/friends/${s.ids.A}/accept`, 'B');
+  assert.equal(r.statusCode, 409);
+  assert.deepEqual(r.json(), { error: 'Has llegado al máximo de amigos.' });
+});
