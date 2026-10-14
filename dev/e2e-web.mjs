@@ -163,6 +163,30 @@ await pa.keyboard.press('ArrowDown');
 check('⋯: flecha abajo en el botón abre el menú y enfoca la primera opción', (await pa.locator(`${rowSel} .menu`).count()) === 1 && await pa.evaluate(() => document.activeElement?.getAttribute('role') === 'menuitem'));
 await pa.keyboard.press('Escape');
 check('⋯: Escape (tras flecha abajo) cierra y devuelve el foco', !(await pa.locator(`${rowSel} .menu`).count()) && await pa.evaluate(() => document.activeElement?.classList.contains('more-actions')));
+// foco tras elegir una opción: «Tareas» devuelve el foco al botón ⋯ y «Quitar» lo lleva al botón de confirmar
+await pa.focus(`${rowSel} button.more-actions`);
+await pa.keyboard.press('ArrowDown');
+await pa.keyboard.press('ArrowDown');
+await pa.keyboard.press('Enter');
+check('⋯: tras elegir «Tareas» el foco vuelve al botón ⋯', await pa.evaluate(() => document.activeElement?.classList.contains('more-actions')));
+await pa.keyboard.press('ArrowDown');
+await pa.keyboard.press('ArrowDown');
+await pa.keyboard.press('Enter'); // vuelve a plegar las tareas
+await pa.keyboard.press('ArrowDown');
+await pa.keyboard.press('End');
+await pa.keyboard.press('Enter');
+check('⋯: tras elegir «Quitar» el foco pasa al botón de confirmar', await pa.evaluate(() => document.activeElement?.classList.contains('danger')));
+await pa.click(`${rowSel} form button[type=button], ${rowSel} button:not(.danger):has-text("Cancelar")`).catch(() => {});
+await pa.evaluate(() => { const b = [...document.querySelectorAll('article.card button')].find((x) => x.textContent === 'Cancelar'); b?.click(); });
+check('⋯: «Quitar» cancelado no quita el personaje', (await pa.locator(rowSel).count()) === 1);
+// atajos globales y Tab con el menú abierto
+await pa.focus(`${rowSel} button.more-actions`);
+await pa.keyboard.press('ArrowDown');
+await pa.keyboard.press('ArrowRight');
+check('⋯: las flechas laterales dentro del menú no cambian de sección', !(await pa.locator('#tab-personajes').isHidden()) && (await pa.locator(`${rowSel} .menu`).count()) === 1);
+await pa.keyboard.press('Tab');
+await pa.waitForTimeout(100);
+check('⋯: Tab fuera del menú lo cierra', !(await pa.locator(`${rowSel} .menu`).count()));
 // móvil 390: el botón del asistente (se fuerza visible; en la web real solo existe en el artifact) no tapa ninguna fila,
 // los botones de fila miden 44 px y la cabecera cabe en una línea
 await pa.setViewportSize({ width: 390, height: 844 });
@@ -235,6 +259,9 @@ check('legión: el código solo vive en el servidor (cifrado, sin código ni has
   await p.waitForSelector('#summary.band-urgent', { timeout: 5000 }).catch(() => {});
   check('banda: carmesí con un personaje al tope', await p.locator('#summary.band-urgent').isVisible() && /al tope · pierd/.test(await text(p, '#sum-tip')), await text(p, '#sum-tip'));
 
+  check('banda: sin aria-live; solo anuncia el cambio por una región de estado aparte',
+    (await p.getAttribute('#summary', 'aria-live')) === null && (await p.getAttribute('#band-status', 'role')) === 'status' && /al tope/.test(await text(p, '#band-status')), await text(p, '#band-status'));
+  check('banda: «Gastar» mide 44 px', (await p.locator('#band-go').boundingBox())?.height >= 43.5);
   check('rail: columna a 1280 px con Energía activa',
     (await p.locator('#topnav').evaluate((n) => getComputedStyle(n).flexDirection === 'column'))
     && (await p.getAttribute('#topnav [data-tab="personajes"]', 'aria-current')) === 'page');
@@ -278,7 +305,64 @@ check('legión: el código solo vive en el servidor (cifrado, sin código ni has
   check('375 px: el último botón no queda tapado por la barra', !!box && box.y + box.height <= barTop, JSON.stringify({ box, barTop }));
   const topEl = await p.evaluate(({ x, y }) => { const e = document.elementFromPoint(x, y); return { ok: !!e?.closest('article.card button.primary'), tag: e?.tagName + '.' + e?.className + '#' + e?.id }; }, { x: box.x + box.width / 2, y: box.y + box.height / 2 });
   check('375 px: el último botón recibe el clic (no hay nada encima)', topEl.ok, JSON.stringify(topEl));
+  // cabecera de 375 px con los botones de iOS y «en línea» forzados visibles: una línea y la marca no pisa el reloj
+  await p.evaluate(() => { document.getElementById('online-pill').hidden = false; document.getElementById('motion-btn').hidden = false; });
+  const hd = await p.evaluate(() => {
+    const h = document.querySelector('header').getBoundingClientRect();
+    const b = document.querySelector('header .brand-name').getBoundingClientRect();
+    const c = document.getElementById('clock').getBoundingClientRect();
+    const pill = document.getElementById('online-pill'), mb = document.getElementById('motion-btn');
+    return { h: h.height, hit: !(b.right <= c.left || b.left >= c.right || b.bottom <= c.top || b.top >= c.bottom), brandW: b.width,
+      pill: getComputedStyle(pill).display, mbInHeader: !!mb.closest('header') };
+  });
+  check('375 px: con «en línea» y «Activar movimiento» visibles la cabecera es de una línea', hd.h < 70, JSON.stringify(hd));
+  check('375 px: la marca no se solapa con el reloj', !hd.hit && hd.brandW > 40, JSON.stringify(hd));
+  check('375 px: «en línea» se oculta y «Activar movimiento» vive en la hoja Más', hd.pill === 'none' && !hd.mbInHeader, JSON.stringify(hd));
+  await p.evaluate(() => { document.getElementById('online-pill').hidden = true; document.getElementById('motion-btn').hidden = true; });
+  // el aviso de deshacer en móvil va arriba y no tapa los botones de la última fila
+  await p.setViewportSize({ width: 390, height: 844 });
+  await p.waitForTimeout(300);
+  const lastCard = p.locator('article.card').last(); // la última fila (la que queda bajo la barra)
+  const spendCard = p.locator('article.card:has-text("Importada Dos") button.spend:not(:disabled)').first(); // la última con energía para gastar
+  await spendCard.scrollIntoViewIfNeeded();
+  await spendCard.click();
+  await p.waitForSelector('#toast.show', { timeout: 5000 });
+  await p.evaluate(() => window.scrollTo(0, document.documentElement.scrollHeight)); // al final de la página: la última fila queda justo sobre la barra
+  await p.waitForTimeout(400);
+  const tg = await p.evaluate(() => {
+    const t = document.getElementById('toast').getBoundingClientRect();
+    const hit = [...document.querySelectorAll('article.card button')].filter((b) => b.offsetParent).some((b) => { const r = b.getBoundingClientRect(); return r.bottom > 0 && r.top < innerHeight && !(t.right <= r.left || t.left >= r.right || t.bottom <= r.top || t.top >= r.bottom); });
+    const last = [...document.querySelectorAll('article.card')].at(-1).getBoundingClientRect();
+    return { hit, toastTop: t.top, toastBottom: t.bottom, lastBottom: last.bottom, innerHeight };
+  });
+  check('aviso de deshacer (390 px): no tapa los botones de las filas, ni siquiera la última', !tg.hit && tg.toastTop > 0 && tg.lastBottom > tg.toastBottom, JSON.stringify(tg));
+  await p.waitForSelector('#toast', { state: 'hidden', timeout: 12000 });
+  // el menú ⋯ de la última fila se abre hacia arriba si no cabe bajo la barra inferior
+  await lastCard.scrollIntoViewIfNeeded();
+  await lastCard.locator('button.more-actions').click();
+  const mg = await lastCard.evaluate((card) => {
+    const m = card.querySelector('.menu').getBoundingClientRect();
+    return { bottom: m.bottom, barTop: document.getElementById('topnav').getBoundingClientRect().top, up: card.querySelector('.menu').classList.contains('up') };
+  });
+  check('390 px: el menú ⋯ de la última fila no queda bajo la barra inferior', mg.bottom <= mg.barTop + 0.5, JSON.stringify(mg));
+  await p.keyboard.press('Escape');
+  // un solo h1 visible y «Más» no se cierra al tocar su relleno
+  check('un único h1 visible en móvil', (await p.locator('h1:visible').count()) === 1);
+  await p.click('#topnav [data-more]');
+  await p.waitForSelector('#more-sheet[open]');
+  const sb = await p.locator('#more-sheet').boundingBox();
+  await p.mouse.click(sb.x + 6, sb.y + sb.height - 6);
+  await p.waitForTimeout(150);
+  check('Más: un toque en su relleno no la cierra', (await p.locator('#more-sheet[open]').count()) === 1);
+  const tsh = await p.evaluate(() => Math.min(...[...document.querySelectorAll('#more-sheet .theme-switch button')].map((b) => b.getBoundingClientRect().height)));
+  check('Más: los botones de tema miden 44 px', tsh >= 43.5, String(tsh));
+  await p.mouse.click(sb.x + 6, 5); // la cortina
+  await p.waitForTimeout(150);
+  check('Más: un toque en la cortina la cierra', (await p.locator('#more-sheet[open]').count()) === 0);
   await p.setViewportSize({ width: 1280, height: 900 });
+  check('un único h1 visible en escritorio', (await p.locator('h1:visible').count()) === 1);
+  const railTh = await p.evaluate(() => Math.min(...[...document.querySelectorAll('.rail-foot .theme-switch button')].map((b) => b.getBoundingClientRect().height)));
+  check('rail: los botones de tema miden 44 px', railTh >= 43.5, String(railTh));
 }
 
 // ================= Usuario B =================

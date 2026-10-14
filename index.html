@@ -58,11 +58,6 @@
 
   /* ---- Header with live countdown ---- */
   header { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 16px 24px; }
-  h1 {
-    font-family: var(--font-display); font-weight: 700; font-size: clamp(1.9rem, 6vw, 2.6rem); line-height: 1.05; margin: 0;
-    letter-spacing: .04em; color: var(--gold-bright);
-    text-shadow: 0 0 18px var(--glow);
-  }
   .subtitle { margin: 4px 0 0; color: var(--muted); font-size: .875rem; letter-spacing: .08em; text-transform: uppercase; }
   .clock { display: flex; align-items: center; gap: 12px; }
   .ring { width: 56px; height: 56px; flex: none; transform: rotate(-90deg); }
@@ -77,6 +72,7 @@
   /* ---- Theme switch "Luz / Sombra": two pressed-state buttons, no page animation ---- */
   .theme-switch { display: inline-flex; border: 1px solid var(--line); border-radius: 999px; padding: 3px; gap: 2px; background: var(--glass); }
   .theme-switch button { min-height: 34px; padding: 4px 14px; border: none; border-radius: 999px; background: none; color: var(--muted); font-family: var(--font-display); letter-spacing: .04em; }
+  .more-sheet .theme-switch button, .rail-foot .theme-switch button { min-height: 44px; }
   .theme-switch button[aria-pressed="true"] { background: var(--gold-bright); color: var(--on-gold); }
   .label-like { font-size: .8125rem; font-weight: 500; color: var(--muted); }
 
@@ -146,6 +142,7 @@
   button.more-actions { min-width: 44px; min-height: 44px; padding: 0 12px; font-size: 1.25rem; line-height: 1; }
   .menu { position: absolute; right: 0; top: calc(100% + 4px); z-index: 15; list-style: none; margin: 0; padding: 4px; min-width: 190px;
     background: var(--glass-strong); border: 1px solid var(--line); border-radius: 12px; box-shadow: var(--shadow); transform-origin: top right; }
+  .menu.up { top: auto; bottom: calc(100% + 4px); transform-origin: bottom right; }
   .menu li > button { width: 100%; padding: 8px 12px; font-size: .9375rem; min-height: 44px; text-align: left; border: none; background: none; border-radius: 8px; }
   .menu li > button.remove { color: var(--danger); }
   @media (hover: hover) and (pointer: fine) { .menu li > button:hover { background: var(--hover); } }
@@ -201,7 +198,7 @@
   @media (max-width: 719.98px) { .card.row { --orbcol: 64px; --slot: 56px; grid-template-columns: var(--orbcol) minmax(0, 1fr) auto; grid-template-areas: "orb text num" "act act act" "below below below"; }
     .r-orb .tick-left { display: none; } .r-act { justify-content: flex-start; max-width: none; } .r-num .num { font-size: 1.5rem; } .gain { left: 46px; }
     /* the menu spans the whole action row so it never leaves the screen */
-    .r-act { position: relative; } .menu-wrap { position: static; } .menu { left: 0; right: 0; min-width: 0; transform-origin: top left; } }
+    .r-act { position: relative; } .menu-wrap { position: static; } .menu { left: 0; right: 0; min-width: 0; transform-origin: top left; } .menu.up { transform-origin: bottom left; } }
 
   .empty {
     border: 1px dashed var(--line); border-radius: 16px; padding: 24px 16px; text-align: center; margin: 0;
@@ -320,6 +317,7 @@
   .sum-label, .sum-next, .hint { color: var(--muted); font-size: .875rem; margin: 0; }
   .band { border-radius: 14px; padding: 12px 14px; display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; border: 1px solid var(--line); background: var(--glass); }
   .band[hidden] { display: none; }
+  #band-go { min-height: 44px; }
   .band-text { margin: 0; flex: 1 1 240px; font-weight: 600; }
   .band-urgent { background: var(--urgent-strong); border-color: var(--urgent-strong); color: #fff; }
   .band-urgent #band-go { background: #fff; color: var(--urgent-strong); border-color: #fff; }
@@ -350,7 +348,7 @@
   /* ---- Marco: rail (>= 900 px), barra inferior + hoja Más (< 900 px) ---- */
   .i { width: 22px; height: 22px; flex: none; fill: none; stroke: currentColor; stroke-width: 1.75; stroke-linecap: round; stroke-linejoin: round; }
   .brand { display: flex; flex-direction: column; }
-  .brand-name { font-family: var(--font-display); font-weight: 700; font-size: 1.35rem; letter-spacing: .04em; color: var(--gold-bright); }
+  .brand-name { margin: 0; font-family: var(--font-display); font-weight: 700; font-size: 1.35rem; letter-spacing: .04em; color: var(--gold-bright); }
   header .subtitle { font-size: .7rem; margin: 0; }
   .topnav { position: fixed; z-index: 20; background: var(--glass-strong); border-color: var(--line); display: flex;
     -webkit-backdrop-filter: blur(12px); backdrop-filter: blur(12px); }
@@ -397,6 +395,7 @@
   @media (prefers-reduced-motion: reduce) { .side-link { transition: none; } }
   .more-sheet { position: fixed; z-index: 30; inset: auto 0 0 0; margin: 0; width: 100%; max-width: none; max-height: 80vh; border: 1px solid var(--line); border-bottom: none;
     border-radius: 16px 16px 0 0; background: var(--glass-strong); color: var(--fg); padding: 16px 16px calc(16px + env(safe-area-inset-bottom)); box-shadow: var(--shadow); }
+  .more-inner #motion-btn { width: 100%; min-height: 44px; margin-top: 16px; }
   .more-sheet::backdrop { background: var(--scrim); }
   .more-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; margin-bottom: 16px; }
   .more-grid button { flex-direction: column; min-height: 72px; display: flex; align-items: center; justify-content: center; gap: 6px; border-radius: 12px; position: relative; }
@@ -408,12 +407,6 @@
   }
 
   /* ---- Spend buttons, undo toast ---- */
-  .drawer { display: none; }
-  .drawer .panel { background: var(--hover); }
-  .drawer .field { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
-  .drawer .row .field { flex: 1 1 120px; }
-  .drawer .row .field.narrow { flex: 0 1 80px; }
-  .drawer-head { display: flex; align-items: center; justify-content: space-between; }
   .preset-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
   .preset-list li { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
   .preset-list li span { overflow-wrap: anywhere; }
@@ -502,12 +495,13 @@
   body.toast-up .ai-fab { bottom: calc(var(--toast-h, 50px) + 32px); }
   body.toast-up .ai-panel { bottom: calc(var(--toast-h, 50px) + 86px); height: min(560px, calc(100vh - var(--toast-h, 50px) - 116px)); }
   @media (max-width: 899.98px) { /* por encima de la barra inferior */
-    .toast { bottom: calc(72px + env(safe-area-inset-bottom)); }
+    /* the undo toast sits at the top, under the header, so it never covers the last row's actions or the bottom bar */
+    .toast { bottom: auto; top: calc(68px + env(safe-area-inset-top)); transform: translate(-50%, -16px); }
     /* on phones the assistant is an icon button in the header, so it never covers a row */
     .ai-fab { position: static; width: 44px; height: 44px; padding: 0; display: grid; place-items: center; flex: none; box-shadow: none; }
     .ai-fab .ai-lbl { display: none; }
     .ai-panel { bottom: calc(126px + env(safe-area-inset-bottom)); height: min(560px, calc(100vh - 160px)); }
-    body.toast-up .ai-panel { bottom: calc(var(--toast-h, 50px) + 142px + env(safe-area-inset-bottom)); height: min(560px, calc(100vh - var(--toast-h, 50px) - 190px)); }
+    body.toast-up .ai-panel { bottom: calc(126px + env(safe-area-inset-bottom)); height: min(560px, calc(100vh - 160px)); }
   }
 
   /* ---- Personajes: "+" button and the add-character modal ---- */
@@ -524,7 +518,6 @@
   .modal.open .modal-box { transform: none; }
   .modal-box .panel { background: var(--glass-strong); box-shadow: var(--shadow); }
   .modal-box .field { display: flex; flex-direction: column; gap: 4px; }
-  .drawer-head button { padding: 4px 10px; min-height: 32px; }
   @media (prefers-reduced-motion: reduce) { .modal, .modal-box { transition: none; } }
 
   /* ---- Your legion ---- */
@@ -569,6 +562,7 @@
     .profile-chip .pc-text { display: none; }
     .profile-chip .pc-icon { width: 36px; height: 36px; }
     .subtitle { display: none; }
+    .online-pill { display: none; }
   }
 
   /* ---- Custom timers ---- */
@@ -626,7 +620,7 @@
 <canvas id="scene" aria-hidden="true"></canvas>
 <div class="page">
   <header>
-    <div class="brand"><b class="brand-name">Odyle</b><span class="subtitle" id="subtitle">Daevas de Elyos</span></div>
+    <div class="brand"><h1 class="brand-name">Odyle</h1><span class="subtitle" id="subtitle">Daevas de Elyos</span></div>
     <div class="clock" id="clock">
       <svg class="ring" viewBox="0 0 60 60" aria-hidden="true">
         <circle class="track" cx="30" cy="30" r="26"></circle>
@@ -645,11 +639,13 @@
     <button type="button" id="motion-btn" hidden>Activar movimiento</button>
   </header>
 
-  <section class="band" id="summary" aria-live="polite" hidden>
+  <section class="band" id="summary" hidden>
     <p class="band-text" id="sum-tip"></p>
     <button type="button" id="band-go" hidden>Gastar</button>
     <p class="sum-next" id="sum-legion" hidden></p>
   </section>
+
+  <p class="sr-only" id="band-status" role="status"></p>
 
   <details class="panel events" id="events">
     <summary><h2>Eventos</h2><span class="events-next" id="events-next"></span></summary>
@@ -1488,9 +1484,16 @@
     if (open) {
       const list = el('ul', { class: 'menu', role: 'menu', 'aria-label': `Acciones de ${row.name}` },
         ...items.map(([label, cls, run, off]) => el('li', { role: 'none' },
-          el('button', { type: 'button', role: 'menuitem', class: cls, tabindex: '-1', disabled: !!off, onclick: () => { ui.menuFor = null; run(); } }, label))));
+          el('button', { type: 'button', role: 'menuitem', class: cls, tabindex: '-1', disabled: !!off, onclick: () => { ui.menuFor = null; run(); settleFocus(row.id, cls); } }, label))));
       wrap.append(list);
     }
+    // Tab out of an open menu closes it; only a real destination counts, so a repaint (relatedTarget null) never does.
+    wrap.addEventListener('focusout', (e) => {
+      const to = e.relatedTarget; // where focus goes; null on a repaint, a click on plain text or a click in Safari
+      if (!open || !to || wrap.contains(to) || !wrap.isConnected || ui.menuFor !== row.id) return;
+      ui.menuFor = null; // no repaint: it would detach the element Tab is moving to
+      wrap.querySelector('.menu')?.remove(); btn.setAttribute('aria-expanded', 'false');
+    });
     wrap.addEventListener('keydown', e => {
       const list = wrap.querySelector('.menu');
       if (!list) {
@@ -1506,6 +1509,26 @@
       else if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); ui.menuFor = null; render(); document.querySelector(`[data-menu-for="${CSS.escape(row.id)}"]`)?.focus(); }
     });
     return wrap;
+  }
+  // After a menu option the repaint detaches the focused item: put focus back on the trigger (or the confirm button of «Quitar»).
+  function settleFocus(id, cls) {
+    const a = document.activeElement;
+    if (a && a !== document.body) return;
+    const card = document.querySelector(`#cards article[data-id="${CSS.escape(id)}"]`);
+    const target = (cls === 'remove' && card?.querySelector('button.danger')) || document.querySelector(`[data-menu-for="${CSS.escape(id)}"]`);
+    target?.focus();
+  }
+  // Open the menu upward when it would run under the bottom bar / past the viewport (only matters on phones).
+  function placeMenu(id) {
+    const btn = document.querySelector(`[data-menu-for="${CSS.escape(id)}"]`);
+    const list = btn?.parentElement?.querySelector('.menu');
+    if (!btn || !list) return;
+    list.classList.remove('up');
+    const barTop = $('topnav').getBoundingClientRect().top; // > 0 only for the bottom bar (phones)
+    const limit = barTop > 0 ? barTop : window.innerHeight;
+    const b = btn.getBoundingClientRect();
+    const h = list.offsetHeight + 4;
+    if (b.bottom + h > limit && b.top - h > 0) list.classList.add('up');
   }
   function focusMenu(id, i) { document.querySelectorAll(`[data-menu-for="${CSS.escape(id)}"] + .menu [role="menuitem"]:not(:disabled)`)[i]?.focus(); }
   // A click outside any menu closes it.
@@ -1727,7 +1750,7 @@
   const navButton = id => el('button', { type: 'button', 'data-tab': id, onclick: () => setTab(id) },
     iconSvg(document, SECTION[id].icon), el('span', { class: 'lbl' }, SECTION[id].label));
   const nav = el('nav', { class: 'topnav', id: 'topnav', 'aria-label': 'Secciones' },
-    el('div', { class: 'rail-brand' }, el('b', { class: 'brand-name' }, 'Odyle')));
+    el('div', { class: 'rail-brand' }, el('h1', { class: 'brand-name' }, 'Odyle')));
   const tabWrap = el('div', { class: 'tabs' });
   const tabPanels = {};
   for (const [id, label] of TABS) {
@@ -1743,11 +1766,17 @@
   const railFoot = el('div', { class: 'rail-foot' }, themeSwitch());
   nav.append(railFoot);
   const moreSheet = el('dialog', { class: 'more-sheet', id: 'more-sheet', 'aria-label': 'Más secciones' });
-  moreSheet.append(el('div', { class: 'more-grid' }, ...NAV.more.map(id => navButton(id)),
+  const moreInner = el('div', { class: 'more-inner' }, el('div', { class: 'more-grid' }, ...NAV.more.map(id => navButton(id)),
     el('button', { type: 'button', 'data-profile': '', onclick: () => { closeMore(); $('profile-chip').click(); } },
       iconSvg(document, 'perfil'), el('span', { class: 'lbl' }, 'Perfil'))),
     themeSwitch());
-  moreSheet.addEventListener('click', e => { if (e.target === moreSheet) closeMore(); });
+  moreSheet.append(moreInner);
+  // Only a tap on the backdrop (outside the dialog's box) closes it; a tap on its own padding does not.
+  moreSheet.addEventListener('click', e => {
+    if (e.target !== moreSheet) return;
+    const r = moreSheet.getBoundingClientRect();
+    if (e.clientX < r.left || e.clientX > r.right || e.clientY < r.top || e.clientY > r.bottom) closeMore();
+  });
   document.body.append(moreSheet);
   function openMore() { if (!moreSheet.open) moreSheet.showModal(); }
   function closeMore() { if (moreSheet.open) moreSheet.close(); }
@@ -1791,6 +1820,8 @@
   function placeChrome() {
     if (WIDE.matches) { railFoot.append($('profile-chip')); closeMore(); }
     else pageEl.querySelector('header').append($('profile-chip'));
+    // iOS motion permission: in the «Más» sheet on phones (the header has no room), in the header on wide screens
+    if (WIDE.matches) pageEl.querySelector('header').append($('motion-btn')); else moreInner.append($('motion-btn'));
     if (WIDE.matches) document.body.append($('ai-fab')); else pageEl.querySelector('header').append($('ai-fab'));
   }
   function applyLayout() {
@@ -1828,11 +1859,15 @@
     } else goTo('ajustes', 'adjust-minutes');
   });
 
+  let lastBandKey = '';
   function paintSummary(rows) {
     const box = $('summary');
     const b = decisionBand(rows, Date.now(), { quiet: { start: state.prefs.quietStart, end: state.prefs.quietEnd }, tzOffsetMin: new Date().getTimezoneOffset() });
     box.hidden = !b;
-    if (!b) return;
+    if (!b) { lastBandKey = ''; return; }
+    // The band text ticks every minute; screen readers only hear it when the tone or the target changes.
+    const bandKey = `${b.tone}:${b.targetId || ''}`;
+    if (bandKey !== lastBandKey) { lastBandKey = bandKey; $('band-status').textContent = b.text; }
     box.className = `band band-${b.tone}`;
     $('sum-tip').textContent = b.text;
     const go = $('band-go');
@@ -2075,6 +2110,7 @@
 
   function render() {
     paint(buildView(state.characters, state.schedule, Date.now()));
+    if (ui.menuFor) placeMenu(ui.menuFor);
   }
 
   // ---- Events ----
@@ -2154,6 +2190,7 @@
     if (e.ctrlKey || e.metaKey || e.altKey || e.repeat || moreSheet.open || !$('ai-panel').hidden || document.querySelector('.modal:not([hidden])')) return;
     if (keysOpen() && e.key === 'Escape') { e.preventDefault(); toggleKeys(false); return; }
     const t = e.target;
+    if (ui.menuFor && t?.closest?.('.menu-wrap')) return; // arrows and digits belong to the open ⋯ menu
     if (t && (t.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(t.tagName))) return;
     if (e.key === '?') { e.preventDefault(); toggleKeys(); return; }
     if (keysOpen()) return;
