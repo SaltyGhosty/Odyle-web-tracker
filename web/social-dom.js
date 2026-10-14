@@ -58,8 +58,8 @@ export function personHead(p, { online = false } = {}) {
 // Orbe pequeño: el mismo orbe de luz dibujado (starorb.js) a 44 px, sin animación.
 export function miniOrb(row) {
   const wrap = el('span', { class: 'mini-orb' + (row && row.isFull ? ' full' : '') + (row ? '' : ' hidden-energy'), role: 'img',
-    'aria-label': row ? fmt(S('{0} de 840 de energía'), row.energy) : S('Energía no compartida') });
-  wrap.append(buildStarOrb(document, { energy: row ? row.energy : 0, state: row && row.isFull ? 'full' : 'normal', size: 44, id: 'mini' + (miniSeq++) }));
+    'aria-label': row ? fmt(S('{0} de {1} de energía'), row.energy, row.max) : S('Energía no compartida') });
+  wrap.append(buildStarOrb(document, { energy: row ? row.energy : 0, ...(row ? { max: row.max } : {}), state: row && row.isFull ? 'full' : 'normal', size: 44, id: 'mini' + (miniSeq++) }));
   return wrap;
 }
 let miniSeq = 0;

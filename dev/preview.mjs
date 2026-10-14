@@ -227,7 +227,9 @@ for (const [label, width, height] of [['mobile', 390, 844], ['desktop', 1280, 80
   check('forecast: 3 lines and a legend', await page.locator('#forecast path.series').count() === 3 && await page.locator('#forecast-legend li').count() === 3);
   check('summary: legion readiness line', ((await page.locator('#summary').textContent().catch(() => '')) || '').includes('Listos para mazmorra en la legión: 3'));
   check('waste: full card says it is losing energy', (await page.locator('article[data-id=s3]').textContent()).includes('Lleno · perdiendo energía'));
-  check('waste: card filling during rest hours warns', (await page.locator('article[data-id=s2]').textContent()).includes('Perderás 15 de OD'));
+  // seeded characters have no account: Premium, +30 per recharge
+  check('waste: card filling during rest hours warns', (await page.locator('article[data-id=s2]').textContent()).includes('Perderás 30 de OD'));
+  check('header: every character Premium shows +30 and cap 840', (await page.locator('#sub-regen').textContent()) === '+30 OD en' && (await page.locator('#sub-cap').textContent()) === 'tope 840' && await page.locator('#sub-cap').isVisible());
   await page.evaluate(() => document.querySelector('[data-tab="ajustes"]')?.click());
   check('settings: rest hours fields', await page.locator('#quiet-start').isVisible() && await page.locator('#quiet-end').isVisible());
   await page.evaluate(() => document.querySelector('[data-tab="personajes"]')?.click());
@@ -237,7 +239,7 @@ for (const [label, width, height] of [['mobile', 390, 844], ['desktop', 1280, 80
   await page.waitForTimeout(8000);
   await page.evaluate(() => { Object.defineProperty(document, 'hidden', { configurable: true, get: () => false }); document.dispatchEvent(new Event('visibilitychange')); });
   await page.waitForTimeout(200);
-  check('seeded: +15 shown after returning from background', (await page.locator('.gain').allTextContents()).join() === '+15,+15');
+  check('seeded: +30 (and +15 up to the cap) shown after returning from background', (await page.locator('.gain').allTextContents()).join() === '+30,+15');
   // a render right after the gain must not cut the ripple (the orb resumes where it was)
   await page.evaluate(() => { document.getElementById('events').open = false; });
   check('seeded: the recharged orbs ripple once', await page.locator('.star-orb.ripple').count() === 2);

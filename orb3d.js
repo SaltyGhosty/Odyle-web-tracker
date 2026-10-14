@@ -202,7 +202,7 @@ export function createOrbs3D(doc = document) {
     const ripple = motion ? ripplePower(now - (o.rippleAt ?? -Infinity)) : 0;
     const full = o.state === 'full';
     const beat = motion && full ? beatOpacity(now) : 1;
-    const fill = levelOf(o.energy);
+    const fill = levelOf(o.energy, o.max);
     const key = `${px}|${fill}|${o.lit}|${o.state}|${version}`;
     if (!motion && key === o.key) return; // calm: only redraw when something changed
     o.key = key;
@@ -253,18 +253,18 @@ export function createOrbs3D(doc = document) {
         const c = doc.createElement('canvas');
         c.className = 'orb3d';
         c.setAttribute('aria-hidden', 'true');
-        o = { canvas: c, energy: 0, state: 'normal', lit: -1, newIdx: -1, rippleAt: undefined, key: '' };
+        o = { canvas: c, energy: 0, max: MAX, state: 'normal', lit: -1, newIdx: -1, rippleAt: undefined, key: '' };
         orbs.set(id, o);
         io.observe(c);
       }
       return o.canvas;
     },
-    update(id, { energy = 0, state = 'normal' } = {}) {
+    update(id, { energy = 0, state = 'normal', max = MAX } = {}) {
       const o = orbs.get(id);
       if (!o) return;
-      const lit = litRunes(energy);
+      const lit = litRunes(energy, max);
       if (o.lit >= 0 && lit > o.lit) o.newIdx = lit - 1;
-      o.lit = lit; o.energy = energy; o.state = state;
+      o.lit = lit; o.energy = energy; o.state = state; o.max = max;
       kick();
     },
     // One ripple on the liquid; idempotent while it plays.
