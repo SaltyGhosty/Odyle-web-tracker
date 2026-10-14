@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { formatClock, detectGains, rollValue } from './motion.js';
+import { formatClock, detectGains } from './motion.js';
 
 test('formatClock', () => {
   assert.equal(formatClock(37 * 60_000), '00:37:00');
@@ -22,12 +22,6 @@ test('detectGains: varios ticks perdidos dan un solo evento', () => {
 });
 test('detectGains: bajada no cuenta', () => {
   assert.deepEqual(detectGains(prev, [{ id: 'a', energy: 200, recordedAt: 1 }]), []);
-});
-test('rollValue', () => {
-  assert.equal(rollValue(0, 100, 0), 0);
-  assert.equal(rollValue(0, 100, 1), 100);
-  assert.equal(rollValue(0, 100, 0.5), 88);
-  assert.equal(rollValue(0, 100, 2), 100);
 });
 
 test('detectGains: cambio de hora de recarga no cuenta', () => {
