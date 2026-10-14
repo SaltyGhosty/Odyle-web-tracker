@@ -36,6 +36,8 @@ export function startSocial(ctx) {
   }
   async function refreshConvs() {
     try { state.convs = await api.conversations(); } catch { /* idem */ }
+    // Una respuesta lenta no debe pisar lo ya leído del hilo en pantalla.
+    if (screens.chat && screens.chat.onConvs) screens.chat.onConvs();
     shared.changed();
   }
   function badges() {
@@ -68,7 +70,10 @@ export function startSocial(ctx) {
       state.live = s === 'live';
       statusEl.hidden = state.live;
       // Al volver tras un corte: lo que llegó mientras tanto.
-      if (state.live && info && info.resumed) { refreshFriends(); refreshConvs(); }
+      if (state.live && info && info.resumed) {
+        refreshFriends(); refreshConvs();
+        if (screens.chat && screens.chat.onResume) screens.chat.onResume();
+      }
     },
   });
 

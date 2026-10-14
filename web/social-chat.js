@@ -2,15 +2,16 @@
 // Chat 1 a 1 entre amigos: lista de conversaciones, hilo y redactor. Atajos: compartir mi energía e invitar
 // a mazmorra. Cada mensaje lleva un clientId: un reintento tras un fallo de red no crea un duplicado.
 import { el, S, fmt, userText, personHead, avatar, note, timeLabel, dateTimeLabel } from './social-dom.js';
-import { mergeMessages, applyIncoming, markRead, parseMessageText, parseInvite, makeClientId, shareText, otherOf } from './social.js';
+import { mergeMessages, markMineRead, applyIncoming, markRead, parseMessageText, parseInvite, makeClientId, shareText, otherOf } from './social.js';
 
 const PAGE = 50;
 
 export function createChat(shared, panel) {
   const { api, me, state } = shared;
-  let openUid = null, msgs = [], more = false, ended = false, readAt = 0, draftId = null, sending = false, error = '', active = false;
+  let openUid = null, msgs = [], more = false, ended = false, sending = false, error = '', active = false;
 
   const drafts = new Map(); // borrador del redactor por conversación
+  const clientIds = new Map(); // clientId del envío pendiente por conversación: un reintento conserva el suyo
   let toBottom = false, prepended = false; // qué hacer con el scroll en el próximo repintado del hilo
   const root = el('div', { class: 'chat' });
   const listBox = el('aside', { class: 'chat-list', 'aria-label': S('Conversaciones') });
@@ -98,7 +99,7 @@ export function createChat(shared, panel) {
     if (more) list.append(el('li', { class: 'more' }, el('button', { type: 'button', onclick: loadOlder }, S('Ver mensajes anteriores'))));
     for (const m of msgs) list.append(bubble(m));
     const lastMine = [...msgs].reverse().find((m) => m.from === me);
-    if (lastMine && (lastMine.readAt || readAt >= lastMine.at)) list.append(el('li', { class: 'read' }, S('Leído')));
+    if (lastMine && lastMine.readAt) list.append(el('li', { class: 'read' }, S('Leído')));
     const scroller = el('div', { class: 'msgs-scroll' }, list);
     const before = scrollState();
     const focused = document.activeElement;
@@ -142,21 +143,21 @@ export function createChat(shared, panel) {
     const r = parseMessageText(text.value);
     if (!r.ok) { error = r.error; paintThread(); return; }
     const uid = openUid;
-    send({ kind: 'text', text: r.value }).then((ok) => { if (ok && openUid === uid) { text.value = ''; drafts.delete(uid); text.focus(); } });
+    send({ kind: 'text', text: r.value }).then((ok) => { if (!ok) return; drafts.delete(uid); if (openUid === uid) { text.value = ''; text.focus(); } });
   }
   async function send(payload) {
     if (sending || !openUid) return false;
     sending = true; error = '';
-    if (!draftId) draftId = makeClientId();
     const uid = openUid;
+    if (!clientIds.has(uid)) clientIds.set(uid, makeClientId());
     try {
-      const m = await api.send(uid, { ...payload, clientId: draftId });
-      draftId = null; toBottom = true;
+      const m = await api.send(uid, { ...payload, clientId: clientIds.get(uid) });
+      clientIds.delete(uid); toBottom = true;
       if (openUid === uid) msgs = mergeMessages(msgs, [m]);
       state.convs = applyIncoming(state.convs, m, me, { profile: profileOf(uid) });
       return true;
     } catch (e) {
-      if (e.status === 404) { ended = true; draftId = null; } else error = e.message; // con 0 (sin red) se reintenta con el mismo clientId
+      if (e.status === 404) { clientIds.delete(uid); if (openUid === uid) ended = true; } else if (openUid === uid) error = e.message; // con 0 (sin red) se reintenta con el mismo clientId
       return false;
     } finally { sending = false; shared.changed(); }
   }
@@ -164,17 +165,17 @@ export function createChat(shared, panel) {
   // ---- carga ----
   async function open(uid) {
     if (uid !== openUid) { saveDraft(); text.value = drafts.get(uid) || ''; inviteForm.hidden = true; }
-    openUid = uid; msgs = []; more = false; ended = false; readAt = 0; error = ''; draftId = null; toBottom = true;
+    openUid = uid; msgs = []; more = false; ended = false; error = ''; toBottom = true;
     paintAll();
     try {
       const page = await api.messages(uid);
       if (openUid !== uid) return;
-      msgs = mergeMessages([], page); more = page.length === PAGE;
+      msgs = mergeMessages(msgs, page); more = page.length === PAGE; // msgs ya puede llevar un mensaje en vivo
     } catch (e) {
       if (openUid !== uid) return;
       if (e.status === 404) ended = true; else error = e.message;
     }
-    markSeen(uid);
+    markSeen(uid, true);
     toBottom = true;
     paintAll();
   }
@@ -189,12 +190,26 @@ export function createChat(shared, panel) {
     prepended = true;
     paintThread();
   }
-  function markSeen(uid) {
+  // force: avisar al servidor aunque aquí no haya sin leer (al abrir y al volver la conexión).
+  function markSeen(uid, force = false) {
     const c = state.convs.find((x) => x.profile.uid === uid);
-    if (!c || !c.unread) return;
-    state.convs = markRead(state.convs, uid);
-    shared.changed();
-    api.markRead(uid).catch(() => { /* se volverá a marcar al abrir */ });
+    const had = !!(c && c.unread);
+    if (had) { state.convs = markRead(state.convs, uid); shared.changed(); }
+    if (had || force) api.markRead(uid).catch(() => { /* se volverá a marcar al abrir */ });
+  }
+  // Tras un corte: lo que llegó mientras tanto en el hilo abierto, y marcarlo visto.
+  async function resume() {
+    const uid = openUid;
+    if (!uid) return;
+    try {
+      const page = await api.messages(uid);
+      if (openUid !== uid) return;
+      if (!msgs.length) more = page.length === PAGE;
+      msgs = mergeMessages(msgs, page);
+    } catch (e) { if (openUid === uid && e.status === 404) ended = true; }
+    if (openUid !== uid) return;
+    if (active) markSeen(uid, true);
+    paintThread();
   }
 
   function paintAll() { paintList(); paintThread(); }
@@ -210,6 +225,9 @@ export function createChat(shared, panel) {
       msgs = mergeMessages(msgs, [m]);
       if (m.from !== me && active) api.markRead(uid).catch(() => {});
     },
-    onRead(uid) { if (uid === openUid) { readAt = Date.now(); paintThread(); } },
+    onRead(uid) { if (uid === openUid) { msgs = markMineRead(msgs, me, Date.now()); paintThread(); } },
+    // Con la lista de conversaciones recién traída: la que está en pantalla no puede quedar con sin leer.
+    onConvs() { if (active && openUid) markSeen(openUid); },
+    onResume: resume,
   };
 }

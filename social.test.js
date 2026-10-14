@@ -2,7 +2,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
-  sortFriends, mergeMessages, otherOf, applyIncoming, totalUnread, markRead, serversOf, filterResults,
+  sortFriends, mergeMessages, markMineRead, otherOf, applyIncoming, totalUnread, markRead, serversOf, filterResults,
   parseMessageText, parseInvite, makeClientId, actionsFor, friendEnergy, shareText,
 } from './social.js';
 
@@ -136,4 +136,13 @@ test('shareText', () => {
   assert.equal(shareText([]), null);
   assert.equal(shareText([{ name: 'Ana', energy: 840, isFull: true }, { name: 'Bea', energy: 300, isFull: false }]),
     'Mi energía: Ana 840/840 (lleno) · Bea 300/840');
+});
+
+test('markMineRead: marca como leídos todos mis mensajes sin depender del reloj, y no toca los del otro', () => {
+  const list = [msg('a', ME, 'x', 1), msg('b', 'x', ME, 2), msg('c', ME, 'x', 3, { readAt: 7 })];
+  const out = markMineRead(list, ME, 99);
+  assert.equal(out[0].readAt, 99);
+  assert.equal(out[1].readAt, null);
+  assert.equal(out[2].readAt, 7);
+  assert.equal(list[0].readAt, null);
 });

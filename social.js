@@ -19,6 +19,9 @@ export function mergeMessages(list, incoming) {
   return [...map.values()].sort(byTime);
 }
 
+// The other person read the thread: every message of mine counts as read, whatever the clocks say.
+export const markMineRead = (list, me, at) => list.map((m) => (m.from === me && !m.readAt ? { ...m, readAt: at } : m));
+
 export const otherOf = (msg, me) => (msg.from === me ? msg.to : msg.from);
 
 const lastAt = (c) => (c.last ? c.last.at : 0);

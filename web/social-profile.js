@@ -11,7 +11,8 @@ export function createProfileSheet(shared) {
   const dialog = el('dialog', { class: 'sheet', 'aria-labelledby': 'sheet-title' });
   document.body.append(dialog);
   dialog.addEventListener('click', (e) => { if (e.target === dialog) dialog.close(); });
-  let current = null;
+  let current = null, seq = 0; // seq: solo cuenta la última ficha pedida; cerrar también descarta lo pendiente
+  dialog.addEventListener('close', () => { seq++; });
 
   function close() { if (dialog.open) dialog.close(); }
 
@@ -84,14 +85,19 @@ export function createProfileSheet(shared) {
   }
 
   async function open(uid) {
+    const my = ++seq;
     dialog.replaceChildren(el('div', { class: 'sheet-box' }, note(S('Cargando…'))));
     if (!dialog.open) dialog.showModal();
-    try { current = await api.profile(uid); } catch (e) {
+    let got;
+    try { got = await api.profile(uid); } catch (e) {
+      if (my !== seq) return;
       dialog.replaceChildren(el('div', { class: 'sheet-box' },
         note(e.status === 404 ? S('Este jugador ya no está disponible.') : e.message, 'error'),
         el('button', { type: 'button', onclick: close }, S('Cerrar'))));
       return;
     }
+    if (my !== seq) return;
+    current = got;
     show(uid);
   }
 

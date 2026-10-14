@@ -29,7 +29,7 @@ export function createSearch(shared, panel) {
   async function run() {
     const q = input.value.trim();
     const my = ++seq;
-    if (q.length < 2) { results = []; status = 'idle'; paintResults(); return; }
+    if (q.length < 2) { results = []; status = 'idle'; error = ''; paintServers(); paintResults(); return; }
     status = 'loading'; paintResults();
     try {
       const r = await api.search(q);
@@ -51,7 +51,7 @@ export function createSearch(shared, panel) {
   }
 
   function action(r) {
-    const go = async (fn) => { try { const res = await fn(); if (res && res.status) r.relation = res.status; } catch (e) { error = e.message; } await shared.refreshFriends(); paintResults(); };
+    const go = async (fn) => { try { const res = await fn(); error = ''; if (res && res.status) r.relation = res.status; } catch (e) { error = e.message; } await shared.refreshFriends(); paintResults(); };
     if (r.relation === 'none') return el('button', { type: 'button', class: 'primary', onclick: () => go(() => api.addFriend(r.uid)) }, S('Añadir'));
     if (r.relation === 'pending-out') return el('span', { class: 'social-note' }, S('Solicitud enviada'));
     if (r.relation === 'pending-in') return el('button', { type: 'button', class: 'primary', onclick: () => go(() => api.accept(r.uid)) }, S('Aceptar'));
@@ -63,12 +63,13 @@ export function createSearch(shared, panel) {
     if (status === 'idle') { out.replaceChildren(note(S('Escribe al menos 2 letras del nombre.'))); return; }
     if (status === 'loading') { out.replaceChildren(note(S('Buscando…'))); return; }
     if (status === 'error') { out.replaceChildren(note(error, 'error')); return; }
+    const fail = error ? note(error, 'error') : null; // un Añadir/Aceptar que falló
     const shown = filterResults(results, filters);
     if (!results.length) { out.replaceChildren(note(S('Nadie se llama así, o ha elegido no aparecer.'))); return; }
     if (!shown.length) { out.replaceChildren(note(S('Nadie coincide con estos filtros.'))); return; }
-    out.replaceChildren(el('ul', { class: 'social-list' }, ...shown.map((r) => el('li', {},
+    out.replaceChildren(...[el('ul', { class: 'social-list' }, ...shown.map((r) => el('li', {},
       el('button', { type: 'button', class: 'grow', onclick: () => shared.openProfile(r.uid), 'aria-label': S('Ver perfil') }, personHead(r)),
-      el('div', { class: 'social-actions' }, action(r))))));
+      el('div', { class: 'social-actions' }, action(r))))), fail].filter(Boolean));
   }
 
   paintServers();
