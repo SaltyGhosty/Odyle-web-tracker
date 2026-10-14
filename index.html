@@ -69,12 +69,19 @@
   .ruler { position: absolute; left: 0; right: 0; bottom: 0; height: 22px; pointer-events: none;
     background: repeating-linear-gradient(90deg, var(--line) 0 1px, transparent 1px 48px) bottom / 100% 8px no-repeat,
       repeating-linear-gradient(90deg, var(--line) 0 1px, transparent 1px 12px) bottom / 100% 4px no-repeat; }
+  .ruler.missing .meridian { display: none; }
   .meridian { position: absolute; top: 0; bottom: 0; left: calc(var(--mer, 0) * 100%); width: 1px; background: var(--gold); }
   .meridian::before { content: ""; position: absolute; left: -3px; top: -1px; width: 7px; height: 7px; background: var(--gold); transform: rotate(45deg); }
-  .meridian-label { position: absolute; top: 2px; left: 0; white-space: nowrap; font-size: .6875rem; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: var(--gold); transform: translateX(10px); }
-  .ruler.late .meridian-label { transform: translateX(calc(-100% - 10px)); }
-  @media (min-width: 900px) { header { padding-bottom: 30px; min-height: 76px; } .ruler { height: 30px; } .clock { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; } }
-  @media (max-width: 899.98px) { .meridian-label { display: none; } .ruler { height: 12px; } header { padding-bottom: 12px; } }
+  .clock-fix { display: none; }
+  @media (min-width: 900px) {
+    header { padding-bottom: 30px; min-height: 84px; }
+    .ruler { height: 30px; }
+    .clock { flex-direction: column; align-items: flex-start; gap: 0; }
+    .clock-time { font-size: 2rem; line-height: 1.1; }
+    .clock.missing .clock-time { font-size: 1rem; }
+    .clock.missing .clock-fix { display: inline-flex; margin-top: 6px; }
+  }
+  @media (max-width: 899.98px) { .ruler { height: 12px; } header { padding-bottom: 12px; } }
 
   /* ---- Theme switch "Luz / Sombra": two pressed-state buttons, no page animation ---- */
   .theme-switch { display: grid; grid-auto-flow: column; grid-auto-columns: 1fr; border: 1px solid var(--line-strong); }
@@ -99,7 +106,7 @@
   }
   @media (hover: hover) and (pointer: fine) { button.primary:hover { background: var(--gold-bright); } }
   button.danger { color: var(--danger); border-color: var(--urgent-strong); }
-  button:focus-visible, input:focus-visible, select:focus-visible { outline: 2px solid var(--sky); outline-offset: 2px; }
+  button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-visible { outline: 2px solid var(--sky); outline-offset: 2px; }
   input, select {
     background: var(--field); border: 1px solid var(--line-strong);
     padding: 9px 12px; min-height: 44px; min-width: 0; width: 100%;
@@ -301,7 +308,7 @@
   .chart .bar { fill: var(--sky); }
   .chart .bar-label { fill: var(--fg); font-size: 11px; font-variant-numeric: tabular-nums; }
   .chart-tip { position: absolute; top: 4px; pointer-events: none; background: var(--glass-strong); border: 1px solid var(--line);
- padding: 6px 8px; font-size: .75rem; display: flex; flex-direction: column; gap: 2px; }
+    padding: 6px 8px; font-size: .75rem; display: flex; flex-direction: column; gap: 2px; }
   .chart-tip .sw, .legend .sw { display: inline-block; width: 10px; height: 10px; margin-right: 6px; vertical-align: -1px; }
   .legend { list-style: none; margin: 0; padding: 0; display: flex; flex-wrap: wrap; gap: 4px 16px; font-size: .8125rem; color: var(--fg); }
 
@@ -529,8 +536,7 @@
   /* ---- Profile chip in the header ---- */
   .profile-chip { display: flex; align-items: center; gap: 10px; padding: 6px 14px 6px 6px; min-height: 44px; text-align: left;
     background: var(--glass); border-color: var(--line); margin-left: auto; }
-  .pc-icon { width: 34px; height: 34px; display: grid; place-items: center; border: 1px solid var(--c, var(--gold)); flex: none;
- }
+  .pc-icon { width: 34px; height: 34px; display: grid; place-items: center; border: 1px solid var(--c, var(--gold)); flex: none; }
   .pc-icon .cls-icon { width: 20px; height: 20px; }
   .pc-text { display: flex; flex-direction: column; line-height: 1.15; min-width: 0; }
   .pc-text b { font-weight: 600; color: var(--fg); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 180px; }
@@ -612,6 +618,7 @@
       <div>
         <p class="clock-label">Próxima recarga</p>
         <p class="clock-time" id="next-tick"></p>
+        <button type="button" class="clock-fix" id="clock-fix">Ajustar recarga</button>
       </div>
     </div>
     <button type="button" id="profile-chip" class="profile-chip" aria-haspopup="dialog" hidden>
@@ -619,7 +626,7 @@
       <span class="pc-text"><b id="pc-name"></b><small id="pc-title"></small></span>
     </button>
     <button type="button" id="online-pill" class="online-pill" hidden></button>
-    <div class="ruler" id="ruler" aria-hidden="true"><div class="meridian"><span class="meridian-label"><span>Próxima recarga</span> <span id="mer-time"></span></span></div></div>
+    <div class="ruler" id="ruler" aria-hidden="true"><div class="meridian"></div></div>
   </header>
 
   <section class="band" id="summary" hidden>
@@ -1820,6 +1827,7 @@
     $('guide').hidden = !show;
     [s1, s2, s3].forEach((d, i) => $('step-' + (i + 1)).classList.toggle('done', d));
   }
+  $('clock-fix').addEventListener('click', () => goTo('ajustes', 'adjust-minutes'));
   $('guide').addEventListener('click', e => {
     const b = e.target.closest('[data-step]'); if (!b) return;
     const step = b.dataset.step;
@@ -1976,15 +1984,12 @@
       p.textContent = full ? 'Lleno' : anchor === null ? 'Falta la hora de recarga' : `+15 en ${formatClock(left)}`;
     }
     $('clock').classList.toggle('missing', anchor === null);
-    $('ruler').style.display = anchor === null ? 'none' : '';
+    $('ruler').classList.toggle('missing', anchor === null);
     if (anchor === null) { $('next-tick').textContent = 'Falta la hora de recarga'; return; }
     $('next-tick').textContent = formatClock(left);
     $('next-tick').setAttribute('aria-label', `en ${formatDuration(left)}`);
     // The meridian: 0 just recharged, 1 when the next recharge arrives. Same tick as the clock; only a CSS variable changes.
-    $('mer-time').textContent = formatClock(left);
-    const mer = Math.min(1, Math.max(0, 1 - left / TICK_MS));
-    $('ruler').style.setProperty('--mer', String(mer));
-    $('ruler').classList.toggle('late', mer > .6); // the label flips to the left of the line near the right edge
+    $('ruler').style.setProperty('--mer', String(Math.min(1, Math.max(0, 1 - left / TICK_MS))));
   }
 
   let lastEnergy = new Map();
