@@ -41,7 +41,8 @@ async function newUser(label) {
   await ctx.addInitScript(() => {
     window.__csp = [];
     document.addEventListener('securitypolicyviolation', (e) => window.__csp.push(`${e.violatedDirective} ${e.blockedURI}`));
-    try { localStorage.setItem('odyle-lang', 'es'); } catch {}
+    // __keeplang (sessionStorage) deja que una comprobación cambie el idioma sin que este script lo fuerce de nuevo.
+    try { if (!sessionStorage.getItem('__keeplang')) localStorage.setItem('odyle-lang', 'es'); } catch {}
   });
   const page = await ctx.newPage();
   page.on('pageerror', (e) => errors.push(`${label} pageerror: ${e.message}`));
@@ -423,6 +424,111 @@ check('cerrar todas: la cookie de renovación vieja de B no renueva', (await rep
   await collectCsp(pv, 'V');
   await V.ctx.close();
   await app2.close();
+}
+
+// ================= Social: buscar, amistad, chat en vivo, bloqueo y tema =================
+{
+  const C = await newUser('C'); const D = await newUser('D');
+  const pc = C.page, pd = D.page;
+  await register(pc, 'carla@example.com', PW); await login(pc, 'carla@example.com', PW); await fillProfile(pc, 'CarlaLuz');
+  await register(pd, 'dani@example.com', PW); await login(pd, 'dani@example.com', PW); await fillProfile(pd, 'DaniSombra');
+
+  // buscar y pedir amistad
+  await pc.click('[data-tab="buscar"]');
+  await pc.fill('#search-q', 'Dani');
+  await pc.waitForSelector('#social-buscar .social-list li');
+  check('buscar: encuentra a DaniSombra', /DaniSombra/.test(await text(pc, '#social-buscar')));
+  await pc.click('#social-buscar .social-list li button.primary');
+  await pc.waitForSelector('#social-buscar >> text=Solicitud enviada');
+  check('buscar: la solicitud se envía', true);
+
+  // D ve la insignia y acepta
+  await pd.waitForSelector('[data-tab="amigos"] .badge', { timeout: 10000 });
+  check('amigos: insignia de solicitud en vivo', (await text(pd, '[data-tab="amigos"] .badge')) === '1');
+  await pd.click('[data-tab="amigos"]');
+  await pd.click('#social-amigos [role="tab"]:nth-child(2)');
+  await pd.click('#social-amigos .social-list li button.primary');
+  await pd.waitForSelector('#social-amigos [role="tab"]:nth-child(1) .count >> text=1');
+  await pd.click('#social-amigos [role="tab"]:nth-child(1)');
+  await pd.waitForSelector('#social-amigos .social-list li');
+  check('amigos: D acepta y C aparece como amigo', /CarlaLuz/.test(await text(pd, '#social-amigos')));
+
+  // chat en vivo C → D, con texto que coincide con la interfaz y un mensaje largo
+  await pc.click('[data-tab="amigos"]');
+  await pc.waitForSelector('#social-amigos .social-list li button.primary');
+  await pc.click('#social-amigos .social-list li button.primary'); // «Mensaje»
+  await pc.waitForSelector('#chat-text');
+  await pc.fill('#chat-text', 'Amigos');
+  await pc.press('#chat-text', 'Enter');
+  await pc.waitForFunction(() => document.querySelectorAll('#social-chat .msg-text').length === 1); // el primer envío termina antes del segundo
+  const LONG = 'x'.repeat(600);
+  await pc.fill('#chat-text', LONG);
+  await pc.press('#chat-text', 'Enter');
+  await pc.waitForFunction(() => document.querySelectorAll('#social-chat .msg-text').length === 2);
+  await pd.waitForSelector('[data-tab="chat"] .badge', { timeout: 10000 });
+  check('chat: D recibe los mensajes en vivo (insignia)', Number(await text(pd, '[data-tab="chat"] .badge')) >= 1);
+  await pd.click('[data-tab="chat"]');
+  await pd.click('#social-chat .conv');
+  await pd.waitForFunction(() => document.querySelectorAll('#social-chat .msg-text').length >= 2);
+  check('chat: D ve los mensajes de C', (await pd.locator('#social-chat .msg-text').count()) === 2);
+  check('chat: el mismo mensaje no aparece dos veces en C', (await pc.locator('#social-chat .msg-text').count()) === 2);
+
+  // texto de usuario igual a un texto de la interfaz: no se traduce.
+  // __keeplang evita que el script de arranque vuelva a forzar 'es' (sessionStorage sobrevive a recargar en la pestaña).
+  await pd.evaluate(() => { sessionStorage.setItem('__keeplang', '1'); localStorage.setItem('odyle-lang', 'en'); });
+  await pd.reload(); await pd.waitForSelector('#profile-chip:not([hidden])');
+  await pd.click('[data-tab="chat"]'); await pd.click('#social-chat .conv'); await pd.waitForSelector('#social-chat .msg-text');
+  check('i18n: la pestaña se traduce (Friends) pero el mensaje «Amigos» queda literal',
+    /Friends/.test(await text(pd, '[data-tab="amigos"]')) && (await pd.locator('#social-chat .msg-text').first().textContent()) === 'Amigos');
+  await pd.evaluate(() => { sessionStorage.removeItem('__keeplang'); localStorage.setItem('odyle-lang', 'es'); });
+
+  // móvil: el mensaje largo no crea scroll horizontal
+  await pd.setViewportSize({ width: 375, height: 812 });
+  await pd.reload(); await pd.waitForSelector('#profile-chip:not([hidden])');
+  await pd.click('[data-tab="chat"]'); await pd.click('#social-chat .conv'); await pd.waitForSelector('#social-chat .msg-text');
+  check('móvil: sin scroll horizontal con un mensaje de 600 caracteres', await pd.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth));
+  await pd.screenshot({ path: 'dev/screens/e2e-chat-mobile.png' });
+  await pd.setViewportSize({ width: 1280, height: 900 });
+
+  // tema: Sombra se guarda en prefs.theme, sobrevive a recargar y guardar el perfil no lo cambia
+  await pc.click('#theme-slot-header [data-theme-choice="asmodian"]');
+  await pc.waitForTimeout(600);
+  check('tema: Sombra se guarda en el servidor', (await dbRows('members/')).some((r) => r.path.endsWith('/settings/prefs') && r.data.theme === 'asmodian'));
+  await pc.reload(); await pc.waitForSelector('#profile-chip:not([hidden])');
+  check('tema: sigue en Sombra tras recargar', (await pc.evaluate(() => document.documentElement.dataset.faction)) === 'asmodian');
+  await pc.click('#profile-chip');
+  await pc.selectOption('#profile-faction', 'elyos');
+  await pc.click('#profile-form button[type=submit]');
+  await pc.waitForSelector('#profile-modal', { state: 'hidden' });
+  check('tema: guardar el perfil con facción Elyos no cambia el tema', (await pc.evaluate(() => document.documentElement.dataset.faction)) === 'asmodian');
+
+  // privacidad: dejar de aparecer en Buscar
+  await pd.click('#profile-chip');
+  await pd.uncheck('#profile-searchable');
+  await pd.click('#profile-form button[type=submit]');
+  await pd.waitForSelector('#profile-modal', { state: 'hidden' });
+  await pc.click('[data-tab="buscar"]');
+  await pc.fill('#search-q', 'Dani');
+  await pc.waitForSelector('#social-buscar .social-note');
+  check('privacidad: quien se oculta no aparece en Buscar', !/DaniSombra/.test(await text(pc, '#social-buscar')));
+
+  // bloqueo: D bloquea a C desde la ficha; C ya no puede escribir
+  await pd.click('[data-tab="amigos"]');
+  await pd.click('#social-amigos .social-list li button.grow');
+  await pd.waitForSelector('.sheet[open] button.danger');
+  await pd.click('.sheet[open] button.danger');
+  await pd.click('.sheet[open] button.danger');
+  await pd.waitForSelector('.sheet[open]', { state: 'detached' }).catch(() => {});
+  await pc.click('[data-tab="chat"]'); await pc.click('#social-chat .conv');
+  await pc.waitForTimeout(500);
+  const blockedNow = await pc.locator('#chat-text').count() === 0 || await (async () => {
+    await pc.fill('#chat-text', 'hola'); await pc.press('#chat-text', 'Enter'); await pc.waitForTimeout(600);
+    return /Ya no sois amigos/.test(await text(pc, '#social-chat'));
+  })();
+  check('bloqueo: C ya no puede escribir a D', blockedNow);
+
+  await collectCsp(pc, 'C'); await collectCsp(pd, 'D');
+  await C.ctx.close(); await D.ctx.close();
 }
 
 check('consola: ningún error de CSP, Trusted Types ni JavaScript', errors.length === 0, '\n  ' + errors.join('\n  '));
