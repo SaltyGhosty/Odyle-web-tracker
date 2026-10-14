@@ -1,18 +1,22 @@
 :root {
-  --bg: #2F3B55;
-  --glass: #1F2840;
-  --field: #18203A;
-  --hover: rgba(244, 231, 200, .07);
-  --fg: #F4E7C8;
-  --muted: #B9C2D6;
-  --line: rgba(227, 168, 83, .32);
-  --line-strong: rgba(227, 168, 83, .6);
-  --gold: #E3A853;
-  --gold-bright: #F2C77E;
-  --sky: #9CC3E6;
-  --on-gold: #1F2840;
+  /* Neutral, sin facción: noche de grafito de Atreia y tinta de luz de estrella.
+     El oro (Luz) y la plata (Sombra) solo aparecen juntos en el emblema partido. */
+  --bg: #262A36;
+  --glass: #1B1E28;
+  --field: #151821;
+  --hover: rgba(236, 230, 217, .07);
+  --fg: #ECE6D9;
+  --muted: #B4B6C0;
+  --line: rgba(216, 206, 184, .28);
+  --line-strong: rgba(216, 206, 184, .55);
+  --gold: #D8CEB8;
+  --gold-bright: #F1E9D6;
+  --sky: #A9C4E0;
+  --on-gold: #1B1E28;
   --danger: #FF9A8E;
   --ok: #8FD9A8;
+  --elyos: #E3A853;
+  --asmo: #C9CFDF;
   --font-display: "Marcellus", "Trajan Pro", Georgia, serif;
   --font-body: "Gothic A1", system-ui, -apple-system, "Segoe UI", sans-serif;
   color-scheme: dark;
@@ -33,7 +37,19 @@ body {
 .auth { max-width: 420px; margin-inline: auto; padding: 48px 16px 56px; display: flex; flex-direction: column; gap: 12px; }
 h1 {
   font-family: var(--font-display); font-weight: 400; font-size: clamp(1.9rem, 7vw, 2.4rem); line-height: 1.05; margin: 0;
-  letter-spacing: .06em; color: var(--gold); text-align: center;
+  letter-spacing: .06em; color: var(--fg); text-align: center;
+}
+/* Emblema: el cielo partido de Atreia, mitad oro y mitad plata, con su anillo de estrellas. */
+.emblem { display: block; width: 76px; height: 76px; margin: 0 auto 4px; }
+.emblem .ring { fill: none; stroke: var(--line-strong); stroke-width: 1; }
+.emblem .half-l { fill: var(--elyos); opacity: .85; }
+.emblem .half-r { fill: var(--asmo); opacity: .85; }
+.emblem .star { fill: var(--gold-bright); }
+.emblem .meridian { stroke: var(--bg); stroke-width: 2; }
+/* Regla de ticks de la carta celeste, como la cabecera de la app. */
+.meridian-rule {
+  height: 9px; margin: 0 0 6px; border-top: 1px solid var(--line-strong);
+  background: repeating-linear-gradient(90deg, var(--line-strong) 0 1px, transparent 1px 12px) top / 100% 6px no-repeat;
 }
 .subtitle { margin: 0 0 8px; text-align: center; color: var(--muted); font-family: var(--font-display); font-weight: 400; letter-spacing: .03em; }
 .panel {

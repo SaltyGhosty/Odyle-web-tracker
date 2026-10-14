@@ -269,3 +269,7 @@ Fields: Well Ink fill, 1px strong rule, 44px, no radius; invalid state recolours
 - **Don't** put 3D, particles or imagery behind the page; the orbs are drawn.
 - **Don't** replace the authored line icons with glyph characters or an icon set.
 - **Don't** set a display face other than Marcellus for names or headings.
+
+## Account pages (login, register, reset)
+
+Faction-neutral by design, since the visitor has not chosen Luz or Sombra yet: graphite night `#262A36`, panel `#1B1E28`, starlight ink `#ECE6D9`, a starlight primary button `#D8CEB8`, sky links `#A9C4E0`. Gold and silver appear only together, in the split-sky emblem above the title (half gold, half silver, a ring of 12 stars, a meridian). A tick rule under the subtitle echoes the app header. Same Marcellus and Gothic A1, square corners, 1px rules.
