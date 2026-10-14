@@ -213,7 +213,7 @@ git commit -m "feat(tema): theme.js decide entre Elyos y Asmodian"
 
 **Interfaces:**
 - Consumes: `THEMES`, `resolveTheme`, `otherTheme`, `themeOf` (Tarea 1).
-- Produces: variables CSS por facción (lista abajo; las usan las Tareas 3 y 6–9), `applyTheme(t, { save })` dentro de `app.js`, botones `[data-theme-choice="elyos|asmodian"]` con `aria-pressed`, `scene.setPalette({ primary, secondary, urgent, light })`.
+- Produces: variables CSS por facción (lista abajo; las usan las Tareas 3 y 6–9), `applyTheme(t, { persist })` dentro de `app.js`, botones `[data-theme-choice="elyos|asmodian"]` con `aria-pressed`, `scene.setPalette({ primary, secondary, urgent, light })`.
 
 - [ ] **Paso 1: Cargador de Playwright**
 
