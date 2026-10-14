@@ -904,8 +904,13 @@ check('cerrar todas: la cookie de renovación vieja de B no renueva', (await rep
   check('editar Premium a Normal sin tocar la energía: se guarda «normal» y la energía no cambia', gd?.account === 'normal' && gd.energy === 700 && shown === '700', JSON.stringify({ gd, shown }));
   check('editar a Normal: la fila muestra «/ 560» y pierde la marca', /\/ 560/.test(await rowG('CuentaPremium').textContent()) && (await rowG('CuentaPremium').locator('.acct-mark').count()) === 0);
   check('ambas Normal: la cabecera vuelve a «tope 560»', /tope 560/.test(await subG()), await subG());
-  const gold = await pg.evaluate(async (p) => (await fetch('/api/docs/' + p, { method: 'PATCH', credentials: 'same-origin', headers: { 'content-type': 'application/json', 'x-odyle-csrf': '1' }, body: JSON.stringify({ account: 'gold' }) })).status, gd && (await dbRows('members/')).find((r) => r.path.endsWith('/characters/' + gId)).path);
-  check('servidor: PATCH con account «gold» da error de validación', gold === 400, String(gold));
+  // PATCH con la misma forma que usa la página (un parche de campos válidos); solo cambia el valor de account
+  const gPath = (await dbRows('members/')).find((r) => r.path.endsWith('/characters/' + gId)).path;
+  const patchAccount = (account) => pg.evaluate(async ([p, a]) => { const r = await fetch('/api/docs/' + p, { method: 'PATCH', credentials: 'same-origin', headers: { 'content-type': 'application/json', 'x-odyle-csrf': '1' }, body: JSON.stringify({ name: 'CuentaPremium', energy: 700, account: a }) }); return { status: r.status, body: await r.text() }; }, [gPath, account]);
+  const gold = await patchAccount('gold');
+  check('servidor: PATCH válido salvo account «gold» se rechaza por «account»', gold.status === 400 && /Valor no válido en «account»/.test(gold.body), JSON.stringify(gold));
+  const prem = await patchAccount('premium');
+  check('servidor: el mismo PATCH con account «premium» se acepta y se guarda', prem.status === 200 && (await gEnergy())?.account === 'premium', JSON.stringify(prem));
   await collectCsp(pf, 'F');
   await F.ctx.close();
 }

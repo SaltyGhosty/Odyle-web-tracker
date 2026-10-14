@@ -150,7 +150,7 @@ Density is calm and ruled: flat rows divided by hairlines rather than boxed card
 - Rules, not boxes: 1px gold (Luz) or silver (Sombra) lines, square corners everywhere.
 - Marcellus for brand, character names and section headings; Gothic A1 for UI with tabular numerals.
 - One authored motion moment: the orb recharge ripple and the crimson cap beat.
-- Authored line icons, drawn orbs; no photography, no 3D, no particles behind the page.
+- Authored line icons, drawn orbs; no photography, no particles behind the page; the orb itself is WebGL 3D (glass, liquid, rune ring) and nothing else is 3D.
 
 ## Colors
 
@@ -273,7 +273,7 @@ Fields: Well Ink fill, 1px strong rule, 44px, no radius; invalid state recolours
 - **Don't** use crimson for anything that is not at-cap or destructive.
 - **Don't** add card shadows, backdrop blur or glass, or rounded cards.
 - **Don't** return to a white or light Elyos; Luz stays mid-tone slate dusk.
-- **Don't** put 3D, particles or imagery behind the page; the orbs are drawn.
+- **Don't** put 3D, particles or imagery behind the page; the 3D lives only inside the orb.
 - **Don't** copy the official Aion 2 script, NCSOFT art, Latin letters or Elder Futhark runes into the ring; the 28 Atreia glyphs are original drawings.
 - **Don't** replace the authored line icons with glyph characters or an icon set.
 - **Don't** set a display face other than Marcellus for names or headings.
