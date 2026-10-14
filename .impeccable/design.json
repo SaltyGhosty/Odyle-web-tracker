@@ -1,96 +1,566 @@
 {
-  "schemaVersion": 3,
+  "schemaVersion": 2,
+  "generatedAt": "2026-10-14T17:02:34Z",
   "title": "Design System: Odyle Tracker",
-  "source": "index.html :root / :root[data-faction]",
-  "themes": {
-    "elyos": {
-      "label": "Luz",
-      "--bg": "#EEF3F8",
-      "--bg-2": "#DCE7F3",
-      "--glass": "rgba(255, 255, 255, .88)",
-      "--glass-strong": "#FFFFFF",
-      "--fg": "#14213A",
-      "--muted": "#4A5770",
-      "--line": "rgba(168, 122, 30, .35)",
-      "--gold": "#A87A1E",
-      "--gold-bright": "#8A6212",
-      "--sky": "#2E6FB0",
-      "--on-gold": "#FFFFFF",
-      "--danger": "#B4232F",
-      "--urgent": "#B4232F",
-      "--field": "#FFFFFF",
-      "--hover": "rgba(20, 33, 58, .05)",
-      "--track": "rgba(20, 33, 58, .12)",
-      "--glow": "rgba(168, 122, 30, .22)",
-      "--ok": "#1E7A4C",
-      "--warn": "#A2560B",
-      "--scrim": "rgba(20, 33, 58, .35)",
-      "--shadow": "0 1px 2px rgba(20, 33, 58, .08), 0 8px 24px rgba(20, 33, 58, .08)"
+  "extensions": {
+    "colorMeta": {
+      "astro-gold": {
+        "role": "primary",
+        "displayName": "Astro Gold",
+        "canonical": "#E3A853",
+        "tonalRamp": [
+          "#110A02",
+          "#31220B",
+          "#553D1A",
+          "#7C5A29",
+          "#A5793A",
+          "#D09A4B",
+          "#ECC188",
+          "#FAECDB"
+        ]
+      },
+      "astro-gold-bright": {
+        "role": "primary",
+        "displayName": "Astro Gold Bright",
+        "canonical": "#F2C77E",
+        "tonalRamp": [
+          "#0F0A04",
+          "#2D2312",
+          "#4F3F25",
+          "#735E39",
+          "#9A7E4E",
+          "#C29F64",
+          "#ECC27B",
+          "#FBEDD5"
+        ]
+      },
+      "chart-sky": {
+        "role": "secondary",
+        "displayName": "Chart Sky",
+        "canonical": "#9CC3E6",
+        "tonalRamp": [
+          "#070C10",
+          "#1C262F",
+          "#354452",
+          "#4F6477",
+          "#6A869F",
+          "#87A9C8",
+          "#ADCDEB",
+          "#E6F0F9"
+        ]
+      },
+      "crimson": {
+        "role": "tertiary",
+        "displayName": "Crimson",
+        "canonical": "#D2453A",
+        "tonalRamp": [
+          "#1B0302",
+          "#44110C",
+          "#73221B",
+          "#A5352C",
+          "#D54F43",
+          "#E78679",
+          "#F4B8AF",
+          "#FDE9E6"
+        ]
+      },
+      "crimson-button": {
+        "role": "tertiary",
+        "displayName": "Crimson Button",
+        "canonical": "#B9372D",
+        "tonalRamp": [
+          "#1B0302",
+          "#450F0B",
+          "#751F19",
+          "#A83128",
+          "#C95C50",
+          "#DD8D81",
+          "#EDBBB4",
+          "#FAEAE8"
+        ]
+      },
+      "crimson-text": {
+        "role": "tertiary",
+        "displayName": "Crimson Text",
+        "canonical": "#FF9A8E",
+        "tonalRamp": [
+          "#140706",
+          "#371D1A",
+          "#5E3530",
+          "#884F49",
+          "#B46B63",
+          "#E3897E",
+          "#FFB2A7",
+          "#FFE8E4"
+        ]
+      },
+      "slate-dusk": {
+        "role": "neutral",
+        "displayName": "Slate Dusk",
+        "canonical": "#2F3B55",
+        "tonalRamp": [
+          "#070B14",
+          "#1C2537",
+          "#36425B",
+          "#576177",
+          "#7A8295",
+          "#9FA5B3",
+          "#C5C9D1",
+          "#EDEEF1"
+        ]
+      },
+      "slate-deep": {
+        "role": "neutral",
+        "displayName": "Slate Deep",
+        "canonical": "#1F2840",
+        "tonalRamp": [
+          "#070B16",
+          "#1C243A",
+          "#394158",
+          "#596174",
+          "#7C8292",
+          "#A0A5B1",
+          "#C6C9D0",
+          "#EDEEF1"
+        ]
+      },
+      "well-ink": {
+        "role": "neutral",
+        "displayName": "Well Ink",
+        "canonical": "#18203A",
+        "tonalRamp": [
+          "#060A18",
+          "#1B233D",
+          "#394159",
+          "#596175",
+          "#7C8293",
+          "#A0A5B1",
+          "#C6C9D1",
+          "#EDEEF1"
+        ]
+      },
+      "parchment": {
+        "role": "neutral",
+        "displayName": "Parchment",
+        "canonical": "#F4E7C8",
+        "tonalRamp": [
+          "#0C0B08",
+          "#27251E",
+          "#464238",
+          "#676153",
+          "#898270",
+          "#AEA48E",
+          "#D4C8AD",
+          "#F7EED8"
+        ]
+      },
+      "mist": {
+        "role": "neutral",
+        "displayName": "Mist",
+        "canonical": "#B9C2D6",
+        "tonalRamp": [
+          "#0A0B0E",
+          "#23252A",
+          "#3E424A",
+          "#5C616C",
+          "#7C8290",
+          "#9DA5B6",
+          "#C1C9DB",
+          "#ECEEF4"
+        ]
+      },
+      "moss-ok": {
+        "role": "neutral",
+        "displayName": "Moss",
+        "canonical": "#8FD9A8",
+        "tonalRamp": [
+          "#050D08",
+          "#182A1E",
+          "#2D4937",
+          "#456C52",
+          "#5D906E",
+          "#77B68C",
+          "#97DCAE",
+          "#E0F5E6"
+        ]
+      },
+      "amber-warn": {
+        "role": "neutral",
+        "displayName": "Amber",
+        "canonical": "#FFC27A",
+        "tonalRamp": [
+          "#110A03",
+          "#302211",
+          "#533D23",
+          "#795B36",
+          "#A27A4B",
+          "#CC9A60",
+          "#F8BC76",
+          "#FFEBD3"
+        ]
+      },
+      "abyss-night": {
+        "role": "neutral",
+        "displayName": "Abyss Night",
+        "canonical": "#1B1530",
+        "tonalRamp": [
+          "#0C0819",
+          "#26203B",
+          "#423E56",
+          "#615E73",
+          "#828091",
+          "#A5A3B0",
+          "#C9C8D0",
+          "#EEEEF0"
+        ]
+      },
+      "abyss-deep": {
+        "role": "neutral",
+        "displayName": "Abyss Deep",
+        "canonical": "#120E22",
+        "tonalRamp": [
+          "#0B0818",
+          "#252235",
+          "#423F51",
+          "#615F6F",
+          "#82818D",
+          "#A5A4AD",
+          "#C9C8CE",
+          "#EEEEF0"
+        ]
+      },
+      "abyss-well": {
+        "role": "neutral",
+        "displayName": "Abyss Well",
+        "canonical": "#0D0A19",
+        "tonalRamp": [
+          "#0B0917",
+          "#252331",
+          "#42404E",
+          "#615F6B",
+          "#82818B",
+          "#A5A4AB",
+          "#C9C8CD",
+          "#EEEEF0"
+        ]
+      },
+      "abyss-ink": {
+        "role": "neutral",
+        "displayName": "Abyss Ink",
+        "canonical": "#ECE8F6",
+        "tonalRamp": [
+          "#0B0B0C",
+          "#252427",
+          "#424146",
+          "#626066",
+          "#838189",
+          "#A6A3AD",
+          "#CAC7D3",
+          "#F0ECF8"
+        ]
+      },
+      "abyss-mist": {
+        "role": "neutral",
+        "displayName": "Abyss Mist",
+        "canonical": "#B9B3D0",
+        "tonalRamp": [
+          "#0B0B0E",
+          "#25242B",
+          "#42404C",
+          "#625F6F",
+          "#837F94",
+          "#A6A1BB",
+          "#CAC6DC",
+          "#EFEDF4"
+        ]
+      },
+      "abyss-violet": {
+        "role": "primary",
+        "displayName": "Abyss Violet",
+        "canonical": "#A58CE8",
+        "tonalRamp": [
+          "#0C0916",
+          "#27203B",
+          "#453964",
+          "#665591",
+          "#8873C0",
+          "#AB94EA",
+          "#CCC0F4",
+          "#EFECFC"
+        ]
+      },
+      "abyss-violet-bright": {
+        "role": "primary",
+        "displayName": "Abyss Violet Bright",
+        "canonical": "#C9B8F5",
+        "tonalRamp": [
+          "#0C0A11",
+          "#262231",
+          "#443E55",
+          "#645B7C",
+          "#867AA5",
+          "#AA9BCF",
+          "#CEBFF6",
+          "#F0EBFD"
+        ]
+      },
+      "abyss-silver": {
+        "role": "secondary",
+        "displayName": "Abyss Silver",
+        "canonical": "#C8CDE4",
+        "tonalRamp": [
+          "#0A0B0E",
+          "#24252A",
+          "#40414A",
+          "#5E616C",
+          "#7E8191",
+          "#A0A4B7",
+          "#C3C8DE",
+          "#ECEEF6"
+        ]
+      },
+      "abyss-liquid-deep": {
+        "role": "neutral",
+        "displayName": "Abyss Liquid Deep",
+        "canonical": "#7A58C0",
+        "tonalRamp": [
+          "#0D071B",
+          "#291B45",
+          "#483374",
+          "#6A4CA7",
+          "#8A6FCA",
+          "#AA99DB",
+          "#CCC2EB",
+          "#EFECF9"
+        ]
+      },
+      "luz-liquid-deep": {
+        "role": "neutral",
+        "displayName": "Luz Liquid Deep",
+        "canonical": "#5C8DC2",
+        "tonalRamp": [
+          "#050C15",
+          "#162638",
+          "#2A4460",
+          "#40648B",
+          "#5786B8",
+          "#83A9D2",
+          "#B5CCE5",
+          "#E8EFF7"
+        ]
+      }
     },
-    "asmodian": {
-      "label": "Sombra",
-      "--bg": "#120D17",
-      "--bg-2": "#241830",
-      "--glass": "rgba(29, 21, 36, .88)",
-      "--glass-strong": "#1D1524",
-      "--fg": "#EDE6F2",
-      "--muted": "#B5A9C4",
-      "--line": "rgba(201, 195, 214, .28)",
-      "--gold": "#9B6BD6",
-      "--gold-bright": "#C9A8F0",
-      "--sky": "#C9C3D6",
-      "--on-gold": "#120D17",
-      "--danger": "#E0455A",
-      "--urgent": "#E0455A",
-      "--field": "#150F1B",
-      "--hover": "rgba(237, 230, 242, .05)",
-      "--track": "rgba(237, 230, 242, .12)",
-      "--glow": "rgba(155, 107, 214, .35)",
-      "--ok": "#7EE2A8",
-      "--warn": "#FFB35C",
-      "--scrim": "rgba(0, 0, 0, .55)",
-      "--shadow": "0 8px 24px rgba(0, 0, 0, .35)"
-    }
-  },
-  "shared": {
-    "--font-display": "\"Cinzel\", \"Trajan Pro\", Georgia, serif",
-    "--font-body": "\"Figtree\", system-ui, -apple-system, \"Segoe UI\", sans-serif",
-    "--ease-out": "cubic-bezier(0.23, 1, 0.32, 1)"
-  },
-  "fonts": {
-    "display": {
-      "family": "Cinzel",
-      "weights": [
-        600,
-        700
-      ],
-      "use": "titulos y nombres"
+    "typographyMeta": {
+      "brand": {
+        "displayName": "Brand",
+        "purpose": "The Odyle mark, Marcellus with .06em tracking."
+      },
+      "page-title": {
+        "displayName": "Page title",
+        "purpose": "Section name in the header."
+      },
+      "heading": {
+        "displayName": "Heading",
+        "purpose": "Panel and section headings in Marcellus."
+      },
+      "character-name": {
+        "displayName": "Character name",
+        "purpose": "Row names and nicknames."
+      },
+      "energy-number": {
+        "displayName": "Energy number",
+        "purpose": "Big tabular OD value per row."
+      },
+      "body": {
+        "displayName": "Body",
+        "purpose": "Default UI text with tabular numerals."
+      },
+      "label": {
+        "displayName": "Label",
+        "purpose": "Buttons and field labels."
+      }
     },
-    "body": {
-      "family": "Figtree",
-      "weights": [
-        400,
-        500,
-        600
-      ],
-      "use": "texto",
-      "numerals": "tabular-nums"
-    }
+    "shadows": [
+      {
+        "name": "none",
+        "value": "none",
+        "purpose": "Flat system: --shadow is none; depth is a 1px rule or a fill step."
+      },
+      {
+        "name": "near-cap-halo",
+        "value": "0 0 0 3px color-mix(in srgb, var(--gold) 35%, transparent)",
+        "purpose": "Only halo in the build: ring around the near-cap status diamond."
+      }
+    ],
+    "motion": [
+      {
+        "name": "ease-out",
+        "value": "cubic-bezier(0.23, 1, 0.32, 1)",
+        "purpose": "Press, menu and sheet entrances."
+      },
+      {
+        "name": "orb-ripple",
+        "value": "900ms ease-out, once per gain",
+        "purpose": "Liquid surface slides one wavelength; newest star scales in (500ms)."
+      },
+      {
+        "name": "cap-beat",
+        "value": "2.4s ease-in-out infinite, opacity 1 to .5",
+        "purpose": "Crimson star ring pulses at cap; phased on the wall clock."
+      },
+      {
+        "name": "gate",
+        "value": "prefers-reduced-motion: no-preference and body:not(.calm)",
+        "purpose": "All orb motion is off with the system setting or Reducir animaciones."
+      }
+    ],
+    "breakpoints": [
+      {
+        "name": "phone-row",
+        "value": "720px"
+      },
+      {
+        "name": "rail",
+        "value": "900px"
+      },
+      {
+        "name": "events-column",
+        "value": "1200px"
+      }
+    ]
   },
-  "runes": {
-    "count": 56,
-    "od": 15,
-    "max": 840,
-    "glyphs": 12,
-    "ring": {
-      "flat": "SVG, sin animacion",
-      "full": "urgent"
+  "components": [
+    {
+      "name": "Button",
+      "kind": "button",
+      "refersTo": "button",
+      "description": "Ghost button with a 1px gold rule; the default action.",
+      "html": "<button class=\"ds-btn\">Ajustar recarga</button>",
+      "css": ".ds-btn{min-height:44px;padding:9px 16px;border:1px solid #E3A853;background:transparent;color:#F4E7C8;font:700 .875rem 'Gothic A1',system-ui,sans-serif;border-radius:0;cursor:pointer;transition:transform 160ms cubic-bezier(.23,1,.32,1),background-color .2s}.ds-btn:hover{background:rgba(244,231,200,.07)}.ds-btn:active{transform:scale(.97)}.ds-btn:focus-visible{outline:2px solid #9CC3E6;outline-offset:2px}"
+    },
+    {
+      "name": "Primary Button",
+      "kind": "button",
+      "refersTo": "button-primary",
+      "description": "Solid accent fill for the one main action per area.",
+      "html": "<button class=\"ds-btn ds-btn-primary\">Anadir personaje</button>",
+      "css": ".ds-btn{min-height:44px;padding:9px 16px;border:1px solid #E3A853;background:transparent;color:#F4E7C8;font:700 .875rem 'Gothic A1',system-ui,sans-serif;border-radius:0;cursor:pointer;transition:transform 160ms cubic-bezier(.23,1,.32,1),background-color .2s}.ds-btn:hover{background:rgba(244,231,200,.07)}.ds-btn:active{transform:scale(.97)}.ds-btn:focus-visible{outline:2px solid #9CC3E6;outline-offset:2px}.ds-btn-primary{background:#E3A853;color:#1F2840}.ds-btn-primary:hover{background:#F2C77E}"
+    },
+    {
+      "name": "Spend Button at Cap",
+      "kind": "button",
+      "refersTo": "button-spend-urgent",
+      "description": "Gastar on a character at cap: solid crimson.",
+      "html": "<button class=\"ds-btn ds-btn-urgent\">Gastar</button>",
+      "css": ".ds-btn{min-height:44px;padding:9px 16px;border:1px solid #E3A853;background:transparent;color:#F4E7C8;font:700 .875rem 'Gothic A1',system-ui,sans-serif;border-radius:0;cursor:pointer;transition:transform 160ms cubic-bezier(.23,1,.32,1),background-color .2s}.ds-btn:hover{background:rgba(244,231,200,.07)}.ds-btn:active{transform:scale(.97)}.ds-btn:focus-visible{outline:2px solid #9CC3E6;outline-offset:2px}.ds-btn-urgent{background:#B9372D;border-color:#B9372D;color:#F4E7C8}"
+    },
+    {
+      "name": "Input",
+      "kind": "input",
+      "refersTo": "input",
+      "description": "Square field on Well Ink with a strong 1px rule.",
+      "html": "<input class=\"ds-input\" placeholder=\"Jefe de campo\">",
+      "css": ".ds-input{min-height:44px;width:240px;padding:9px 12px;background:#18203A;color:#F4E7C8;border:1px solid rgba(227,168,83,.6);border-radius:0;font:inherit}.ds-input::placeholder{color:#B9C2D6}.ds-input:focus-visible{outline:2px solid #9CC3E6;outline-offset:2px}"
+    },
+    {
+      "name": "Rail Nav",
+      "kind": "nav",
+      "refersTo": "rail",
+      "description": "Desktop rail item list; current item is gold on a faint gold wash.",
+      "html": "<nav class=\"ds-rail\"><button class=\"ds-rail-i\" aria-current=\"page\">Energia <span class=\"ds-badge\">2</span></button><button class=\"ds-rail-i\">Eventos</button><button class=\"ds-rail-i\">Amigos</button></nav>",
+      "css": ".ds-rail{width:232px;display:flex;flex-direction:column;gap:2px;padding:16px;background:#1F2840;border-right:1px solid #E3A853}.ds-rail-i{display:flex;align-items:center;gap:10px;min-height:44px;padding:10px 12px;border:none;background:none;color:#B9C2D6;font:500 .875rem 'Gothic A1',sans-serif;text-align:left;cursor:pointer;border-radius:0}.ds-rail-i:hover{color:#F4E7C8;background:rgba(244,231,200,.07)}.ds-rail-i:focus-visible{outline:2px solid #9CC3E6}.ds-rail-i[aria-current=page]{color:#E3A853;font-weight:700;background:rgba(227,168,83,.1)}.ds-badge{margin-left:auto;min-width:18px;height:18px;padding:0 5px;display:inline-grid;place-items:center;background:#E3A853;color:#1F2840;font-size:.7rem;font-weight:700}"
+    },
+    {
+      "name": "Badge",
+      "kind": "chip",
+      "refersTo": "badge",
+      "description": "Square count/status badge.",
+      "html": "<span class=\"ds-badge2\">NUEVO</span>",
+      "css": ".ds-badge2{display:inline-block;padding:3px 10px;background:#E3A853;color:#1F2840;font:600 .7rem 'Gothic A1',sans-serif;letter-spacing:.12em;text-transform:uppercase}"
+    },
+    {
+      "name": "Quick Spend Chip",
+      "kind": "chip",
+      "refersTo": "panel",
+      "description": "Quick-spend chip: card fill, hairline border, bright gold price.",
+      "html": "<button class=\"ds-chip\">Mazmorra <b>40</b></button>",
+      "css": ".ds-chip{min-height:44px;padding:0 14px;background:#1F2840;border:1px solid rgba(227,168,83,.32);color:#F4E7C8;font:500 .875rem 'Gothic A1',sans-serif;border-radius:0;cursor:pointer}.ds-chip b{color:#F2C77E;margin-left:6px;font-weight:700}.ds-chip:hover{background:rgba(244,231,200,.07)}.ds-chip:focus-visible{outline:2px solid #9CC3E6;outline-offset:2px}"
+    },
+    {
+      "name": "Character Row",
+      "kind": "custom",
+      "refersTo": "panel",
+      "description": "Flat row: orb, Marcellus name, class, status diamond, big tabular number, actions, over a 1px rule.",
+      "html": "<div class=\"ds-row\"><svg viewBox=\"0 0 104 104\" width=\"104\" height=\"104\"><circle cx=\"52\" cy=\"52\" r=\"36\" fill=\"#18203A\"/><path d=\"M16 66Q26 62 36 66T56 66T76 66T96 66V88H16Z\" fill=\"#F2C77E\" opacity=\".85\"/><circle cx=\"52\" cy=\"52\" r=\"36\" fill=\"none\" stroke=\"#9CC3E6\" opacity=\".75\"/><circle cx=\"52\" cy=\"6\" r=\"3\" fill=\"#E3A853\"/><circle cx=\"98\" cy=\"52\" r=\"3\" fill=\"#E3A853\"/><circle cx=\"52\" cy=\"98\" r=\"3\" fill=\"#E3A853\" opacity=\".3\"/></svg><div class=\"ds-t\"><span class=\"ds-n\">Aelwen</span><span class=\"ds-c\">Clerigo</span><span class=\"ds-s\">Lleno en 02:59:52</span></div><span class=\"ds-num\">525</span><button class=\"ds-rowbtn\">Gastar</button></div>",
+      "css": ".ds-row{display:grid;grid-template-columns:104px 1fr 132px auto;align-items:center;gap:4px 20px;padding:8px 0;border-bottom:1px solid rgba(227,168,83,.32);background:#2F3B55;color:#F4E7C8;font-family:'Gothic A1',sans-serif}.ds-t{display:flex;flex-direction:column;gap:4px}.ds-n{font-family:Marcellus,Georgia,serif;font-size:1.5rem;line-height:1.2}.ds-c{font-size:.6875rem;font-weight:700;letter-spacing:.14em;text-transform:uppercase;color:#9CC3E6}.ds-s{color:#B9C2D6}.ds-s::before{content:'';display:inline-block;width:6px;height:6px;transform:rotate(45deg);background:#E3A853;margin-right:8px;vertical-align:middle}.ds-num{font-size:3rem;font-weight:800;line-height:1;text-align:right;font-variant-numeric:tabular-nums}.ds-rowbtn{min-height:44px;padding:9px 16px;border:1px solid #9CC3E6;background:none;color:#9CC3E6;font:700 .875rem 'Gothic A1',sans-serif;border-radius:0;cursor:pointer}.ds-rowbtn:hover{background:rgba(244,231,200,.07)}.ds-rowbtn:focus-visible{outline:2px solid #9CC3E6;outline-offset:2px}"
+    },
+    {
+      "name": "Tick Ruler with Meridian",
+      "kind": "custom",
+      "refersTo": "panel",
+      "description": "Header ruler: ticks every 12px, long ticks every 48px, gold meridian with diamond cap.",
+      "html": "<div class=\"ds-hd\"><h1 class=\"ds-h1\">Energia</h1><div class=\"ds-ruler\"><div class=\"ds-mer\"><span>PROXIMA RECARGA 02:59:52</span></div></div></div>",
+      "css": ".ds-hd{position:relative;padding-bottom:36px;min-height:104px;border-bottom:1px solid #E3A853;color:#F4E7C8;background:#2F3B55}.ds-h1{margin:0;font:800 1.875rem/1.1 'Gothic A1',sans-serif}.ds-ruler{position:absolute;left:0;right:0;bottom:0;height:30px;background:repeating-linear-gradient(90deg,rgba(227,168,83,.32) 0 1px,transparent 1px 48px) bottom/100% 8px no-repeat,repeating-linear-gradient(90deg,rgba(227,168,83,.32) 0 1px,transparent 1px 12px) bottom/100% 4px no-repeat}.ds-mer{position:absolute;top:0;bottom:0;left:35%;width:1px;background:#E3A853}.ds-mer::before{content:'';position:absolute;left:-3px;top:-1px;width:7px;height:7px;background:#E3A853;transform:rotate(45deg)}.ds-mer span{position:absolute;top:1px;left:10px;white-space:nowrap;color:#E3A853;font:700 .6875rem 'Gothic A1',sans-serif;letter-spacing:.08em}"
     }
-  },
-  "motion": {
-    "ease": "cubic-bezier(0.23, 1, 0.32, 1)",
-    "press": "scale(0.97)",
-    "pressMs": 160,
-    "reducedMotion": "sin transiciones, orbe plano"
+  ],
+  "narrative": {
+    "northStar": "Carta celeste de Atreia",
+    "overview": "**Creative North Star: \"Carta celeste de Atreia\"**\n\nCharacters are astros on a star chart. Each one is a glass sphere of liquid light ringed by 56 four-point stars (one per +15 OD, 840 cap), and a gold meridian on a tick ruler measures time to the next recharge. The page is a flat chart: slate ground, 1px rules, square corners, no glass, no card shadows. Luz is a mid-tone golden dusk on slate (nothing white); Sombra is the violet Abyss with silver rules. Both are dark worlds; the same crimson marks \"at cap\" in both.\n\nDensity is calm and ruled: flat rows divided by hairlines rather than boxed cards. Everything that is not the orb is quiet so that the one hot thing (an astro at cap, crimson) reads first.",
+    "keyCharacteristics": [
+      "Two dark faction themes switched by `data-faction` on `<html>`; every colour on the page is a token.",
+      "Rules, not boxes: 1px gold (Luz) or silver (Sombra) lines, square corners everywhere.",
+      "Marcellus for brand, character names and section headings; Gothic A1 for UI with tabular numerals.",
+      "One authored motion moment: the orb recharge ripple and the crimson cap beat.",
+      "Authored line icons, drawn orbs; no photography, no 3D, no particles behind the page."
+    ],
+    "rules": [
+      {
+        "name": "The Crimson-Means-Cap Rule",
+        "body": "Crimson appears only for an astro at cap (or a destructive/error state). It is never decoration and never a faction accent.",
+        "section": "colors"
+      },
+      {
+        "name": "The Token-Only Rule",
+        "body": "No component writes a colour; it reads a variable, so both factions stay in step. The only literal is the crimson family, shared by both themes.",
+        "section": "colors"
+      },
+      {
+        "name": "The Gold-Is-The-Accent Rule",
+        "body": "`--gold` is whichever accent the faction owns; do not hard-code gold into Sombra surfaces.",
+        "section": "colors"
+      },
+      {
+        "name": "The Name-In-Marcellus Rule",
+        "body": "A proper name (brand, character, nickname, section heading) is Marcellus; any number, button or helper text is Gothic A1.",
+        "section": "typography"
+      },
+      {
+        "name": "The Tabular Rule",
+        "body": "Every counting number (OD, timers, counts) is tabular so columns and live clocks do not jitter.",
+        "section": "typography"
+      },
+      {
+        "name": "The Rule-Not-Shadow Rule",
+        "body": "To separate or lift something, draw a 1px rule or step the fill. Never add a shadow, blur or glass.",
+        "section": "elevation"
+      }
+    ],
+    "dos": [
+      "**Do** read every colour from a variable, and verify both `data-faction` themes.",
+      "**Do** draw separation with a 1px `--line` rule; use `--line-strong` on interactive borders.",
+      "**Do** keep all corners square (0 radius) and badges square.",
+      "**Do** keep the orb column identical in every row and the constellation straight and dotted.",
+      "**Do** put names in Marcellus and operable text and numbers in Gothic A1 tabular.",
+      "**Do** give any new motion a `prefers-reduced-motion` gate and the body.calm switch, and start it from an event, not from the per-second repaint.",
+      "**Do** keep tap targets at 44px minimum and the toast docked above the bottom bar on phones."
+    ],
+    "donts": [
+      "**Don't** use crimson for anything that is not at-cap or destructive.",
+      "**Don't** add card shadows, backdrop blur or glass, or rounded cards.",
+      "**Don't** return to a white or light Elyos; Luz stays mid-tone slate dusk.",
+      "**Don't** put 3D, particles or imagery behind the page; the orbs are drawn.",
+      "**Don't** replace the authored line icons with glyph characters or an icon set.",
+      "**Don't** set a display face other than Marcellus for names or headings."
+    ]
   }
 }
