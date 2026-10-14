@@ -37,12 +37,13 @@ Un tracker de **Energía Odyle** para Aion 2: llevas la cuenta de la energía de
 - Perfil con nombre, personaje principal, servidor, facción y frase. El título de tu legión aparece debajo de tu nombre.
 - Calendario, muro y ranking. Solo ves los de **tu** legión.
 - «Busco grupo» para encontrar compañeros (solo en la versión artifact, que tiene salas en tiempo real).
-- **Amigos, chat en vivo y búsqueda de perfiles** (solo versión web; la interfaz llega en la próxima fase): busca jugadores por nombre, envía solicitudes, chatea en tiempo real con tus amigos e invítalos a grupo. Cada uno decide si aparece en la búsqueda y si comparte su energía. La API ya está lista; las pantallas llegan con la interfaz.
+- **Amigos, Chat en vivo y Buscar perfiles** (solo versión web): busca jugadores por nombre, envía solicitudes, chatea en tiempo real con tus amigos e invítalos a grupo. Cada uno decide si aparece en la búsqueda y si comparte su energía.
 
 **Interfaz**
 - Barra de navegación a cualquier ancho de pantalla.
 - Idiomas: español, inglés, italiano y portugués. En las pantallas de cuenta (login, registro…) hay un menú hamburguesa con banderas para cambiar de idioma, y la elección se mantiene al entrar.
-- Orbe animado en 3D (three.js).
+- Temas por facción: **Elyos** (Luz, claro) y **Asmodian** (Sombra, oscuro), con un interruptor en la cabecera.
+- Orbe animado en 3D (three.js) con un anillo de **56 runas**, una por cada +15 de energía; en carmesí al tope. Sin WebGL o con «reducir movimiento» se ve un orbe plano con el mismo anillo.
 
 ## Dos versiones, un mismo código
 
@@ -134,7 +135,7 @@ Abre `http://localhost:3000`. El servidor aplica las migraciones al arrancar.
 | `npm test` | raíz | Tests unitarios de los módulos de la página |
 | `npm run e2e` | raíz | E2E de la versión artifact con Playwright |
 | `npm run build:web` | raíz | Compila la versión web en `server/public/` |
-| `node dev/e2e-web.mjs` | raíz | E2E de la web completa: registro, login, legión, XSS, CSP, logout |
+| `node dev/e2e-web.mjs` | raíz | E2E de la web completa: registro, login, legión, amigos, chat, temas, XSS, CSP, logout. En Windows: `npm i --no-save playwright` y, si falta el navegador, `npx playwright install chromium` |
 | `node --test` | `server/` | Tests del servidor y suite de ataques, con `pg-mem` |
 | `bash scripts/test-pg.sh` | `server/` | Los mismos tests contra un PostgreSQL 16 real |
 

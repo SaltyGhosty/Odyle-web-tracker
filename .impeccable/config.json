@@ -1,0 +1,113 @@
+{
+  "detector": {
+    "ignoreRules": [],
+    "ignoreFiles": [],
+    "ignoreValues": [
+      {
+        "rule": "cramped-padding",
+        "value": "*",
+        "files": [
+          ".impeccable/mocks/decision/model-pick.html"
+        ],
+        "createdAt": "2026-10-13T20:11:16.576Z",
+        "reason": "Claude: unchosen decision sketch (Reloj astronómico), spent mock, never ships"
+      },
+      {
+        "rule": "aphoristic-cadence",
+        "value": "*",
+        "files": [
+          "design/redesign/crear-cuenta.html"
+        ],
+        "createdAt": "2026-10-13T20:21:02.445Z",
+        "reason": "Claude: required unofficial fan-site disclaimer from PRODUCT.md brand commitments"
+      },
+      {
+        "rule": "aphoristic-cadence",
+        "value": "*",
+        "files": [
+          "design/redesign/entrar.html"
+        ],
+        "createdAt": "2026-10-13T20:21:02.635Z",
+        "reason": "Claude: required unofficial fan-site disclaimer from PRODUCT.md brand commitments"
+      },
+      {
+        "rule": "design-system-font",
+        "value": "a1",
+        "createdAt": "2026-10-13T20:46:14.202Z",
+        "reason": "Claude: false positive, 'Gothic A1' is the DESIGN.md typeface; detector tokenizes the family name"
+      },
+      {
+        "rule": "marquee",
+        "value": "*",
+        "files": [
+          "design/redesign/energia.html"
+        ],
+        "createdAt": "2026-10-13T20:46:14.424Z",
+        "reason": "Claude: at-cap tessera glint (5s cycle, 14% active, static under reduced motion) is the direction contract's signature, required by the finish reviewer"
+      },
+      {
+        "rule": "marquee",
+        "value": "*",
+        "files": [
+          "design/redesign/amigos.html"
+        ],
+        "createdAt": "2026-10-13T20:46:14.641Z",
+        "reason": "Claude: at-cap tessera glint (5s cycle, 14% active, static under reduced motion) is the direction contract's signature, required by the finish reviewer"
+      },
+      {
+        "rule": "marquee",
+        "value": "*",
+        "files": [
+          "design/redesign/chat.html"
+        ],
+        "createdAt": "2026-10-13T20:46:14.858Z",
+        "reason": "Claude: at-cap tessera glint (5s cycle, 14% active, static under reduced motion) is the direction contract's signature, required by the finish reviewer"
+      },
+      {
+        "rule": "marquee",
+        "value": "*",
+        "files": [
+          "design/redesign/estadisticas.html"
+        ],
+        "createdAt": "2026-10-13T20:46:15.069Z",
+        "reason": "Claude: at-cap tessera glint (5s cycle, 14% active, static under reduced motion) is the direction contract's signature, required by the finish reviewer"
+      },
+      {
+        "rule": "marquee",
+        "value": "*",
+        "files": [
+          "design/redesign/entrar.html"
+        ],
+        "createdAt": "2026-10-13T20:46:15.277Z",
+        "reason": "Claude: at-cap tessera glint (5s cycle, 14% active, static under reduced motion) is the direction contract's signature, required by the finish reviewer"
+      },
+      {
+        "rule": "marquee",
+        "value": "*",
+        "files": [
+          "design/redesign/crear-cuenta.html"
+        ],
+        "createdAt": "2026-10-13T20:46:15.519Z",
+        "reason": "Claude: at-cap tessera glint (5s cycle, 14% active, static under reduced motion) is the direction contract's signature, required by the finish reviewer"
+      },
+      {
+        "rule": "marquee",
+        "value": "*",
+        "files": [
+          "design/redesign/index.html"
+        ],
+        "createdAt": "2026-10-13T20:46:15.760Z",
+        "reason": "Claude: at-cap tessera glint (5s cycle, 14% active, static under reduced motion) is the direction contract's signature, required by the finish reviewer"
+      },
+      {
+        "rule": "marquee",
+        "value": "*",
+        "files": [
+          "design/redesign/perfil.html"
+        ],
+        "createdAt": "2026-10-13T20:46:16.043Z",
+        "reason": "Claude: at-cap tessera glint (5s cycle, 14% active, static under reduced motion) is the direction contract's signature, required by the finish reviewer"
+      }
+    ]
+  }
+}
