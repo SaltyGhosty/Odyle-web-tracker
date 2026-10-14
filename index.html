@@ -51,10 +51,10 @@
   #scene { position: fixed; inset: 0; width: 100%; height: 100%; z-index: 0; pointer-events: none; display: block; }
   .page {
     position: relative; z-index: 1;
-    max-width: 960px; margin-inline: auto;
     padding: 28px 16px 56px;
-    display: flex; flex-direction: column; gap: 24px;
+    display: flex; flex-direction: column; align-items: center; gap: 24px;
   }
+  .page > * { width: min(100%, 928px); min-width: 0; }
 
   /* ---- Header with live countdown ---- */
   header { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 16px 24px; }
@@ -366,7 +366,7 @@
     .topnav .more-btn { display: none; }
     .rail-brand { display: block; padding: 4px 12px 16px; }
     .rail-foot { display: flex; flex-direction: column; gap: 12px; margin-top: auto; padding-top: 16px; }
-    .page { margin-left: calc(220px + max(0px, (100vw - 220px - 960px) / 2)); margin-right: 0; }
+    .page { margin-left: 220px; }
     header .brand { display: none; }
   }
   @media (max-width: 899.98px) {
@@ -376,6 +376,25 @@
     .topnav .badge { position: absolute; top: 2px; left: calc(50% + 6px); }
     .page { padding-bottom: calc(80px + env(safe-area-inset-bottom)); }
   }
+  .side { display: none; }
+  @media (min-width: 1200px) {
+    .side { display: flex; flex-direction: column; gap: 20px; position: fixed; top: 0; right: 0; bottom: 0; width: 280px; padding: 20px 16px; overflow-y: auto;
+      border-left: 1px solid var(--line); background: var(--glass-strong); z-index: 10;
+      -webkit-backdrop-filter: blur(12px); backdrop-filter: blur(12px); }
+    .page { margin-right: 280px; }
+  }
+  .side-h { font-size: .75rem; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); font-family: var(--font-body); font-weight: 600; margin: 0 0 8px; }
+  .side-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
+  .side-list li { display: flex; justify-content: space-between; gap: 8px; align-items: center; min-width: 0; font-size: .875rem; }
+  .side-list li > span:not(.dot) { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .side-list li b { flex: none; color: var(--gold-bright); font-weight: 600; }
+  .side-list .dot { flex: none; width: 8px; height: 8px; border-radius: 50%; background: var(--ok); }
+  .side-list li:has(.dot) { justify-content: flex-start; }
+  .side-link { margin-top: 8px; min-height: 44px; padding: 4px 12px; font-size: .8125rem; border: 1px solid var(--line); border-radius: 10px; background: none; color: var(--fg);
+    transition: transform .16s var(--ease-out), background-color .16s var(--ease-out); }
+  .side-link:active { transform: scale(0.97); }
+  @media (hover: hover) and (pointer: fine) { .side-link:hover { background: var(--hover); } }
+  @media (prefers-reduced-motion: reduce) { .side-link { transition: none; } }
   .more-sheet { position: fixed; z-index: 30; inset: auto 0 0 0; margin: 0; width: 100%; max-width: none; max-height: 80vh; border: 1px solid var(--line); border-bottom: none;
     border-radius: 16px 16px 0 0; background: var(--glass-strong); color: var(--fg); padding: 16px 16px calc(16px + env(safe-area-inset-bottom)); box-shadow: var(--shadow); }
   .more-sheet::backdrop { background: var(--scrim); }
@@ -785,6 +804,10 @@
     <svg id="history" class="chart" role="img" aria-label="OD gastada cada día, últimos 7 días"></svg>
   </section>
 </div>
+<aside id="side" class="side" aria-label="Resumen">
+  <section><h2 class="side-h">Eventos</h2><ul id="side-events" class="side-list"></ul><button type="button" class="side-link" data-go="eventos">Ver todos</button></section>
+  <section id="side-online-box" hidden><h2 class="side-h">En línea</h2><ul id="side-online" class="side-list"></ul></section>
+</aside>
 
 <!-- Almacén oculto: de aquí toman Ajustes y Novedades sus paneles (applyLayout los mueve a su sección). -->
 <aside id="drawer" class="drawer" hidden>
@@ -1739,6 +1762,16 @@
   }
   let activeTab = 'personajes';
   try { activeTab = resolveTab(localStorage.getItem('odyle-tab'), { social: SOCIAL }); } catch {}
+  function paintSideOnline(list, go) {
+    $('side-online-box').hidden = list.length === 0;
+    $('side-online').replaceChildren(...list.slice(0, 8).map((u) => el('li', {}, el('span', { class: 'dot', 'aria-hidden': 'true' }), el('span', { translate: 'no' }, u.nick || '—'))));
+    $('side-online-box').querySelector('.side-link')?.remove();
+    $('side-online-box').append(el('button', { type: 'button', class: 'side-link', 'data-go': go }, 'Ver todos'));
+  }
+  $('side').addEventListener('click', (ev) => {
+    const b = ev.target.closest('[data-go]');
+    if (b) setTab(b.dataset.go);
+  });
   function setTab(id) {
     id = resolveTab(id, { social: SOCIAL });
     activeTab = id;
@@ -1872,6 +1905,8 @@
     const activeNow = new Set(items.filter(i => i.o.active && i.e.durationMin > 0).map(i => i.e.id));
     for (const id of activeNow) if (lastActive && !lastActive.has(id)) sound.chime();
     lastActive = activeNow;
+    $('side-events').replaceChildren(...items.slice(0, 3).map(({ e, o }) => el('li', {},
+      el('span', {}, e.name), el('b', { class: 'num' }, o.active ? 'En curso' : countdown(o.startMs - now)))));
     const first = items[0];
     $('events-next').textContent = first.o.active ? `${first.e.name}: en curso` : `Próximo: ${first.e.name} en ${countdown(first.o.startMs - now)}`;
   }
@@ -2684,6 +2719,7 @@
     $('online-title').textContent = lroom ? `En línea (${list.length})` : 'En línea';
     $('online-list').replaceChildren(...list.map(u => el('li', { class: u.me ? 'me' : '' },
       u.me ? 'Tú' : nameOf(u.uid), u.char ? el('small', {}, u.char) : null)));
+    if (!SOCIAL) paintSideOnline(lroom ? list.filter(u => !u.me).map(u => ({ uid: u.uid, nick: nameOf(u.uid) })) : [], 'legion');
     const now = Date.now();
     while (lfgs.length && now - lfgs[0].at > LFG_TTL) lfgs.shift();
     const lfgKey = JSON.stringify(lfgs.map(o => [o.id, o.replied])) + JSON.stringify(state.names) + ui.readOnly;
@@ -2966,7 +3002,7 @@
     if (SOCIAL && my && !social) {
       import('./social-ui.js').then((m) => {
         social = m.startSocial({
-          api: window.odyleSocialApi, me: myUid, panels: socialPanels, setBadge, goTab: setTab,
+          api: window.odyleSocialApi, me: myUid, onOnline: (list) => paintSideOnline(list, 'amigos'), panels: socialPanels, setBadge, goTab: setTab,
           myRows: () => buildView(state.characters, state.schedule, Date.now()).rows,
           anchorMs: () => (state.schedule && Number.isFinite(state.schedule.anchorMs) ? state.schedule.anchorMs : null),
         });

@@ -506,6 +506,16 @@ check('cerrar todas: la cookie de renovación vieja de B no renueva', (await rep
   await pd.waitForSelector('#social-amigos .social-list li');
   check('amigos: D acepta y C aparece como amigo', /CarlaLuz/.test(await text(pd, '#social-amigos')));
 
+  // columna lateral: visible y con el amigo en línea a >= 1200 px, oculta por debajo
+  await pc.setViewportSize({ width: 1440, height: 900 });
+  await pc.waitForFunction(() => /DaniSombra/.test(document.querySelector('#side-online')?.textContent || ''), null, { timeout: 10000 }).catch(() => {});
+  check('columna lateral: a 1440 px se ve y muestra al amigo en línea',
+    await pc.locator('#side').isVisible() && /DaniSombra/.test(await text(pc, '#side-online')) && !(await pc.locator('#side-online-box').isHidden()));
+  check('columna lateral: sin scroll horizontal a 1440 px', await pc.evaluate(() => document.documentElement.scrollWidth <= innerWidth));
+  await pc.setViewportSize({ width: 1000, height: 800 });
+  check('columna lateral: a 1000 px está oculta', await pc.locator('#side').isHidden());
+  await pc.setViewportSize({ width: 1280, height: 900 });
+
   // chat en vivo C → D, con texto que coincide con la interfaz y un mensaje largo
   await pc.click('[data-tab="amigos"]');
   await pc.waitForSelector('#social-amigos .social-list li button.primary');

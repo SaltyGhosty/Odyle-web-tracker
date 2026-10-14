@@ -54,12 +54,13 @@ const errors = [];
 // Theme screenshots: THEME_SHOTS=1 node dev/preview.mjs → dev/screens/tema-{elyos,asmodian}-{desktop,mobile}.png
 if (process.env.THEME_SHOTS) {
   for (const theme of ['elyos', 'asmodian']) {
-    for (const [label, width, height] of [['desktop', 1280, 900], ['mobile', 390, 844]]) {
+    for (const [label, width, height] of (process.env.SHOT_SIZES ? JSON.parse(process.env.SHOT_SIZES) : [['desktop', 1280, 900], ['mobile', 390, 844]])) {
       const ctx = await browser.newContext({ viewport: { width, height }, colorScheme: theme === 'asmodian' ? 'dark' : 'light' });
       const page = await ctx.newPage();
       await page.route(THREE_URL, r => r.fulfill({ contentType: 'text/javascript', body: THREE_SRC }));
       page.on('pageerror', e => errors.push(`theme ${theme}/${label}: ${e.message}`));
       await page.addInitScript(t => { try { localStorage.setItem('odyle-theme', t); } catch {} }, theme);
+      if (process.env.SHOT_TAB) await page.addInitScript(t => { try { localStorage.setItem('odyle-tab', t); } catch {} }, process.env.SHOT_TAB);
       await page.addInitScript(() => {
         const now = Date.now();
         window.__SEED = { characters: {
@@ -71,7 +72,7 @@ if (process.env.THEME_SHOTS) {
       await page.addInitScript(STUB);
       await page.goto(BASE);
       await page.waitForTimeout(2500); await page.keyboard.press('Escape'); await page.waitForTimeout(400);
-      await page.screenshot({ path: `dev/screens/tema-${theme}-${label}.png` });
+      await page.screenshot({ path: `dev/screens/${process.env.SHOT_PREFIX || 'tema'}-${theme}-${label}.png` });
       await ctx.close();
     }
   }
