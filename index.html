@@ -434,7 +434,7 @@
   .add-btn { width: 44px; height: 44px; min-height: 0; padding: 0; border-radius: 50%; font-size: 1.6rem; line-height: 1; font-weight: 500;
     background: linear-gradient(180deg, var(--gold-bright), var(--gold)); color: var(--on-gold); border-color: var(--gold);
     box-shadow: 0 0 16px color-mix(in srgb, var(--gold) 40%, transparent); display: grid; place-items: center; }
-  .add-btn:hover { box-shadow: 0 0 22px color-mix(in srgb, var(--gold) 65%, transparent); }
+  @media (hover: hover) and (pointer: fine) { .add-btn:hover { box-shadow: 0 0 22px color-mix(in srgb, var(--gold) 65%, transparent); } }
   .modal { position: fixed; inset: 0; z-index: 14; display: grid; place-items: center; padding: 16px; background: var(--scrim);
     opacity: 0; transition: opacity .22s ease; }
   .modal.open { opacity: 1; }
@@ -462,7 +462,7 @@
 
   .chars-actions { display: flex; align-items: center; gap: 10px; }
   .presets-btn { border-radius: 999px; padding: 8px 14px; min-height: 40px; border-color: var(--sky); color: var(--sky); }
-  .presets-btn:hover { border-color: var(--sky); box-shadow: 0 0 14px color-mix(in srgb, var(--sky) 35%, transparent); }
+  @media (hover: hover) and (pointer: fine) { .presets-btn:hover { border-color: var(--sky); box-shadow: 0 0 14px color-mix(in srgb, var(--sky) 35%, transparent); } }
 
   /* ---- Profile chip in the header ---- */
   .profile-chip { display: flex; align-items: center; gap: 10px; padding: 6px 14px 6px 6px; border-radius: 999px; min-height: 0; text-align: left;
@@ -525,9 +525,9 @@
     }
     button.primary::after {
       content: ""; position: absolute; inset: 0; transform: translateX(-120%);
-      background: linear-gradient(100deg, transparent 30%, rgba(255, 255, 255, .55) 50%, transparent 70%);
+      background: linear-gradient(100deg, transparent 30%, color-mix(in srgb, var(--on-gold) 55%, transparent) 50%, transparent 70%);
     }
-    button.primary:hover::after { transition: transform .7s ease; transform: translateX(120%); }
+    @media (hover: hover) and (pointer: fine) { button.primary:hover::after { transition: transform .7s ease; transform: translateX(120%); } }
     .ring .arc { transition: stroke-dashoffset 1s linear; }
   }
 </style>
