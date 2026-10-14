@@ -38,6 +38,7 @@ Todo color de la pagina es una variable; nada mas escribe colores a mano (salvo 
 | `--warn` | `#A2560B` | `#FFB35C` |
 | `--scrim` | `rgba(20, 33, 58, .35)` | `rgba(0, 0, 0, .55)` |
 | `--shadow` | `0 1px 2px rgba(20, 33, 58, .08), 0 8px 24px rgba(20, 33, 58, .08)` | `0 8px 24px rgba(0, 0, 0, .35)` |
+
 Compartidas por ambos temas: `--font-display`, `--font-body`, `--ease-out: cubic-bezier(0.23, 1, 0.32, 1)`. `color-scheme` es `light` en Elyos y `dark` en Asmodian. `theme-color` del navegador: `#EEF3F8` y `#120D17`.
 
 Roles: `--gold` y `--gold-bright` son el acento de marca (oro en Elyos, violeta en Asmodian); `--sky` es el acento secundario (celeste / plata); `--urgent` y `--danger` son carmesi y marcan el tope de energia y los errores.
