@@ -6,7 +6,7 @@ import { register } from 'node:module';
 // orb3d.js imports Three.js from the CDN (the build rewrites it); in Node, resolve that URL to the installed package.
 register('data:text/javascript,' + encodeURIComponent(
   "export const resolve = (s, c, next) => next(s.startsWith('https://cdn.jsdelivr.net/npm/three@') ? 'three' : s, c);"));
-const { levelOf, ripplePower, beatOpacity, spinAngle, runePositions, parseColor, atlasCell, RIPPLE_MS, BEAT_MS, TURN_MS, RING_R, RING_TILT, createOrbs3D } = await import('./orb3d.js');
+const { levelOf, ripplePower, beatOpacity, spinAngle, runePositions, parseColor, atlasCell, RUNE_INK, RIPPLE_MS, BEAT_MS, TURN_MS, RING_R, RING_TILT, createOrbs3D } = await import('./orb3d.js');
 
 const near = (a, b, eps = 1e-9) => Math.abs(a - b) < eps;
 
@@ -89,4 +89,22 @@ test('atlasCell: rune i samples cell i % 28 of the 7 × 4 atlas', () => {
   assert.deepEqual(atlasCell(7), { col: 0, row: 1 });
   assert.deepEqual(atlasCell(27), { col: 6, row: 3 });
   assert.deepEqual(atlasCell(28), { col: 0, row: 0 });
+});
+
+test('runePositions: each rune shrinks to its on-screen spacing so neighbours never overlap', () => {
+  const pos = runePositions(0);
+  for (const p of pos) assert.ok(p.scale >= 0.3 - 1e-9 && p.scale <= 1);
+  // front and back of the ring (tangent across the screen): full size; the ends of the ellipse: much smaller
+  assert.ok(pos[0].scale > 0.9 && pos[28].scale > 0.9);
+  assert.ok(pos[14].scale < 0.5 && pos[42].scale < 0.5);
+  // projected on the screen (x, y), the ink boxes of two neighbours do not touch along the line between them
+  for (const spin of [0, 0.3, 1.1]) {
+    const q = runePositions(spin);
+    q.forEach((a, i) => {
+      const b = q[(i + 1) % q.length];
+      const dx = b.x - a.x, dy = b.y - a.y, d = Math.hypot(dx, dy);
+      const reach = (r) => r.scale * (RUNE_INK.w * Math.abs(dx) + RUNE_INK.h * Math.abs(dy)) / d / 2;
+      assert.ok(reach(a) + reach(b) <= d + 1e-9, `runes ${i} and ${i + 1} overlap at spin ${spin}`);
+    });
+  }
 });

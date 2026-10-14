@@ -15,6 +15,11 @@ const VIEW_HALF = 1.5;              // world half-height seen at z = 0: the ring
 export const ATLAS_COLS = 7, ATLAS_ROWS = 4, ATLAS_CELL = 64;
 const ATLAS_SCALE = 3.5;            // rune grid unit → atlas px: the 10 × 14 glyph is 49 px tall in its 64 px cell
 const RUNE_SIZE = 0.11;             // quad half-size in world units: a front rune (nearest the camera) is ~7 px tall on a 104 px orb
+const ATLAS_STROKE = 1.6;           // rune grid units
+// World size of a full-size rune's ink (glyphs span x 1..9, y 1..13 of their 10 × 14 grid, plus the stroke).
+export const RUNE_INK = { w: 2 * RUNE_SIZE * (8 + ATLAS_STROKE) * ATLAS_SCALE / ATLAS_CELL, h: 2 * RUNE_SIZE * (12 + ATLAS_STROKE) * ATLAS_SCALE / ATLAS_CELL };
+const RUNE_GAP = 1.05;              // spacing / ink box ≥ this (the box is the widest glyph's): neighbours never touch
+const RUNE_MIN_SCALE = 0.3;         // at the ends of the ellipse neighbours sit ~2 px apart: runes shrink this far to stay apart
 
 // ---- Pure helpers (tested in orb3d.test.js) ----
 export function levelOf(energy, max = MAX) {
@@ -31,14 +36,21 @@ export function ripplePower(elapsedMs) {
 export const beatOpacity = (now) => 0.75 + 0.25 * Math.cos(2 * Math.PI * ((now % BEAT_MS) / BEAT_MS));
 export const spinAngle = (now) => 2 * Math.PI * ((now % TURN_MS) / TURN_MS);
 // Rune i on the tilted ring, turned by `spin`: index 0 starts at the top of the ring's own circle, clockwise as in the SVG.
+// `scale` shrinks each billboard to its on-screen spacing: full size where the ring runs across the screen (front and
+// back), smaller toward the ends of the ellipse, where neighbours are stacked a couple of pixels apart.
 export function runePositions(spin = 0, r = RING_R, tilt = RING_TILT, roll = RING_ROLL) {
   const ct = Math.cos(tilt), st = Math.sin(tilt), cr = Math.cos(roll), sr = Math.sin(roll);
+  const step = 2 * Math.PI / RUNE_COUNT;
   const out = [];
   for (let i = 0; i < RUNE_COUNT; i++) {
-    const a = -Math.PI / 2 + i * (2 * Math.PI / RUNE_COUNT) + spin;
+    const a = -Math.PI / 2 + i * step + spin;
     const x0 = Math.cos(a) * r, y0 = -Math.sin(a) * r;      // flat circle facing the camera (y up)
     const y1 = y0 * ct, z = -y0 * st;                       // tilt around x: the lower half comes forward
-    out.push({ x: x0 * cr - y1 * sr, y: x0 * sr + y1 * cr, z });
+    const dx0 = -Math.sin(a) * r, dy1 = -Math.cos(a) * r * ct; // tangent on the screen plane (before the roll, which keeps lengths)
+    const dx = dx0 * cr - dy1 * sr, dy = dx0 * sr + dy1 * cr, len = Math.hypot(dx, dy);
+    const ink = (RUNE_INK.w * Math.abs(dx) + RUNE_INK.h * Math.abs(dy)) / len;
+    const scale = Math.max(RUNE_MIN_SCALE, Math.min(1, len * step / (ink * RUNE_GAP)));
+    out.push({ x: x0 * cr - y1 * sr, y: x0 * sr + y1 * cr, z, scale });
   }
   return out;
 }
@@ -47,20 +59,22 @@ export function atlasCell(i) {
   const k = ((i % RUNE_GLYPHS.length) + RUNE_GLYPHS.length) % RUNE_GLYPHS.length;
   return { col: k % ATLAS_COLS, row: Math.floor(k / ATLAS_COLS) };
 }
-// White glyphs on a transparent 448 × 256 canvas; the shader tints them. Path2D(d) needs no HTML sink.
+// 448 × 256 canvas: each glyph is a white core stroke over a wider, half-transparent black edge. The shader reads the
+// core from red and the edge from alpha, so lit runes keep a thin dark outline over a pale liquid. Path2D(d) needs no HTML sink.
 export function buildRuneAtlas(doc = document) {
   const c = doc.createElement('canvas');
   c.width = ATLAS_COLS * ATLAS_CELL; c.height = ATLAS_ROWS * ATLAS_CELL;
   const g = c.getContext('2d');
-  g.strokeStyle = '#fff'; g.lineCap = 'square'; g.lineJoin = 'miter';
+  g.lineCap = 'square'; g.lineJoin = 'miter';
   RUNE_GLYPHS.forEach((glyph, i) => {
     const { col, row } = atlasCell(i);
+    const path = new Path2D(glyph.d);
     g.save();
     g.translate((col + 0.5) * ATLAS_CELL, (row + 0.5) * ATLAS_CELL);
     g.scale(ATLAS_SCALE, ATLAS_SCALE);
     g.translate(-5, -7);
-    g.lineWidth = 1.6;
-    g.stroke(new Path2D(glyph.d));
+    g.strokeStyle = 'rgba(0, 0, 0, 0.7)'; g.lineWidth = ATLAS_STROKE + 1.6; g.stroke(path);
+    g.strokeStyle = '#fff'; g.lineWidth = ATLAS_STROKE; g.stroke(path);
     g.restore();
   });
   return c;
@@ -120,13 +134,13 @@ const SHELL_FS = `
     gl_FragColor = vec4(mix(uRim, uShine, clamp(spec * 1.5, 0.0, 1.0)), a);
   }`;
 const RUNE_VS = `
-  attribute vec3 aPos; attribute float aIndex;
+  attribute vec3 aPos; attribute float aIndex; attribute float aScale;
   uniform float uSize, uSide;
   varying vec2 vUv; varying float vIndex; varying float vDepth;
   void main() {
     vUv = uv; vIndex = aIndex; vDepth = aPos.z;
     vec4 c = modelViewMatrix * vec4(aPos, 1.0);
-    gl_Position = projectionMatrix * (c + vec4(position.xy * uSize, 0.0, 0.0)); // billboard: the rune faces the camera, upright
+    gl_Position = projectionMatrix * (c + vec4(position.xy * uSize * aScale, 0.0, 0.0)); // billboard: the rune faces the camera, upright
     if (aPos.z * uSide < 0.0) gl_Position = vec4(2.0, 2.0, 2.0, 1.0);        // drawn in the other pass (behind / in front)
   }`;
 const RUNE_FS = `
@@ -136,14 +150,18 @@ const RUNE_FS = `
   void main() {
     float k = mod(vIndex, 28.0);
     vec2 cell = vec2(mod(k, 7.0), floor(k / 7.0));                  // atlasCell(i): column, row from the top
-    float ink = texture2D(uAtlas, vec2((cell.x + vUv.x) / 7.0, 1.0 - (cell.y + 1.0 - vUv.y) / 4.0), -0.75).a; // bias: crisper strokes at ~7 px
+    vec4 tex = texture2D(uAtlas, vec2((cell.x + vUv.x) / 7.0, 1.0 - (cell.y + 1.0 - vUv.y) / 4.0), -0.75); // bias: crisper at ~7 px
+    float core = tex.r * tex.a;                                     // the white stroke; alpha alone adds the dark edge
     float flash = uFlash * step(abs(vIndex - uNew), 0.5);           // the newest rune flares once
     float on = step(vIndex + 0.5, uLit);
-    float glow = on * smoothstep(0.8, 0.0, length(vUv - 0.5) * 2.0) * flash;
+    float glow = on * smoothstep(0.8, 0.0, length(vUv - 0.5) * 2.0) * (0.12 + flash); // soft resting glow, brighter on the flare
     float back = smoothstep(0.2, -0.6, vDepth);                     // runes behind the glass are dimmer
     vec3 tone = mix(uOn, uUrgent, uFull);
-    vec3 col = mix(uOff, tone, on) + flash * 0.5;
-    float a = (ink * mix(uOffA, 1.0, on) + glow * 0.5) * mix(1.0, 0.45, back) * mix(1.0, uBeat, on * uFull);
+    vec3 ink = mix(uOff, tone, on) + flash * 0.5;
+    vec3 lit = mix(ink, vec3(1.0), 0.3);                            // a lighter core: it must read over the pale liquid too
+    vec3 col = on > 0.5 ? lit * (core / max(tex.a, 0.001)) : ink;   // lit: that core inside its dark edge
+    float body = on > 0.5 ? tex.a : core * uOffA;                   // unlit runes stay faint, without the edge
+    float a = (body + glow * 0.5) * mix(1.0, 0.45, back) * mix(1.0, uBeat, on * uFull);
     if (a < 0.01) discard;
     gl_FragColor = vec4(col, a);
   }`;
@@ -187,6 +205,8 @@ export function createOrbs3D(doc = document) {
   runeGeo.instanceCount = RUNE_COUNT;
   const runePos = new THREE.InstancedBufferAttribute(new Float32Array(RUNE_COUNT * 3), 3);
   runeGeo.setAttribute('aPos', runePos);
+  const runeScale = new THREE.InstancedBufferAttribute(new Float32Array(RUNE_COUNT).fill(1), 1);
+  runeGeo.setAttribute('aScale', runeScale);
   runeGeo.setAttribute('aIndex', new THREE.InstancedBufferAttribute(Float32Array.from({ length: RUNE_COUNT }, (_, i) => i), 1));
   const runePass = (side, order) => {
     const m = new THREE.Mesh(runeGeo, new THREE.ShaderMaterial({ vertexShader: RUNE_VS, fragmentShader: RUNE_FS,
@@ -239,8 +259,8 @@ export function createOrbs3D(doc = document) {
     if (renderer.domElement.width !== px) renderer.setSize(px, px, false);
 
     const pos = runePositions(motion ? spinAngle(now) : 0);
-    pos.forEach((p, i) => runePos.setXYZ(i, p.x, p.y, p.z));
-    runePos.needsUpdate = true;
+    pos.forEach((p, i) => { runePos.setXYZ(i, p.x, p.y, p.z); runeScale.setX(i, p.scale); });
+    runePos.needsUpdate = true; runeScale.needsUpdate = true;
     liquidU.uFill.value = fill; liquidU.uTime.value = t; liquidU.uRipple.value = ripple;
     shellU.uRim.value.copy(full ? colors.urgent : colors.rim);
     runeU.uLit.value = o.lit; runeU.uFull.value = full ? 1 : 0; runeU.uBeat.value = beat;
