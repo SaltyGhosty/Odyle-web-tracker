@@ -90,6 +90,7 @@
   }
   @media (hover: hover) and (pointer: fine) { button:hover { border-color: var(--gold); } }
   button:active { transform: scale(0.97); }
+  @media (prefers-reduced-motion: reduce) { button { transition: none; } button:active { transform: none; } }
   button.primary {
     background: var(--gold-bright); color: var(--on-gold); border-color: var(--gold-bright); box-shadow: none;
   }
@@ -1208,6 +1209,14 @@
     }
   }
   applyTheme(theme);
+  // No prefs.theme yet: the first time the theme is the profile's faction (spec 1). Re-resolve when the profile
+  // loads, and once a faction is known save it so a later unrelated prefs write cannot flip the page.
+  function syncTheme() {
+    if (!prefsLoaded || state.prefs.theme) return;
+    const prof = myProfile();
+    applyTheme(resolveTheme({ prefs: state.prefs, profile: prof, cached: theme }));
+    if (prof && (prof.faction === 'elyos' || prof.faction === 'asmodian') && my && !ui.readOnly) applyTheme(theme, { persist: true });
+  }
 
   function classIcon(cls) {
     const svg = document.createElementNS(SVG_NS, 'svg');
@@ -2917,6 +2926,7 @@
     db.collection('members').onSnapshot(snap => {
       state.memberData = new Map(snap.docs.map(d => [d.id, d.data() || {}]));
       membersLoaded = true;
+      syncTheme();
       syncScope();
     }, () => {});
     if (my) db.doc(my.stats).onSnapshot(snap => {
@@ -2951,6 +2961,7 @@
         ...(LANGS[d.lang] ? { lang: d.lang } : {}) };
       applyTheme(resolveTheme({ prefs: d, profile: myProfile(), cached: theme }));
       prefsLoaded = true;
+      syncTheme();
       if (LANGS[d.lang] && d.lang !== LANG) setLang(d.lang);
       if (document.activeElement !== $('quiet-start')) $('quiet-start').value = state.prefs.quietStart;
       if (document.activeElement !== $('quiet-end')) $('quiet-end').value = state.prefs.quietEnd;

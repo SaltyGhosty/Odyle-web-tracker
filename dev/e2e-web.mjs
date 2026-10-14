@@ -541,6 +541,33 @@ check('cerrar todas: la cookie de renovación vieja de B no renueva', (await rep
 
   await collectCsp(pc, 'C'); await collectCsp(pd, 'D');
   await C.ctx.close(); await D.ctx.close();
+
+  // tema la primera vez: sin prefs.theme, la facción del perfil que se guarda en el aviso inicial manda y queda fija
+  const F = await newUser('F');
+  const pf = F.page;
+  await login(pf, 'redir@example.com', PW); // cuenta sin perfil de la comprobación de redirección (el registro tiene tope por IP)
+  await pf.waitForSelector('#profile-modal:not([hidden])');
+  check('tema primera vez: sin perfil la página es Elyos', (await pf.evaluate(() => document.documentElement.dataset.faction)) === 'elyos');
+  await pf.fill('#profile-nick', 'FedeSombra');
+  await pf.selectOption('#profile-faction', 'asmodian');
+  await pf.click('#profile-form button[type=submit]');
+  await pf.waitForSelector('#profile-modal', { state: 'hidden' });
+  await pf.waitForFunction(() => document.documentElement.dataset.faction === 'asmodian', null, { timeout: 5000 }).catch(() => {});
+  check('tema primera vez: guardar el perfil con facción Asmodiano vuelve la página Sombra', (await pf.evaluate(() => document.documentElement.dataset.faction)) === 'asmodian');
+  const fUid = (await dbRows('members/')).find((r) => r.data.profile?.nick === 'FedeSombra')?.path.split('/')[1];
+  let fSaved = false;
+  for (let i = 0; i < 50 && !fSaved; i++) {
+    fSaved = (await dbRows('members/' + fUid + '/settings/prefs')).some((r) => r.data.theme === 'asmodian');
+    if (!fSaved) await new Promise((r) => setTimeout(r, 100));
+  }
+  check('tema primera vez: prefs.theme se guarda con la facción del perfil', fSaved);
+  await pf.click('[data-tab="ajustes"]').catch(() => {});
+  await pf.fill('#quiet-start', '01:00');
+  await pf.click('#prefs-form button[type=submit]');
+  await new Promise((r) => setTimeout(r, 600));
+  check('tema primera vez: cambiar las horas de silencio no cambia el tema', (await pf.evaluate(() => document.documentElement.dataset.faction)) === 'asmodian');
+  await collectCsp(pf, 'F');
+  await F.ctx.close();
 }
 
 check('consola: ningún error de CSP, Trusted Types ni JavaScript', errors.length === 0, '\n  ' + errors.join('\n  '));
