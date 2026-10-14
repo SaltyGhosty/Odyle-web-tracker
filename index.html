@@ -238,6 +238,9 @@
   .guide-steps li.done button { text-decoration: line-through; opacity: .6; }
 
   /* ---- Desktop: top navigation bar with sections (mobile keeps the ☰ drawer) ---- */
+  .privacy { border: 1px solid var(--line); border-radius: 12px; padding: 10px 12px; display: flex; flex-direction: column; gap: 6px; }
+  .privacy legend { font-family: var(--font-display); padding: 0 6px; }
+  .topnav .badge { margin-left: 6px; min-width: 18px; height: 18px; padding: 0 5px; border-radius: 9px; display: inline-grid; place-items: center; font-size: .7rem; font-weight: 700; background: var(--urgent); color: #fff; font-variant-numeric: tabular-nums; }
   .topnav { display: none; }
   .legion-empty { display: none; }
   @media all { /* the nav bar is shown at every width (it scrolls sideways on narrow screens) */
@@ -880,6 +883,11 @@
     </div>
     <div class="field"><span class="label-like">Tema</span><div class="theme-slot" id="theme-slot-profile"></div></div>
     <div class="field"><label for="profile-bio">Frase (opcional)</label><input id="profile-bio" maxlength="80" autocomplete="off" placeholder="Siempre listo para el asedio"></div>
+    <fieldset class="privacy" id="profile-privacy" hidden>
+      <legend>Privacidad</legend>
+      <label class="switch"><input type="checkbox" id="profile-searchable"> Aparecer en Buscar</label>
+      <label class="switch"><input type="checkbox" id="profile-share"> Compartir mi energía con amigos</label>
+    </fieldset>
     <p class="error" id="profile-error" role="alert" hidden></p>
     <button type="submit" class="primary">Guardar perfil</button>
     <div class="row" id="profile-session" hidden>
@@ -1576,6 +1584,15 @@
   // and their original places in the page and the ☰ drawer (mobile); nothing is duplicated. ----
   const DESKTOP = matchMedia('all') // sections + nav bar at every width; the ☰ drawer is no longer used;
   const TABS = [['personajes', 'Personajes'], ['eventos', 'Eventos'], ['estadisticas', 'Estadísticas'], ['legion', 'Legión'], ['ajustes', 'Ajustes'], ['novedades', 'Novedades']];
+  // Solo web (window.odyleSocialApi viene de social-api.js): amigos, chat y búsqueda de perfiles.
+  const SOCIAL = !!window.odyleSocialApi;
+  if (SOCIAL) TABS.splice(3, 0, ['amigos', 'Amigos'], ['chat', 'Chat'], ['buscar', 'Buscar']);
+  const socialPanels = SOCIAL ? {
+    amigos: el('div', { class: 'social', id: 'social-amigos' }),
+    chat: el('div', { class: 'social', id: 'social-chat' }),
+    buscar: el('div', { class: 'social', id: 'social-buscar' }),
+  } : {};
+  let social = null;
   const pageEl = document.querySelector('.page');
   const pageOrder = [...pageEl.children];
   const drawerOrder = [...$('drawer').children];
@@ -1588,6 +1605,7 @@
     legion: () => ['legion-panel', 'online-panel', 'calendar-panel', 'rank-panel', 'wall-panel', 'legion', 'legion-empty'].map(id => $(id)),
     ajustes: () => drawerPanels.filter(n => n.id !== 'add-form' && n.id !== 'presets-panel' && !isNews(n)),
     novedades: () => drawerPanels.filter(isNews),
+    ...(SOCIAL ? { amigos: () => [socialPanels.amigos], chat: () => [socialPanels.chat], buscar: () => [socialPanels.buscar] } : {}),
   };
   const nav = el('nav', { class: 'topnav', id: 'topnav', 'aria-label': 'Secciones' });
   const tabWrap = el('div', { class: 'tabs' });
@@ -1596,6 +1614,14 @@
     nav.append(el('button', { type: 'button', 'data-tab': id, onclick: () => setTab(id) }, label));
     tabPanels[id] = el('section', { class: 'tab-panel', id: 'tab-' + id, 'aria-label': label });
     tabWrap.append(tabPanels[id]);
+  }
+  function setBadge(id, n) {
+    const b = nav.querySelector(`[data-tab="${id}"]`);
+    if (!b) return;
+    let s = b.querySelector('.badge');
+    if (!n) { if (s) s.remove(); return; }
+    if (!s) { s = el('span', { class: 'badge' }); b.append(s); }
+    s.textContent = n > 99 ? '99+' : String(n);
   }
   let activeTab = 'personajes';
   try { const t = localStorage.getItem('odyle-tab'); if (TABS.some(([id]) => id === t)) activeTab = t; } catch {}
@@ -1607,6 +1633,7 @@
     if (id === 'eventos') $('events').open = true;
     if (id === 'novedades') loadInbox(); // the owner's feedback inbox
     window.scrollTo({ top: 0 });
+    if (social) social.onTab(id);
     render();
   }
   function applyLayout() {
@@ -2330,6 +2357,8 @@
     $('profile-nick').value = prof.nick || '';
     $('profile-server').value = prof.server || '';
     $('profile-bio').value = prof.bio || '';
+    $('profile-searchable').checked = prof.searchable !== false;
+    $('profile-share').checked = prof.shareEnergy !== false;
     $('profile-faction').value = prof.faction || theme;
     const chars = [...state.characters].sort((a, b) => (a.order || 0) - (b.order || 0));
     $('profile-main').replaceChildren(el('option', { value: '' }, chars.length ? 'Elige…' : 'Aún no tienes personajes'),
@@ -2347,6 +2376,7 @@
   // Session buttons exist only on the web build (window.odyleWeb comes from its claude-shim.js).
   if (window.odyleWeb) {
     $('profile-session').hidden = false;
+    $('profile-privacy').hidden = false;
     $('profile-logout').addEventListener('click', () => window.odyleWeb.logout());
     $('profile-logout-all').addEventListener('click', () => window.odyleWeb.logoutAll());
   }
@@ -2363,7 +2393,8 @@
   $('profile-form').addEventListener('submit', async e => {
     e.preventDefault();
     const r = parseProfile({ nick: $('profile-nick').value, server: $('profile-server').value, bio: $('profile-bio').value,
-      faction: $('profile-faction').value, mainCharId: $('profile-main').value }, state.characters.map(c => c.id));
+      faction: $('profile-faction').value, mainCharId: $('profile-main').value,
+      searchable: $('profile-searchable').checked, shareEnergy: $('profile-share').checked }, state.characters.map(c => c.id));
     if (!r.ok) return showError('profile-error', r.error);
     showError('profile-error', '');
     const ok = await save(async () => {
@@ -2840,6 +2871,16 @@
     try { if (user && (await user.can('data.write')) === false) ui.readOnly = true; } catch {}
     if (!myUid) ui.readOnly = true; // no identity → no own part to write
     my = myUid ? paths(myUid) : null;
+    if (SOCIAL && my && !social) {
+      import('./social-ui.js').then((m) => {
+        social = m.startSocial({
+          api: window.odyleSocialApi, me: myUid, panels: socialPanels, setBadge, goTab: setTab,
+          myRows: () => buildView(state.characters, state.schedule, Date.now()).rows,
+          anchorMs: () => (state.schedule && Number.isFinite(state.schedule.anchorMs) ? state.schedule.anchorMs : null),
+        });
+        social.onTab(activeTab);
+      }).catch(() => { /* sin pantallas sociales: el resto de la página sigue */ });
+    }
     render();
     if (my && !ui.readOnly) await joinAndMigrate();
     const onError = () => { ui.noDb = true; ui.loaded = true; render(); };

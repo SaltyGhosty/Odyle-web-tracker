@@ -34,11 +34,19 @@ test('parseLegionName', () => {
 });
 test('parseProfile: válido y errores', () => {
   const ok = parseProfile({ nick: ' Salty ', server: 'Israphel', bio: 'Hola', faction: 'elyos', mainCharId: 'c1' }, ['c1', 'c2']);
-  assert.deepEqual(ok, { ok: true, value: { nick: 'Salty', server: 'Israphel', bio: 'Hola', faction: 'elyos', mainCharId: 'c1' } });
+  assert.deepEqual(ok, { ok: true, value: { nick: 'Salty', server: 'Israphel', bio: 'Hola', faction: 'elyos', mainCharId: 'c1', searchable: true, shareEnergy: true } });
   assert.equal(parseProfile({ nick: 'S', faction: 'elyos' }, []).ok, false);
   assert.equal(parseProfile({ nick: 'Salty', faction: 'x' }, []).ok, false);
   assert.equal(parseProfile({ nick: 'Salty', faction: 'elyos', bio: 'x'.repeat(81) }, []).ok, false);
   assert.equal(parseProfile({ nick: 'Salty', faction: 'asmodian', mainCharId: 'zz' }, ['c1']).value.mainCharId, null);
+});
+test('parseProfile conserva la privacidad: visible y comparte por defecto, false explícito se respeta', () => {
+  const base = { nick: 'Ana', server: '', bio: '', faction: 'elyos', mainCharId: null };
+  assert.deepEqual([parseProfile(base).value.searchable, parseProfile(base).value.shareEnergy], [true, true]);
+  const off = parseProfile({ ...base, searchable: false, shareEnergy: false }).value;
+  assert.deepEqual([off.searchable, off.shareEnergy], [false, false]);
+  const odd = parseProfile({ ...base, searchable: 'no', shareEnergy: 0 }).value;
+  assert.deepEqual([odd.searchable, odd.shareEnergy], [true, true]);
 });
 test('legionOf: existe, misma época y no estás expulsado', () => {
   const legions = new Map([['L1', { name: 'A', epoch: 'e2', banned: ['u3'] }]]);

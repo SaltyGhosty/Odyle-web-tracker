@@ -630,3 +630,17 @@ const THEME = {
   pt: { Luz: 'Luz', Sombra: 'Sombra', Tema: 'Tema', 'Daevas de Elyos': 'Daevas de Elyos', 'Daevas de Asmodae': 'Daevas de Asmodae' },
 };
 for (const l of Object.keys(THEME)) for (const [k, v] of Object.entries(THEME[l])) if (!(k in STRINGS[l])) STRINGS[l][k] = v;
+
+// Social screens, web only (2026-10-14). Every S('...') in web/social-*.js must be here (i18n-social.test.js).
+const SOCIAL = {
+  en: { Amigos: 'Friends', Chat: 'Chat', Buscar: 'Search', 'Reconectando…': 'Reconnecting…', 'En línea': 'Online', Elyos: 'Elyos',
+    Asmodiano: 'Asmodian', '{0} de 840 de energía': '{0} of 840 energy', 'Energía no compartida': 'Energy not shared',
+    Privacidad: 'Privacy', 'Aparecer en Buscar': 'Appear in Search', 'Compartir mi energía con amigos': 'Share my energy with friends' },
+  it: { Amigos: 'Amici', Chat: 'Chat', Buscar: 'Cerca', 'Reconectando…': 'Riconnessione…', 'En línea': 'Online', Elyos: 'Elyos',
+    Asmodiano: 'Asmodiano', '{0} de 840 de energía': '{0} su 840 di energia', 'Energía no compartida': 'Energia non condivisa',
+    Privacidad: 'Privacy', 'Aparecer en Buscar': 'Mostrami in Cerca', 'Compartir mi energía con amigos': 'Condividi la mia energia con gli amici' },
+  pt: { Amigos: 'Amigos', Chat: 'Chat', Buscar: 'Buscar', 'Reconectando…': 'Reconectando…', 'En línea': 'Online', Elyos: 'Elyos',
+    Asmodiano: 'Asmodiano', '{0} de 840 de energía': '{0} de 840 de energia', 'Energía no compartida': 'Energia não compartilhada',
+    Privacidad: 'Privacidade', 'Aparecer en Buscar': 'Aparecer na Busca', 'Compartir mi energía con amigos': 'Compartilhar minha energia com amigos' },
+};
+for (const l of Object.keys(SOCIAL)) Object.assign(STRINGS[l], SOCIAL[l]);

@@ -29,14 +29,15 @@ export function parseLegionName(input) {
   return { ok: true, value: v };
 }
 
-export function parseProfile({ nick, server, bio, faction, mainCharId } = {}, charIds = []) {
+export function parseProfile({ nick, server, bio, faction, mainCharId, searchable, shareEnergy } = {}, charIds = []) {
   const clean = (s, n) => String(s ?? '').replace(/[\u0000-\u001f\u007f]/g, ' ').trim().replace(/\s+/g, ' ').slice(0, n + 1);
   const n = clean(nick, 20), sv = clean(server, 20), b = clean(bio, 80);
   if (n.length < 2 || n.length > 20) return { ok: false, error: 'Tu nombre necesita entre 2 y 20 caracteres' };
   if (sv.length > 20) return { ok: false, error: 'El servidor admite hasta 20 caracteres' };
   if (b.length > 80) return { ok: false, error: 'La frase admite hasta 80 caracteres' };
   if (faction !== 'elyos' && faction !== 'asmodian') return { ok: false, error: 'Elige una facción' };
-  return { ok: true, value: { nick: n, server: sv, bio: b, faction, mainCharId: charIds.includes(mainCharId) ? mainCharId : null } };
+  return { ok: true, value: { nick: n, server: sv, bio: b, faction, mainCharId: charIds.includes(mainCharId) ? mainCharId : null,
+    searchable: searchable !== false, shareEnergy: shareEnergy !== false } };
 }
 
 // The proof ties an invite code to ONE legion: copying a legion's public fields into another
