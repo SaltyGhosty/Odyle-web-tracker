@@ -332,7 +332,8 @@ check('legión: el código solo vive en el servidor (cifrado, sin código ni has
   await p.waitForTimeout(400);
   const tg = await p.evaluate(() => {
     const t = document.getElementById('toast').getBoundingClientRect();
-    const hit = [...document.querySelectorAll('article.card button')].filter((b) => b.offsetParent).some((b) => { const r = b.getBoundingClientRect(); return r.bottom > 0 && r.top < innerHeight && !(t.right <= r.left || t.left >= r.right || t.bottom <= r.top || t.top >= r.bottom); });
+    const lastRow = [...document.querySelectorAll('article.card')].at(-1);
+    const hit = [...document.querySelectorAll('article.card button')].filter((b) => b.offsetParent && (b.closest('article') === lastRow || /Importada Dos/.test(b.closest('article').textContent))).some((b) => { const r = b.getBoundingClientRect(); return r.bottom > 0 && r.top < innerHeight && !(t.right <= r.left || t.left >= r.right || t.bottom <= r.top || t.top >= r.bottom); });
     const last = [...document.querySelectorAll('article.card')].at(-1).getBoundingClientRect();
     return { hit, toastTop: t.top, toastBottom: t.bottom, lastBottom: last.bottom, innerHeight };
   });
@@ -364,6 +365,45 @@ check('legión: el código solo vive en el servidor (cifrado, sin código ni has
   check('un único h1 visible en escritorio', (await p.locator('h1:visible').count()) === 1);
   const railTh = await p.evaluate(() => Math.min(...[...document.querySelectorAll('.rail-foot .theme-switch button')].map((b) => b.getBoundingClientRect().height)));
   check('rail: los botones de tema miden 44 px', railTh >= 43.5, String(railTh));
+
+  // Carta celeste, Energía: todas las filas con el orbe y el nombre en la misma x (incluido un nombre de 24 caracteres
+  // y un personaje sin clase), gasto rápido que resta energía y Plan de hoy con una fila por personaje.
+  await p.click('#topnav [data-tab="personajes"]');
+  await p.click('#add-btn');
+  await p.fill('#add-name', 'Sin clase');
+  await p.selectOption('#add-class', { index: 0 });
+  await p.click('#add-form button[type=submit]');
+  await p.waitForFunction(() => [...document.querySelectorAll('article.card')].some((c) => /Sin clase/.test(c.textContent)));
+  const columns = () => p.evaluate(() => [...document.querySelectorAll('#cards article.card')].map((c) => ({
+    orb: c.querySelector('.orb-slot').getBoundingClientRect().left, name: c.querySelector('.name').getBoundingClientRect().left,
+    w: c.querySelector('.orb-slot').getBoundingClientRect().width, text: c.querySelector('.name').textContent, cls: !!c.querySelector('.cls-name') })));
+  const spread = (xs) => Math.max(...xs) - Math.min(...xs);
+  for (const w of [1280, 390]) {
+    await p.setViewportSize({ width: w, height: 900 });
+    await p.waitForTimeout(300);
+    const cols = await columns();
+    const info = JSON.stringify(cols);
+    check(`${w} px: hay filas con nombre de 24 caracteres y sin clase`, cols.length >= 4 && cols.some((c) => /^W{24}$/.test(c.text)) && cols.some((c) => !c.cls), info);
+    check(`${w} px: el orbe de cada fila empieza en la misma x`, spread(cols.map((c) => c.orb)) <= 1, info);
+    check(`${w} px: el nombre de cada fila empieza en la misma x`, spread(cols.map((c) => c.name)) <= 1, info);
+    check(`${w} px: el orbe mide lo mismo en todas las filas`, spread(cols.map((c) => c.w)) <= 1 && cols[0].w >= 72, info);
+  }
+  await p.setViewportSize({ width: 1280, height: 900 });
+  await p.waitForTimeout(300);
+  await p.locator('#cards article.card .r-text').first().dispatchEvent('pointerdown'); // selecciona la primera fila
+  const firstName = await p.locator('#cards article.card .name').first().textContent();
+  const energies = async () => Object.fromEntries((await dbRows('members/')).filter((r) => r.path.includes('/characters/')).map((r) => [r.path.split('/').pop(), r.data.energy]));
+  const before = await energies();
+  await p.waitForSelector('#quick-chips [data-quick]');
+  check('gastos rápidos: el título nombra al personaje de la primera fila', (await p.locator('#quick-title').textContent()).includes(firstName));
+  const chipCost = Number((await p.locator('#quick-chips [data-quick] b').first().textContent()).replace(/\D/g, ''));
+  await p.locator('#quick-chips [data-quick]').first().click();
+  await p.waitForTimeout(900);
+  const after = await energies();
+  const lowered = Object.keys(before).filter((id) => after[id] < before[id]);
+  check('gasto rápido: baja la energía de un solo personaje en el coste del gasto', lowered.length === 1 && before[lowered[0]] - after[lowered[0]] > 0 && before[lowered[0]] - after[lowered[0]] <= chipCost && chipCost > 0, JSON.stringify({ before, after, chipCost }));
+  check('Plan de hoy: una fila por personaje', (await p.locator('#plan tbody tr').count()) === (await p.locator('#cards article.card').count()) && (await p.locator('#plan tbody tr').count()) >= 4);
+  check('Plan de hoy: sin NaN ni undefined', !/NaN|undefined/.test(await p.locator('#plan').textContent()));
 }
 
 // ================= Usuario B =================

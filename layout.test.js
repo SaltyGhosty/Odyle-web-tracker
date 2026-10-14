@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { SECTIONS, navModel, resolveTab, decisionBand } from './layout.js';
+import { SECTIONS, navModel, resolveTab, decisionBand, planRows } from './layout.js';
 
 test('secciones: Energía primero, ids estables y etiqueta nueva', () => {
   assert.equal(SECTIONS[0].id, 'personajes');
@@ -68,4 +68,42 @@ test('banda en calma: el próximo en llenarse', () => {
 test('banda en calma sin hora de recarga', () => {
   const b = decisionBand([row('a', 'Ana', 400, null)], 0, { quiet, tzOffsetMin: 0 });
   assert.deepEqual(b, { tone: 'calm', text: 'Nadie al tope', targetId: null });
+});
+
+// ---- Plan de hoy ----
+const eod = 24 * H;
+const presets = [{ id: 'p1', name: 'Theobomos', cost: 80 }, { id: 'p2', name: 'Campaña', cost: 40 }];
+const prow = (id, name, energy, fullAtMs) => ({ id, name, energy, isFull: energy >= 840, fullAtMs });
+
+test('planRows: mazmorras posibles hoy por preset, contando las recargas hasta medianoche', () => {
+  // ancla en 0: recargas a las 3, 6 ... 24 h (8) → +120 OD; 300 + 120 = 420
+  const [r] = planRows([prow('a', 'Ana', 300, 20 * H)], presets, { anchorMs: 0, now: 1 * H, endOfDayMs: eod });
+  assert.equal(r.id, 'a');
+  assert.equal(r.name, 'Ana');
+  assert.deepEqual(r.runs, { p1: 5, p2: 10 });
+});
+test('planRows: sin hora de recarga solo cuenta la energía actual y lo dice', () => {
+  const [r] = planRows([prow('a', 'Ana', 300, null)], presets, { anchorMs: null, now: 0, endOfDayMs: eod });
+  assert.deepEqual(r.runs, { p1: 3, p2: 7 });
+  assert.deepEqual(r.next, { tone: 'empty', text: 'Sin hora de recarga' });
+});
+test('planRows: al tope → urgente', () => {
+  const [r] = planRows([prow('c', 'Casi', 840, null)], presets, { anchorMs: 0, now: 0, endOfDayMs: eod });
+  assert.deepEqual(r.next, { tone: 'urgent', text: 'Gastar ya: está al tope' });
+  assert.equal(r.runs.p1, 12); // 840 + 8 recargas × 15 = 960 → 12 × 80
+});
+test('planRows: próxima meta con el primer gasto y el tiempo hasta llenarse', () => {
+  const [r] = planRows([prow('a', 'Ana', 700, 3 * H)], presets, { anchorMs: 0, now: 0, endOfDayMs: eod });
+  assert.deepEqual(r.next, { tone: 'normal', text: 'Theobomos ×8 en 3h 0m' });
+});
+test('planRows: sin energía para el primer gasto solo da el tiempo', () => {
+  const [r] = planRows([prow('a', 'Ana', 30, 50 * H)], presets, { anchorMs: 0, now: 0, endOfDayMs: eod });
+  assert.deepEqual(r.next, { tone: 'normal', text: 'Lleno en 2d 2h 0m' });
+});
+test('planRows: sin gastos no hay columnas y nada es NaN; sin personajes no hay filas', () => {
+  const [r] = planRows([prow('a', 'Ana', 300, 20 * H)], [], { anchorMs: 0, now: 0, endOfDayMs: eod });
+  assert.deepEqual(r.runs, {});
+  assert.equal(r.next.tone, 'normal');
+  assert.ok(!/NaN/.test(r.next.text));
+  assert.deepEqual(planRows([], presets, { anchorMs: 0, now: 0, endOfDayMs: eod }), []);
 });
