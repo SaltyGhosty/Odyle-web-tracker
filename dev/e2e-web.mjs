@@ -131,6 +131,83 @@ await pa.waitForTimeout(800);
 const energyOf = async () => (await dbRows('members/')).find((r) => r.path.endsWith('/characters/' + charId))?.data.energy;
 check('gasto: resta 40 de 300 en el servidor', (await energyOf()) === 260, String(await energyOf()));
 
+// filas: menú ⋯ con teclado y sobreviviendo a un repintado
+const rowSel = `article[data-id="${charId}"]`;
+await pa.click(`${rowSel} button.more-actions`);
+await pa.waitForSelector(`${rowSel} .menu [role="menuitem"]`);
+check('⋯: se abre con sus opciones', (await pa.locator(`${rowSel} .menu [role="menuitem"]`).count()) === 4);
+check('⋯: el foco pasa a la primera opción', await pa.evaluate(() => document.activeElement?.getAttribute('role') === 'menuitem'));
+await pa.keyboard.press('ArrowDown');
+check('⋯: la flecha abajo mueve el foco a la segunda opción', await pa.evaluate(() => document.activeElement?.classList.contains('tasks')));
+// Repintado seguro: el cambio del modo compacto llama a render() (un evento «focus» no repinta; un clic fuera cerraría el menú a propósito). La marca en el nodo
+// del botón demuestra que la fila se reconstruyó de verdad; el menú debe seguir abierto y con el foco dentro.
+await pa.evaluate((sel) => { document.querySelector(sel + ' button.more-actions').dataset.old = '1'; (() => { const c = document.getElementById('compact-toggle'); c.checked = !c.checked; c.dispatchEvent(new Event('change')); })(); }, rowSel);
+await pa.waitForTimeout(300);
+check('⋯: la fila se reconstruyó en el repintado', await pa.evaluate((sel) => !document.querySelector(sel + ' button.more-actions').dataset.old, rowSel));
+check('⋯: sigue abierto tras repintar', await pa.locator(`${rowSel} .menu`).isVisible());
+check('⋯: tras repintar el foco sigue dentro del menú', await pa.evaluate(() => !!document.activeElement?.closest('.menu')));
+await pa.evaluate(() => (() => { const c = document.getElementById('compact-toggle'); c.checked = !c.checked; c.dispatchEvent(new Event('change')); })()); // restaura el modo normal
+await pa.waitForTimeout(300);
+await pa.keyboard.press('Escape');
+check('⋯: Escape lo cierra y devuelve el foco al botón',
+  !(await pa.locator(`${rowSel} .menu`).count()) && (await pa.evaluate(() => document.activeElement?.classList.contains('more-actions'))));
+// Notas, +Extra y Quitar viven en el menú: abrirlo y elegir «Notas» abre el formulario de la fila.
+await pa.click(`${rowSel} button.more-actions`);
+await pa.click(`${rowSel} .menu button.notes`);
+await pa.waitForSelector(`#notes-${charId}`);
+check('⋯: «Notas» abre su formulario y cierra el menú', !(await pa.locator(`${rowSel} .menu`).count()));
+await pa.click(`${rowSel} form button[type=button]`); // Cancelar
+// teclado en el disparador: flecha abajo abre el menú y Escape lo cierra con el foco en el botón
+await pa.focus(`${rowSel} button.more-actions`);
+await pa.keyboard.press('ArrowDown');
+check('⋯: flecha abajo en el botón abre el menú y enfoca la primera opción', (await pa.locator(`${rowSel} .menu`).count()) === 1 && await pa.evaluate(() => document.activeElement?.getAttribute('role') === 'menuitem'));
+await pa.keyboard.press('Escape');
+check('⋯: Escape (tras flecha abajo) cierra y devuelve el foco', !(await pa.locator(`${rowSel} .menu`).count()) && await pa.evaluate(() => document.activeElement?.classList.contains('more-actions')));
+// foco tras elegir una opción: «Tareas» devuelve el foco al botón ⋯ y «Quitar» lo lleva al botón de confirmar
+await pa.focus(`${rowSel} button.more-actions`);
+await pa.keyboard.press('ArrowDown');
+await pa.keyboard.press('ArrowDown');
+await pa.keyboard.press('Enter');
+check('⋯: tras elegir «Tareas» el foco vuelve al botón ⋯', await pa.evaluate(() => document.activeElement?.classList.contains('more-actions')));
+await pa.keyboard.press('ArrowDown');
+await pa.keyboard.press('ArrowDown');
+await pa.keyboard.press('Enter'); // vuelve a plegar las tareas
+await pa.keyboard.press('ArrowDown');
+await pa.keyboard.press('End');
+await pa.keyboard.press('Enter');
+check('⋯: tras elegir «Quitar» el foco pasa al botón de confirmar', await pa.evaluate(() => document.activeElement?.classList.contains('danger')));
+await pa.click(`${rowSel} form button[type=button], ${rowSel} button:not(.danger):has-text("Cancelar")`).catch(() => {});
+await pa.evaluate(() => { const b = [...document.querySelectorAll('article.card button')].find((x) => x.textContent === 'Cancelar'); b?.click(); });
+check('⋯: «Quitar» cancelado no quita el personaje', (await pa.locator(rowSel).count()) === 1);
+// atajos globales y Tab con el menú abierto
+await pa.focus(`${rowSel} button.more-actions`);
+await pa.keyboard.press('ArrowDown');
+await pa.keyboard.press('ArrowRight');
+check('⋯: las flechas laterales dentro del menú no cambian de sección', !(await pa.locator('#tab-personajes').isHidden()) && (await pa.locator(`${rowSel} .menu`).count()) === 1);
+await pa.keyboard.press('Tab');
+await pa.waitForTimeout(100);
+check('⋯: Tab fuera del menú lo cierra', !(await pa.locator(`${rowSel} .menu`).count()));
+// móvil 390: el botón del asistente (se fuerza visible; en la web real solo existe en el artifact) no tapa ninguna fila,
+// los botones de fila miden 44 px y la cabecera cabe en una línea
+await pa.setViewportSize({ width: 390, height: 844 });
+await pa.waitForTimeout(300);
+const geo = await pa.evaluate(() => {
+  const fab = document.getElementById('ai-fab'); const was = fab.hidden; fab.hidden = false;
+  const f = fab.getBoundingClientRect();
+  const hit = [...document.querySelectorAll('article.card')].some((c) => { const r = c.getBoundingClientRect(); return !(f.right <= r.left || f.left >= r.right || f.bottom <= r.top || f.top >= r.bottom); });
+  const smallB = [...document.querySelectorAll('article.card .r-act button')].filter((b) => b.getBoundingClientRect().height < 43.5); const small = smallB.length;
+  const h = document.querySelector('header').getBoundingClientRect();
+  fab.hidden = was;
+  return { hit, small, headerH: h.height, which: smallB.map((b) => b.className + ':' + b.getBoundingClientRect().height) };
+});
+check('móvil 390: el botón del asistente no se solapa con ninguna fila', !geo.hit, JSON.stringify(geo));
+check('móvil 390: botones de la fila de al menos 44 px', geo.small === 0, JSON.stringify(geo));
+check('móvil 390: la cabecera ocupa una sola línea', geo.headerH < 70, JSON.stringify(geo));
+await pa.setViewportSize({ width: 1280, height: 900 });
+
+// Banda: con un solo personaje a medias no hay alarma
+check('banda: visible y sin tono de alarma con energía a medias', (await visible(pa, '#summary')) && !(await pa.locator('#summary.band-urgent').count()));
+
 // recargar y seguir ahí
 await pa.reload();
 await pa.waitForSelector('article.card');
@@ -169,6 +246,191 @@ check('legión: el código solo vive en el servidor (cifrado, sin código ni has
   const l = (await dbRows('legions/'))[0]?.data;
   return l && l.name === 'Guardianes' && !('codeHash' in l) && !JSON.stringify(l).includes(code.replace('-', ''));
 })());
+
+// ================= Marco: banda carmesí, rail, barra inferior, Más y anchuras (usuario A: con personajes y legión) =================
+{
+  const p = pa;
+  await p.setViewportSize({ width: 1280, height: 900 });
+  await p.click('#topnav [data-tab="personajes"]');
+  // banda carmesí: un personaje al tope (840)
+  await p.click('article[data-id="imp1"] button.primary');
+  await p.fill('#energy-imp1', '840');
+  await p.press('#energy-imp1', 'Enter');
+  await p.waitForSelector('#summary.band-urgent', { timeout: 5000 }).catch(() => {});
+  check('banda: carmesí con un personaje al tope', await p.locator('#summary.band-urgent').isVisible() && /al tope · pierd/.test(await text(p, '#sum-tip')), await text(p, '#sum-tip'));
+
+  check('banda: sin aria-live; solo anuncia el cambio por una región de estado aparte',
+    (await p.getAttribute('#summary', 'aria-live')) === null && (await p.getAttribute('#band-status', 'role')) === 'status' && /al tope/.test(await text(p, '#band-status')), await text(p, '#band-status'));
+  check('banda: «Gastar» mide 44 px', (await p.locator('#band-go').boundingBox())?.height >= 43.5);
+  check('rail: columna a 1280 px con Energía activa',
+    (await p.locator('#topnav').evaluate((n) => getComputedStyle(n).flexDirection === 'column'))
+    && (await p.getAttribute('#topnav [data-tab="personajes"]', 'aria-current')) === 'page');
+  await p.click('#topnav [data-tab="legion"]');
+  check('rail: navega a Legión', !(await p.locator('#tab-legion').isHidden()));
+
+  await p.setViewportSize({ width: 390, height: 844 });
+  await p.waitForTimeout(300);
+  check('móvil: barra inferior con 4 secciones + Más', (await p.locator('#topnav [data-tab]:visible').count()) === 4 && await p.locator('#topnav [data-more]').isVisible());
+  check('móvil: Legión (en Más) marca el botón Más', (await p.getAttribute('#topnav [data-more]', 'aria-current')) === 'page');
+  await p.click('#topnav [data-more]');
+  await p.waitForSelector('#more-sheet[open]');
+  await p.click('#more-sheet [data-tab="ajustes"]');
+  check('Más: abre Ajustes y se cierra', !(await p.locator('#tab-ajustes').isHidden()) && !(await p.locator('#more-sheet[open]').count()));
+
+  // Review Focus 1: redimensionar con la hoja abierta
+  await p.click('#topnav [data-more]');
+  await p.waitForSelector('#more-sheet[open]');
+  await p.setViewportSize({ width: 1280, height: 900 });
+  await p.waitForTimeout(300);
+  check('redimensionar con Más abierto: se cierra y el rail sigue usable', !(await p.locator('#more-sheet[open]').count()) && await p.locator('#topnav [data-tab="eventos"]').isEnabled());
+  await p.click('#topnav [data-tab="eventos"]');
+  check('redimensionar con Más abierto: la navegación sigue funcionando', !(await p.locator('#tab-eventos').isHidden()));
+  await p.click('#topnav [data-tab="personajes"]');
+
+  // Review Focus 4 y 5: 375 px con un nombre de 24 caracteres (el máximo) sin espacios; último botón pulsable
+  await p.click('#add-btn');
+  await p.fill('#add-name', 'W'.repeat(24));
+  await p.selectOption('#add-class', { index: 2 });
+  await p.click('#add-form button[type=submit]');
+  await p.waitForFunction(() => [...document.querySelectorAll('article.card')].some((c) => /W{24}/.test(c.textContent)));
+  await p.setViewportSize({ width: 375, height: 700 });
+  await p.waitForTimeout(300);
+  check('375 px: sin scroll horizontal en Energía con nombre largo y varios personajes',
+    (await p.locator('article.card').count()) >= 3 && await p.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth));
+  await p.waitForSelector('#toast', { state: 'hidden', timeout: 12000 }); // el aviso temporal de «añadido» (8 s) tapa a propósito la parte baja
+  const lastBtn = p.locator('article.card button.primary').last();
+  await lastBtn.scrollIntoViewIfNeeded();
+  const box = await lastBtn.boundingBox();
+  const barTop = await p.locator('#topnav').evaluate((n) => n.getBoundingClientRect().top);
+  check('375 px: el último botón no queda tapado por la barra', !!box && box.y + box.height <= barTop, JSON.stringify({ box, barTop }));
+  const topEl = await p.evaluate(({ x, y }) => { const e = document.elementFromPoint(x, y); return { ok: !!e?.closest('article.card button.primary'), tag: e?.tagName + '.' + e?.className + '#' + e?.id }; }, { x: box.x + box.width / 2, y: box.y + box.height / 2 });
+  check('375 px: el último botón recibe el clic (no hay nada encima)', topEl.ok, JSON.stringify(topEl));
+  // cabecera de 375 px con «en línea» forzado visible: una línea y la marca no pisa el reloj
+  await p.evaluate(() => { document.getElementById('online-pill').hidden = false; });
+  const hd = await p.evaluate(() => {
+    const h = document.querySelector('header').getBoundingClientRect();
+    const b = document.querySelector('header .brand-name').getBoundingClientRect();
+    const c = document.getElementById('profile-chip').getBoundingClientRect();
+    const pill = document.getElementById('online-pill');
+    return { h: h.height, hit: !(b.right <= c.left || b.left >= c.right || b.bottom <= c.top || b.top >= c.bottom), brandW: b.width,
+      pill: getComputedStyle(pill).display };
+  });
+  check('375 px: con «en línea» visible la cabecera es de una línea', hd.h < 70, JSON.stringify(hd));
+  check('375 px: la marca no se solapa con el reloj', !hd.hit && hd.brandW > 40, JSON.stringify(hd));
+  check('375 px: «en línea» se oculta en la cabecera', hd.pill === 'none', JSON.stringify(hd));
+  check('375 px: ya no existe el botón de movimiento 3D ni el lienzo de la escena', !(await p.locator('#motion-btn, #scene').count()), '');
+  await p.evaluate(() => { document.getElementById('online-pill').hidden = true; });
+  // el aviso de deshacer en móvil va arriba y no tapa los botones de la última fila
+  await p.setViewportSize({ width: 390, height: 844 });
+  await p.waitForTimeout(300);
+  const lastCard = p.locator('article.card').last(); // la última fila (la que queda bajo la barra)
+  const spendCard = p.locator('article.card:has-text("Importada Dos") button.spend:not(:disabled)').first(); // la última con energía para gastar
+  await spendCard.scrollIntoViewIfNeeded();
+  await spendCard.click();
+  await p.waitForSelector('#toast.show', { timeout: 5000 });
+  await p.evaluate(() => window.scrollTo(0, document.documentElement.scrollHeight)); // al final de la página: la última fila queda justo sobre la barra
+  await p.waitForTimeout(400);
+  const tg = await p.evaluate(() => {
+    const t = document.getElementById('toast').getBoundingClientRect();
+    const hit = [...document.querySelectorAll('article.card button')].filter((b) => b.offsetParent).some((b) => { const r = b.getBoundingClientRect(); return r.bottom > 0 && r.top < innerHeight && !(t.right <= r.left || t.left >= r.right || t.bottom <= r.top || t.top >= r.bottom); });
+    const last = [...document.querySelectorAll('article.card')].at(-1).getBoundingClientRect();
+    return { hit, toastTop: t.top, toastBottom: t.bottom, lastBottom: last.bottom, barTop: document.getElementById('topnav').getBoundingClientRect().top, innerHeight };
+  });
+  check('aviso de deshacer (390 px): no tapa los botones de las filas, ni siquiera la última', !tg.hit && tg.toastTop > 0 && tg.toastBottom <= tg.barTop + 0.5, JSON.stringify(tg));
+  await p.waitForSelector('#toast', { state: 'hidden', timeout: 12000 });
+  // el menú ⋯ de la última fila se abre hacia arriba si no cabe bajo la barra inferior
+  await lastCard.scrollIntoViewIfNeeded();
+  await lastCard.locator('button.more-actions').click();
+  const mg = await lastCard.evaluate((card) => {
+    const m = card.querySelector('.menu').getBoundingClientRect();
+    return { bottom: m.bottom, barTop: document.getElementById('topnav').getBoundingClientRect().top, up: card.querySelector('.menu').classList.contains('up') };
+  });
+  check('390 px: el menú ⋯ de la última fila no queda bajo la barra inferior', mg.bottom <= mg.barTop + 0.5, JSON.stringify(mg));
+  await p.keyboard.press('Escape');
+  // un solo h1 visible y «Más» no se cierra al tocar su relleno
+  check('un único h1 visible en móvil', (await p.locator('h1:visible').count()) === 1);
+  await p.click('#topnav [data-more]');
+  await p.waitForSelector('#more-sheet[open]');
+  const sb = await p.locator('#more-sheet').boundingBox();
+  await p.mouse.click(sb.x + 6, sb.y + sb.height - 6);
+  await p.waitForTimeout(150);
+  check('Más: un toque en su relleno no la cierra', (await p.locator('#more-sheet[open]').count()) === 1);
+  const tsh = await p.evaluate(() => Math.min(...[...document.querySelectorAll('#more-sheet .theme-switch button')].map((b) => b.getBoundingClientRect().height)));
+  check('Más: los botones de tema miden 44 px', tsh >= 43.5, String(tsh));
+  await p.mouse.click(sb.x + 6, 5); // la cortina
+  await p.waitForTimeout(150);
+  check('Más: un toque en la cortina la cierra', (await p.locator('#more-sheet[open]').count()) === 0);
+  await p.setViewportSize({ width: 1280, height: 900 });
+  check('un único h1 visible en escritorio', (await p.locator('h1:visible').count()) === 1);
+  const railTh = await p.evaluate(() => Math.min(...[...document.querySelectorAll('.rail-foot .theme-switch button')].map((b) => b.getBoundingClientRect().height)));
+  check('rail: los botones de tema miden 44 px', railTh >= 43.5, String(railTh));
+
+  // Carta celeste, Energía: todas las filas con el orbe y el nombre en la misma x (incluido un nombre de 24 caracteres
+  // y un personaje sin clase), gasto rápido que resta energía y Plan de hoy con una fila por personaje.
+  await p.click('#topnav [data-tab="personajes"]');
+  await p.click('#add-btn');
+  await p.fill('#add-name', 'Sin clase');
+  await p.selectOption('#add-class', { index: 0 });
+  await p.click('#add-form button[type=submit]');
+  await p.waitForFunction(() => [...document.querySelectorAll('article.card')].some((c) => /Sin clase/.test(c.textContent)));
+  const columns = () => p.evaluate(() => [...document.querySelectorAll('#cards article.card')].map((c) => ({
+    orb: c.querySelector('.orb-slot').getBoundingClientRect().left, name: c.querySelector('.name').getBoundingClientRect().left,
+    w: c.querySelector('.orb-slot').getBoundingClientRect().width, text: c.querySelector('.name').textContent, cls: !!c.querySelector('.cls-name') })));
+  const spread = (xs) => Math.max(...xs) - Math.min(...xs);
+  for (const w of [1280, 390]) {
+    await p.setViewportSize({ width: w, height: 900 });
+    await p.waitForTimeout(300);
+    const cols = await columns();
+    const info = JSON.stringify(cols);
+    check(`${w} px: hay filas con nombre de 24 caracteres y sin clase`, cols.length >= 4 && cols.some((c) => /^W{24}$/.test(c.text)) && cols.some((c) => !c.cls), info);
+    check(`${w} px: el orbe de cada fila empieza en la misma x`, spread(cols.map((c) => c.orb)) <= 1, info);
+    check(`${w} px: el nombre de cada fila empieza en la misma x`, spread(cols.map((c) => c.name)) <= 1, info);
+    check(`${w} px: el orbe mide lo mismo en todas las filas`, spread(cols.map((c) => c.w)) <= 1 && cols[0].w >= 72, info);
+  }
+  await p.setViewportSize({ width: 1280, height: 900 });
+  await p.waitForTimeout(300);
+  await p.locator('#cards article.card .r-text').first().dispatchEvent('pointerdown'); // selecciona la primera fila
+  const firstName = await p.locator('#cards article.card .name').first().textContent();
+  const energies = async () => Object.fromEntries((await dbRows('members/')).filter((r) => r.path.includes('/characters/')).map((r) => [r.path.split('/').pop(), r.data.energy]));
+  const before = await energies();
+  await p.waitForSelector('#quick-chips [data-quick]');
+  check('gastos rápidos: el título nombra al personaje de la primera fila', (await p.locator('#quick-title').textContent()).includes(firstName));
+  const chipCost = Number((await p.locator('#quick-chips [data-quick] b').first().textContent()).replace(/\D/g, ''));
+  await p.locator('#quick-chips [data-quick]').first().click();
+  await p.waitForTimeout(900);
+  const after = await energies();
+  const lowered = Object.keys(before).filter((id) => after[id] < before[id]);
+  check('gasto rápido: baja la energía de un solo personaje en el coste del gasto', lowered.length === 1 && before[lowered[0]] - after[lowered[0]] > 0 && before[lowered[0]] - after[lowered[0]] <= chipCost && chipCost > 0, JSON.stringify({ before, after, chipCost }));
+    check('gasto rápido: baja exactamente el coste si no hay recarga por medio', before[lowered[0]] - after[lowered[0]] === chipCost || before[lowered[0]] - after[lowered[0]] === chipCost - 15, JSON.stringify({ before, after, chipCost }));
+  // modo compacto: mismas x de orbe y nombre
+  await p.waitForSelector('#toast', { state: 'hidden', timeout: 12000 });
+  await p.evaluate(() => { const t = document.getElementById('compact-toggle'); t.checked = true; t.dispatchEvent(new Event('change', { bubbles: true })); });
+  for (const w of [1280, 390]) {
+    await p.setViewportSize({ width: w, height: 900 });
+    await p.waitForTimeout(300);
+    const cols = await columns();
+    const info = JSON.stringify(cols);
+    check(`compacto ${w} px: el orbe y el nombre de cada fila empiezan en la misma x`, cols.length >= 4 && spread(cols.map((c) => c.orb)) <= 1 && spread(cols.map((c) => c.name)) <= 1 && cols[0].w < 104, info);
+  }
+  await p.evaluate(() => { const t = document.getElementById('compact-toggle'); t.checked = false; t.dispatchEvent(new Event('change', { bubbles: true })); });
+  await p.setViewportSize({ width: 1280, height: 900 });
+  await p.waitForTimeout(300);
+  // editar a «Sin clase» y deshacer (el servidor rechaza classId null)
+  const wRow = p.locator('#cards article.card', { hasText: 'W'.repeat(24) });
+  const wId = await wRow.getAttribute('data-id');
+  const classOf = async () => (await dbRows('members/')).find((r) => r.path.endsWith('/characters/' + wId))?.data.classId;
+  const classBefore = await classOf();
+  await wRow.locator('button.primary').click();
+  await p.selectOption(`#class-${wId}`, '');
+  await wRow.locator('form button[type=submit]').click();
+  await p.waitForTimeout(900);
+  check('editar a «Sin clase»: se guarda sin error', (await classOf()) === '' && (await p.locator('#notice').isHidden()), String(await classOf()));
+  await p.click('#undo');
+  await p.waitForTimeout(900);
+  check('deshacer la edición a «Sin clase»: vuelve la clase anterior', (await classOf()) === classBefore && !!classBefore, String(await classOf()));
+  check('Plan de hoy: una fila por personaje', (await p.locator('#plan tbody tr').count()) === (await p.locator('#cards article.card').count()) && (await p.locator('#plan tbody tr').count()) >= 4);
+  check('Plan de hoy: sin NaN ni undefined', !/NaN|undefined/.test(await p.locator('#plan').textContent()));
+}
 
 // ================= Usuario B =================
 const B = await newUser('B');
@@ -434,7 +696,7 @@ check('cerrar todas: la cookie de renovación vieja de B no renueva', (await rep
   await register(pd, 'dani@example.com', PW); await login(pd, 'dani@example.com', PW); await fillProfile(pd, 'DaniSombra');
 
   // buscar y pedir amistad
-  await pc.click('[data-tab="buscar"]');
+  await pc.click('#topnav [data-tab="buscar"]');
   await pc.fill('#search-q', 'Dani');
   await pc.waitForSelector('#social-buscar .social-list li');
   check('buscar: encuentra a DaniSombra', /DaniSombra/.test(await text(pc, '#social-buscar')));
@@ -452,6 +714,20 @@ check('cerrar todas: la cookie de renovación vieja de B no renueva', (await rep
   await pd.click('#social-amigos [role="tab"]:nth-child(1)');
   await pd.waitForSelector('#social-amigos .social-list li');
   check('amigos: D acepta y C aparece como amigo', /CarlaLuz/.test(await text(pd, '#social-amigos')));
+
+  // columna lateral: visible y con el amigo en línea a >= 1200 px, oculta por debajo
+  await pc.setViewportSize({ width: 1440, height: 900 });
+  await pc.waitForFunction(() => /DaniSombra/.test(document.querySelector('#side-online')?.textContent || ''), null, { timeout: 10000 }).catch(() => {});
+  check('columna lateral: a 1440 px se ve y muestra al amigo en línea',
+    await pc.locator('#side').isVisible() && /DaniSombra/.test(await text(pc, '#side-online')) && !(await pc.locator('#side-online-box').isHidden()));
+  const sideRows = await pc.locator('#side-events li').count();
+  check('columna lateral: eventos con 1 a 3 filas', sideRows >= 1 && sideRows <= 3, String(sideRows));
+  await pc.click('#side [data-go="eventos"]');
+  check('columna lateral: Ver todos abre Eventos', (await pc.getAttribute('#topnav [data-tab="eventos"]', 'aria-current')) === 'page' && await pc.locator('#tab-eventos').isVisible());
+  check('columna lateral: sin scroll horizontal a 1440 px', await pc.evaluate(() => document.documentElement.scrollWidth <= innerWidth));
+  await pc.setViewportSize({ width: 1000, height: 800 });
+  check('columna lateral: a 1000 px está oculta', await pc.locator('#side').isHidden());
+  await pc.setViewportSize({ width: 1280, height: 900 });
 
   // chat en vivo C → D, con texto que coincide con la interfaz y un mensaje largo
   await pc.click('[data-tab="amigos"]');
@@ -493,7 +769,7 @@ check('cerrar todas: la cookie de renovación vieja de B no renueva', (await rep
   await pd.setViewportSize({ width: 1280, height: 900 });
 
   // tema: Sombra se guarda en prefs.theme, sobrevive a recargar y guardar el perfil no lo cambia
-  await pc.click('#theme-slot-header [data-theme-choice="asmodian"]');
+  await pc.click('#topnav [data-theme-choice="asmodian"]');
   const cUid = (await dbRows('members/')).find((r) => r.data.profile?.nick === 'CarlaLuz')?.path.split('/')[1];
   let themeSaved = false;
   for (let i = 0; i < 50 && !themeSaved; i++) {
@@ -515,7 +791,7 @@ check('cerrar todas: la cookie de renovación vieja de B no renueva', (await rep
   await pd.uncheck('#profile-searchable');
   await pd.click('#profile-form button[type=submit]');
   await pd.waitForSelector('#profile-modal', { state: 'hidden' });
-  await pc.click('[data-tab="buscar"]');
+  await pc.click('#topnav [data-tab="buscar"]');
   await pc.fill('#search-q', '');
   await pc.fill('#search-q', 'Dani');
   await pc.waitForSelector('#social-buscar >> text=Nadie se llama así');
@@ -561,7 +837,7 @@ check('cerrar todas: la cookie de renovación vieja de B no renueva', (await rep
     if (!fSaved) await new Promise((r) => setTimeout(r, 100));
   }
   check('tema primera vez: prefs.theme se guarda con la facción del perfil', fSaved);
-  await pf.click('[data-tab="ajustes"]').catch(() => {});
+  await pf.click('#topnav [data-tab="ajustes"]').catch(() => {});
   await pf.fill('#quiet-start', '01:00');
   await pf.click('#prefs-form button[type=submit]');
   await new Promise((r) => setTimeout(r, 600));

@@ -38,16 +38,16 @@ test('/: 200 HTML con la CSP exacta, sin <script> en línea ni <style>; carga sh
   assert.match(html, /<script type="module" src="app.js"><\/script>/);
 });
 
-test('/app.js, /claude-shim.js, /legion-api.js y /vendor/three.module.js con Content-Type JavaScript', async () => {
+test('/app.js, /claude-shim.js, /legion-api.js y /starorb.js con Content-Type JavaScript', async () => {
   const { app } = await makeTestApp();
-  for (const url of ['/app.js', '/claude-shim.js', '/legion-api.js', '/social-api.js', '/vendor/three.module.js', '/orb.js', '/auth.js', '/store.js']) {
+  for (const url of ['/app.js', '/claude-shim.js', '/legion-api.js', '/social-api.js', '/starorb.js', '/auth.js', '/store.js']) {
     const r = await app.inject({ method: 'GET', url });
     assert.equal(r.statusCode, 200, url);
     assert.match(r.headers['content-type'], /javascript/, url);
   }
-  const orb = (await app.inject({ method: 'GET', url: '/orb.js' })).body;
-  assert.match(orb, /from '\.\/vendor\/three\.module\.js'/);
-  assert.ok(!orb.includes('cdn.jsdelivr.net'));
+  const orb = (await app.inject({ method: 'GET', url: '/starorb.js' })).body;
+  assert.match(orb, /export function buildStarOrb/);
+  assert.ok(!orb.includes('three') && !orb.includes('cdn.jsdelivr.net'));
   const css = await app.inject({ method: 'GET', url: '/app.css' });
   assert.match(css.headers['content-type'], /text\/css/);
   await app.close();
@@ -58,8 +58,8 @@ test('fuentes propias: fonts.css con @font-face locales y woff2 servidos (SR-5)'
   const css = (await app.inject({ method: 'GET', url: '/fonts.css' })).body;
   assert.ok(!/https?:\/\//.test(css));
   const urls = [...css.matchAll(/url\(([^)]+)\)/g)].map((m) => m[1].replace(/['"]/g, ''));
-  assert.ok(urls.length >= 10, 'latin + latin-ext de 5 pesos');
-  for (const fam of ['Cinzel', 'Figtree']) assert.match(css, new RegExp(`font-family: '${fam}'`));
+  assert.ok(urls.length >= 10, 'latin + latin-ext de 5 pesos (Marcellus 400, Gothic A1 400/500/700/800)');
+  for (const fam of ['Marcellus', 'Gothic A1']) assert.match(css, new RegExp(`font-family: '${fam}'`));
   assert.match(css, /font-display: swap/);
   for (const u of urls) {
     const r = await app.inject({ method: 'GET', url: '/' + u });
@@ -118,7 +118,7 @@ test('sin compilar: el servidor arranca y las páginas dan 503; la API sigue viv
   await app.close();
 });
 
-// SR-2: ningún archivo servido (salvo Three.js vendorizado) contiene sumideros de HTML/código.
+// SR-2: ningún archivo servido contiene sumideros de HTML/código.
 test('sin sumideros prohibidos en server/public (SR-2)', () => {
   const SINKS = [/\.innerHTML\b/, /\.outerHTML\b/, /insertAdjacentHTML/, /document\.write/, /\beval\s*\(/, /new\s+Function\s*\(/,
     /setTimeout\(\s*['"`]/, /setInterval\(\s*['"`]/];
@@ -126,11 +126,11 @@ test('sin sumideros prohibidos en server/public (SR-2)', () => {
     const p = path.join(dir, f);
     return statSync(p).isDirectory() ? walk(p) : [p];
   });
-  const files = walk(PUBLIC).filter((f) => /\.(js|html|css)$/.test(f) && !f.includes(`${path.sep}vendor${path.sep}`));
+  const files = walk(PUBLIC).filter((f) => /\.(js|html|css)$/.test(f));
   assert.ok(files.length > 15);
   for (const f of files) {
     const src = readFileSync(f, 'utf8');
     for (const re of SINKS) assert.ok(!re.test(src), `${path.relative(PUBLIC, f)} contiene ${re}`);
   }
-  assert.ok(existsSync(path.join(PUBLIC, 'vendor/three.module.js')));
+  assert.ok(!existsSync(path.join(PUBLIC, 'vendor')) && !existsSync(path.join(PUBLIC, 'orb.js')));
 });

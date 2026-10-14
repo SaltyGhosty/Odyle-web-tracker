@@ -21,7 +21,11 @@ export function startSocial(ctx) {
     openProfile: (uid) => { if (screens.profile) screens.profile.open(uid); },
     openChat: (uid) => { ctx.goTab('chat'); if (screens.chat) screens.chat.open(uid); },
     refreshFriends, refreshConvs,
-    changed() { for (const s of Object.values(screens)) s.render(); badges(); },
+    changed() {
+      for (const s of Object.values(screens)) s.render();
+      badges();
+      if (ctx.onOnline) ctx.onOnline(state.friends.filter((f) => f.online).map((f) => ({ uid: f.uid, nick: f.nick })));
+    },
   };
 
   async function refreshFriends() {

@@ -3,8 +3,6 @@
 import { loadChromium } from './pw.mjs';
 const chromium = await loadChromium();
 import { readFileSync } from 'node:fs';
-const THREE_URL = 'https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js';
-const THREE_SRC = readFileSync(new URL('../node_modules/three/build/three.module.js', import.meta.url));
 
 // In-memory stand-in for window.claude (db + user), injected before the page loads.
 const STUB = () => {
@@ -17,6 +15,8 @@ const STUB = () => {
     for (const [path, d] of Object.entries(seed.docs || {})) docs.set(path, d);
   }
   window.__docs = docs;
+  // The first visit opens the profile modal; this script is about the energy UI, so close it as soon as it shows.
+  setInterval(() => { const m = document.getElementById('profile-modal'); if (m && !m.hidden) m.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true })); }, 100);
   const me = (seed && seed.me) || 'u_me';
   const notify = () => { const d = seed && seed.delay; d ? setTimeout(() => subs.forEach(f => f()), d) : subs.forEach(f => f()); };
   window.__notify = () => subs.forEach(f => f());
@@ -54,12 +54,12 @@ const errors = [];
 // Theme screenshots: THEME_SHOTS=1 node dev/preview.mjs → dev/screens/tema-{elyos,asmodian}-{desktop,mobile}.png
 if (process.env.THEME_SHOTS) {
   for (const theme of ['elyos', 'asmodian']) {
-    for (const [label, width, height] of [['desktop', 1280, 900], ['mobile', 390, 844]]) {
+    for (const [label, width, height] of (process.env.SHOT_SIZES ? JSON.parse(process.env.SHOT_SIZES) : [['desktop', 1280, 900], ['mobile', 390, 844]])) {
       const ctx = await browser.newContext({ viewport: { width, height }, colorScheme: theme === 'asmodian' ? 'dark' : 'light' });
       const page = await ctx.newPage();
-      await page.route(THREE_URL, r => r.fulfill({ contentType: 'text/javascript', body: THREE_SRC }));
       page.on('pageerror', e => errors.push(`theme ${theme}/${label}: ${e.message}`));
       await page.addInitScript(t => { try { localStorage.setItem('odyle-theme', t); } catch {} }, theme);
+      if (process.env.SHOT_TAB) await page.addInitScript(t => { try { localStorage.setItem('odyle-tab', t); } catch {} }, process.env.SHOT_TAB);
       await page.addInitScript(() => {
         const now = Date.now();
         window.__SEED = { characters: {
@@ -71,7 +71,7 @@ if (process.env.THEME_SHOTS) {
       await page.addInitScript(STUB);
       await page.goto(BASE);
       await page.waitForTimeout(2500); await page.keyboard.press('Escape'); await page.waitForTimeout(400);
-      await page.screenshot({ path: `dev/screens/tema-${theme}-${label}.png` });
+      await page.screenshot({ path: `dev/screens/${process.env.SHOT_PREFIX || 'tema'}-${theme}-${label}.png` });
       await ctx.close();
     }
   }
@@ -83,57 +83,43 @@ for (const [label, width, height] of [['mobile', 390, 844], ['desktop', 1280, 80
   for (const scheme of ['dark', 'reduce']) {
     const ctx = await browser.newContext({ viewport: { width, height }, colorScheme: 'dark', reducedMotion: scheme === 'reduce' ? 'reduce' : 'no-preference' });
     const page = await ctx.newPage();
-    await page.route(THREE_URL, r => r.fulfill({ contentType: 'text/javascript', body: THREE_SRC }));
     page.on('console', m => { if (m.type() === 'error') errors.push(`${label}/${scheme}: ${m.text()}`); });
     page.on('pageerror', e => errors.push(`${label}/${scheme}: ${e.message}`));
     if (!process.env.NO_STUB) await page.addInitScript(STUB);
-    if (scheme === 'dark' && label === 'mobile') {
-      // Three.js arrives late: the add form must already work (no page reload).
-      await page.unroute(THREE_URL);
-      await page.route(THREE_URL, async r => { await new Promise(res => setTimeout(res, 2500)); r.fulfill({ contentType: 'text/javascript', body: THREE_SRC }); });
-    }
     await page.goto(BASE);
-    const openMenu = async () => { if (!(await page.locator('#drawer').isVisible())) await page.click('#menu-btn'); await page.waitForTimeout(100); };
-    const closeMenu = async () => { if (await page.locator('#drawer').isVisible()) await page.keyboard.press('Escape'); await page.waitForTimeout(100); };
-    if (scheme === 'dark' && label === 'mobile') {
-      await page.evaluate(() => { window.__alive = true; });
-      await page.waitForSelector('#menu-btn:not([hidden])');
-      await openMenu();
-      await page.waitForSelector('#add-form:not([hidden])');
-      await page.fill('#add-name', 'Temprano'); await page.click('#add-form button[type=submit]');
-      await page.waitForTimeout(300);
-      check('add form works before Three.js loads', await page.evaluate(() => window.__alive === true) && await page.locator('article.card').count() === 1);
-      await closeMenu();
-      await page.waitForTimeout(2600);
-      await page.goto(BASE); await page.waitForTimeout(2800); // fresh stub state for the rest of the run
-    }
+    // Current UI: «+ Añadir» opens a modal, presets have their own modal, «Ajustar recarga» lives in Ajustes, extra/remove in the row's ⋯ menu.
+    const modalOpen = () => page.evaluate(() => !!document.querySelector('dialog[open], .modal:not([hidden])'));
+    const openAdd = async () => { await page.click('#add-btn'); await page.waitForSelector('#add-name', { state: 'visible' }); await page.waitForTimeout(100); };
+    const closeModal = async () => { if (await modalOpen()) await page.keyboard.press('Escape'); await page.waitForTimeout(150); };
+    const addChar = async (n) => { await openAdd(); await page.fill('#add-name', n); await page.click('#add-form button[type=submit]'); await page.waitForTimeout(300); await closeModal(); };
+    const goTab = (t) => page.evaluate((x) => document.querySelector(`[data-tab="${x}"]`)?.click(), t);
+    const rowMenu = async (id, cls) => { await page.click(`article[data-id=${id}] button.more-actions`); await page.click(`article[data-id=${id}] .menu button.${cls}`); await page.waitForTimeout(150); };
     const shot = n => page.screenshot({ path: `dev/screens/${label}-${scheme}-${n}.png`, fullPage: true });
     await shot('1-empty');
     if (label === 'desktop' && scheme === 'dark') {
       await page.waitForTimeout(500);
       check('add form is not on the main page', !(await page.locator('#add-form').isVisible()));
-      await page.click('#menu-btn');
-      check('menu opens with focus in the name field', await page.locator('#drawer').isVisible() && await page.evaluate(() => document.activeElement?.id === 'add-name'));
+      await page.click('#add-btn');
+      check('add opens with focus in the name field', await page.locator('#add-name').isVisible() && await page.evaluate(() => document.activeElement?.id === 'add-name'));
       await page.keyboard.press('Escape');
-      check('Esc closes the menu and focus returns to ☰', !(await page.locator('#drawer').isVisible()) && await page.evaluate(() => document.activeElement?.id === 'menu-btn'));
-      await openMenu();
-      await page.fill('#add-name', 'Sin horario'); await page.click('#add-form button[type=submit]');
-      await page.waitForTimeout(200);
-      await closeMenu();
+      await page.waitForTimeout(500);
+      check('Esc closes the add form and focus returns to + Añadir', !(await page.locator('#add-name').isVisible()) && await page.evaluate(() => document.activeElement?.id === 'add-btn'));
+      await addChar('Sin horario');
       check('no schedule: rune timer says so', (await page.evaluate(() => document.querySelector('article.card .tick-left')?.textContent ?? '')) === 'Falta la hora de recarga');
-      await page.click('article.card button.remove'); await page.click('article.card button.danger');
+      await page.click('article.card button.more-actions'); await page.click('article.card .menu button.remove'); await page.click('article.card button.danger');
       await page.goto(BASE); await page.waitForTimeout(600);
     }
     // validation errors
-    await openMenu();
+    await openAdd();
     await page.click('#add-form button[type=submit]');
     await shot('2-name-error');
-    for (const n of ['Personaje 1', 'Personaje 2', 'Personaje 3']) {
-      await page.fill('#add-name', n); await page.click('#add-form button[type=submit]');
-    }
+    await closeModal();
+    for (const n of ['Personaje 1', 'Personaje 2', 'Personaje 3']) await addChar(n);
+    await goTab('ajustes');
     await page.fill('#adjust-minutes', '102');
     await page.click('#adjust-form button[type=submit]');
-    await closeMenu();
+    await page.waitForTimeout(200);
+    await goTab('personajes');
     const vals = { c1: '612', c2: '345', c3: '840' };
     for (const id of ['c1', 'c2', 'c3']) {
       await page.click(`article[data-id=${id}] button.primary`);
@@ -144,27 +130,23 @@ for (const [label, width, height] of [['mobile', 390, 844], ['desktop', 1280, 80
     await shot('3-cards');
     const tl = id => page.evaluate(i => document.querySelector(`article[data-id=${i}] .tick-left`)?.textContent ?? '', id);
     check(`${label}/${scheme} rune timer text`, /^\+15 en \d\d:\d\d:\d\d$/.test(await tl('c1')) && (await tl('c3')) === 'Lleno');
-    const flat = await page.evaluate(() => document.body.classList.contains('flat'));
-    check(`${label}/${scheme} flat mode = ${scheme === 'reduce'}`, flat === (scheme === 'reduce'));
+    check(`${label}/${scheme} orbs are drawn SVG (no 3D canvas)`, await page.locator('.star-orb').count() === 3 && await page.locator('#scene').count() === 0);
     const slots = await page.locator('.orb-slot').count();
     check(`${label}/${scheme} one orb slot per card`, slots === await page.locator('article.card').count() && slots === 3);
     // a near-full and a full card get their classes
     if (label === 'mobile') {
       const orb = await page.locator('article[data-id=c2] .orb-slot').boundingBox();
-      const pan = await page.locator('article[data-id=c2] .panel').boundingBox();
-      check(`mobile/${scheme} panel does not cover the orb`, orb.y + orb.height <= pan.y + 1);
+      const txt = await page.locator('article[data-id=c2] .r-text').boundingBox();
+      check(`mobile/${scheme} row text does not overlap the orb`, orb.x + orb.width <= txt.x + 1 || orb.y + orb.height <= txt.y + 1 || txt.x + txt.width <= orb.x + 1);
     }
     check(`${label}/${scheme} full card marked`, await page.locator('article[data-id=c3].full').count() === 1);
     if (scheme === 'dark') {
-      // after scrolling, the orb is still drawn inside its slot
+      // after scrolling, the SVG orb is still inside its slot and has the 56 stars
       await page.evaluate(() => { document.querySelector('article[data-id=c3] .orb-slot').scrollIntoView({ block: 'center' }); window.scrollBy(0, 60); });
       await page.waitForTimeout(400);
-      const box = await page.locator('article[data-id=c3] .orb-slot').boundingBox();
-      const buf = await page.screenshot();
-      const { execFileSync } = await import('node:child_process');
-      const fs = await import('node:fs'); fs.writeFileSync('dev/screens/_tmp.png', buf);
-      const [r, g, b] = JSON.parse(execFileSync('python3', ['-c', `import json;from PIL import Image;im=Image.open('dev/screens/_tmp.png').convert('RGB');print(json.dumps(im.getpixel((${Math.round(box.x + box.width / 2)},${Math.round(box.y + box.height / 2)}))))`]).toString());
-      check(`${label} orb follows its slot after scroll`, r + g + b > 300);
+      const slot = await page.locator('article[data-id=c3] .orb-slot').boundingBox();
+      const svg = await page.locator('article[data-id=c3] .orb-slot .star-orb').boundingBox();
+      check(`${label} orb stays inside its slot after scroll`, svg && Math.abs(svg.x - slot.x) < 1 && Math.abs(svg.y - slot.y) < 1 && await page.locator('article[data-id=c3] .so-star').count() === 56);
       await page.evaluate(() => window.scrollTo(0, 0));
     }
     if (label === 'desktop' && scheme === 'dark') {
@@ -173,11 +155,11 @@ for (const [label, width, height] of [['mobile', 390, 844], ['desktop', 1280, 80
     if (label === 'desktop' && scheme === 'dark') {
       const num = id => page.locator(`article[data-id=${id}] .num`).textContent();
       const events = () => page.evaluate(() => [...window.__docs.keys()].filter(k => k.startsWith('members/u_me/events/')).length);
-      await openMenu();
+      await page.click('#presets-btn');
       await page.fill('#preset-name', 'Mazmorra'); await page.fill('#preset-cost', '40');
       await page.click('#preset-form button[type=submit]');
       await page.waitForTimeout(200);
-      await closeMenu();
+      await closeModal();
       const ev0 = await events(); // the earlier 'Actualizar' edits already logged 'set' events
       await page.click('article[data-id=c1] button.spend');
       await page.waitForTimeout(1000);
@@ -186,7 +168,7 @@ for (const [label, width, height] of [['mobile', 390, 844], ['desktop', 1280, 80
       await page.click('#undo');
       await page.waitForTimeout(1000);
       check('undo: back to 612 and the event removed', (await num('c1')) === '612' && (await events()) === ev0);
-      await page.click('article[data-id=c2] button.extra');
+      await rowMenu('c2', 'extra');
       await page.fill('#extra-c2', '100'); await page.press('#extra-c2', 'Enter');
       await page.waitForTimeout(1000);
       check('extra: +100 → 445', (await num('c2')) === '445');
@@ -202,11 +184,11 @@ for (const [label, width, height] of [['mobile', 390, 844], ['desktop', 1280, 80
     await page.click('article[data-id=c2] button.primary');
     await page.fill('#energy-c2', '12x'); await page.press('#energy-c2', 'Enter');
     await shot('4-edit-error');
-    await page.click('article[data-id=c1] button.remove');
+    await rowMenu('c1', 'remove');
     await shot('5-confirm');
     await page.click('article[data-id=c1] button.danger');
     await page.waitForTimeout(300);
-    check(`${label}/${scheme} removing a card removes its orb`, await page.locator('.orb-slot').count() === 2);
+    check(`${label}/${scheme} removing a card removes its orb`, await page.locator('.orb-slot').count() === 2 && await page.locator('.star-orb').count() === 2);
     const overflow = await page.evaluate(() => document.documentElement.scrollWidth > document.documentElement.clientWidth);
     console.log(label, scheme, 'horizontal overflow:', overflow); check(`${label}/${scheme} no horizontal overflow`, !overflow);
     await ctx.close();
@@ -216,7 +198,6 @@ for (const [label, width, height] of [['mobile', 390, 844], ['desktop', 1280, 80
 {
   const ctx = await browser.newContext({ viewport: { width: 1280, height: 800 }, colorScheme: 'dark' });
   const page = await ctx.newPage();
-  await page.route(THREE_URL, r => r.fulfill({ contentType: 'text/javascript', body: THREE_SRC }));
   page.on('pageerror', e => errors.push(`seeded: ${e.message}`));
   await page.addInitScript(() => {
     const now = Date.now();
@@ -232,53 +213,27 @@ for (const [label, width, height] of [['mobile', 390, 844], ['desktop', 1280, 80
   await page.goto(BASE);
   await page.waitForTimeout(1800);
   check('seeded: no false +N on load', await page.locator('.gain').count() === 0);
-  check('summary: tip about the full character', ((await page.locator('#summary').textContent().catch(() => '')) || '').includes('Lleno está lleno'));
+  check('summary: tip about the full character', ((await page.locator('#summary').textContent().catch(() => '')) || '').includes('Lleno está al tope'));
   check('forecast: 3 lines and a legend', await page.locator('#forecast path.series').count() === 3 && await page.locator('#forecast-legend li').count() === 3);
-  check('summary: total energy', ((await page.locator('#summary').textContent().catch(() => '')) || '').includes('1795'));
-  check('waste: full card says it is losing energy', (await page.locator('article[data-id=s3]').textContent()).includes('Estás perdiendo 15 de OD cada 3 h'));
+  check('summary: legion readiness line', ((await page.locator('#summary').textContent().catch(() => '')) || '').includes('Listos para mazmorra en la legión: 3'));
+  check('waste: full card says it is losing energy', (await page.locator('article[data-id=s3]').textContent()).includes('Lleno · perdiendo energía'));
   check('waste: card filling during rest hours warns', (await page.locator('article[data-id=s2]').textContent()).includes('Perderás 15 de OD'));
-  await page.click('#menu-btn');
-  check('drawer: rest hours fields', await page.locator('#quiet-start').isVisible() && await page.locator('#quiet-end').isVisible());
-  await page.keyboard.press('Escape');
-  check('seeded: class icon and name shown', await page.locator('.cls-icon').count() === 3 && (await page.locator('article[data-id=s1] .cls-name').textContent()) === 'Gladiador');
-  const above = async id => {
-    await page.evaluate(i => { document.querySelector(`article[data-id=${i}] .orb-slot`).scrollIntoView({ block: 'center' }); }, id);
-    await page.waitForTimeout(150);
-    const box = await page.locator(`article[data-id=${id}] .orb-slot`).boundingBox();
-    const buf = await page.screenshot();
-    const fs = await import('node:fs'); fs.writeFileSync('dev/screens/_tmp.png', buf);
-    const { execFileSync } = await import('node:child_process');
-    const x = Math.round(box.x + box.width / 2), y = Math.max(2, Math.round(box.y - 30));
-    return JSON.parse(execFileSync('python3', ['-c', `import json;from PIL import Image;im=Image.open('dev/screens/_tmp.png').convert('RGB');print(max(sum(im.getpixel((xx,${y}))) for xx in range(${x}-6,${x}+6)))`]).toString());
-  };
-  check('seeded: already-full character gets no beam on load', (await above('s3')) < 300);
+  await page.evaluate(() => document.querySelector('[data-tab="ajustes"]')?.click());
+  check('settings: rest hours fields', await page.locator('#quiet-start').isVisible() && await page.locator('#quiet-end').isVisible());
+  await page.evaluate(() => document.querySelector('[data-tab="personajes"]')?.click());
+  check('seeded: class icon and name shown', await page.locator('article .cls-icon').count() === 3 && (await page.locator('article[data-id=s1] .cls-name').textContent()) === 'Gladiador');
+  check('seeded: already-full character has the cap class and no ripple on load', await page.locator('article[data-id=s3] .star-orb.full').count() === 1 && await page.locator('.star-orb.ripple').count() === 0);
   await page.evaluate(() => { Object.defineProperty(document, 'hidden', { configurable: true, get: () => true }); });
   await page.waitForTimeout(8000);
   await page.evaluate(() => { Object.defineProperty(document, 'hidden', { configurable: true, get: () => false }); document.dispatchEvent(new Event('visibilitychange')); });
   await page.waitForTimeout(200);
   check('seeded: +15 shown after returning from background', (await page.locator('.gain').allTextContents()).join() === '+15,+15');
-  await page.waitForTimeout(1700); // let the floating "+15" fade; the beam lasts ~3 s
+  // a render right after the gain must not cut the ripple (the orb resumes where it was)
   await page.evaluate(() => { document.getElementById('events').open = false; });
-  const lit = await above('s2'), dark = await above('s1'); // same row, only s2 has a beam
-  check('seeded: beam when a character reaches 840', lit > 300 && lit > dark + 80);
+  check('seeded: the recharged orbs ripple once', await page.locator('.star-orb.ripple').count() === 2);
+  await page.waitForTimeout(1200);
+  check('seeded: the ripple is cleared when it ends', await page.locator('.star-orb.ripple').count() === 0);
   await page.screenshot({ path: 'dev/screens/seeded.png' });
-  await ctx.close();
-}
-// iOS-style permission denied: the motion button must not stay as a dead control.
-{
-  const ctx = await browser.newContext({ viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true, colorScheme: 'dark' });
-  const page = await ctx.newPage();
-  await page.route(THREE_URL, r => r.fulfill({ contentType: 'text/javascript', body: THREE_SRC }));
-  page.on('pageerror', e => errors.push(`ios: ${e.message}`));
-  await page.addInitScript(() => { window.DeviceOrientationEvent = window.DeviceOrientationEvent || function () {}; window.DeviceOrientationEvent.requestPermission = async () => 'denied'; });
-  await page.addInitScript(STUB);
-  await page.goto(BASE);
-  await page.waitForTimeout(1500);
-  const btn = page.locator('#motion-btn');
-  check('ios: motion button offered', await btn.isVisible());
-  if (await btn.isVisible()) await btn.tap();
-  await page.waitForTimeout(300);
-  check('ios: denied → button disabled and says so', await btn.isDisabled() && (await btn.textContent()) === 'Movimiento no disponible');
   await ctx.close();
 }
 // Event timers with the browser clock fixed at 18:05 UTC: Shugo is running.
@@ -286,7 +241,6 @@ for (const [label, width, height] of [['mobile', 390, 844], ['desktop', 1280, 80
   const ctx = await browser.newContext({ viewport: { width: 1280, height: 800 }, colorScheme: 'dark' });
   const page = await ctx.newPage();
   await page.clock.setFixedTime(new Date(Date.UTC(2026, 9, 10, 18, 5)));
-  await page.route(THREE_URL, r => r.fulfill({ contentType: 'text/javascript', body: THREE_SRC }));
   page.on('pageerror', e => errors.push(`events: ${e.message}`));
   await page.addInitScript(STUB);
   await page.goto(BASE);
@@ -302,7 +256,6 @@ for (const [label, width, height] of [['mobile', 390, 844], ['desktop', 1280, 80
   const mk = async (seedFn) => {
     const ctx = await browser.newContext({ viewport: { width: 1280, height: 800 }, colorScheme: 'dark' });
     const page = await ctx.newPage();
-    await page.route(THREE_URL, r => r.fulfill({ contentType: 'text/javascript', body: THREE_SRC }));
     page.on('pageerror', e => errors.push(`fixesA: ${e.message}`));
     await page.addInitScript(seedFn);
     await page.addInitScript(STUB);
@@ -322,27 +275,28 @@ for (const [label, width, height] of [['mobile', 390, 844], ['desktop', 1280, 80
   check('forecast: one line for the character', await page.locator('#forecast path.series').count() === 1);
   await ctx.close();
   ({ ctx, page } = await mk(base('{ failEvents: true }')));
+  // the notice is transient (a later save clears it), so watch it instead of reading it afterwards
+  await page.evaluate(() => { window.__notices = []; new MutationObserver(() => window.__notices.push(document.getElementById('notice').textContent)).observe(document.getElementById('notice'), { childList: true, characterData: true, subtree: true }); });
   await page.click('article[data-id=a] button.spend');
   await page.waitForTimeout(1000);
-  const notice = (await page.locator('#notice').textContent()) || '';
+  const notice = (await page.evaluate(() => window.__notices)).join('|');
   check('failed event write: page stays editable and says the log failed', await page.locator('article[data-id=a] button.spend').count() === 1 && notice.includes('historial'));
   await ctx.close();
   ({ ctx, page } = await mk(base('{}')));
-  await page.click('#menu-btn');
+  await page.click('#presets-btn');
   await page.focus('#preset-del-p1').catch(() => {});
   await page.evaluate(() => window.__notify());
   await page.waitForTimeout(300);
   check('menu: focus survives a repaint', await page.evaluate(() => document.activeElement?.id === 'preset-del-p1'));
   await ctx.close();
   ({ ctx, page } = await mk(`(() => { window.__SEED = { charPath: 'members/u_me/characters', characters: {}, schedule: null, docs: { 'members/u_me': { joinedAt: 1 } } }; })()`));
-  check('empty page points to the ☰ menu', ((await page.locator('#empty').textContent()) || '').includes('☰'));
+  check('empty page points to the + button', ((await page.locator('#empty').textContent()) || '').includes('Pulsa +'));
   await ctx.close();
 }
 // Migration: old shared 'characters' move into members/u_me/characters, once, intact.
 {
   const ctx = await browser.newContext({ viewport: { width: 1280, height: 800 }, colorScheme: 'dark' });
   const page = await ctx.newPage();
-  await page.route(THREE_URL, r => r.fulfill({ contentType: 'text/javascript', body: THREE_SRC }));
   page.on('pageerror', e => errors.push(`migration: ${e.message}`));
   await page.addInitScript(() => {
     window.__SEED = { characters: {

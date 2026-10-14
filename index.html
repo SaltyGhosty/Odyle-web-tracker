@@ -1,197 +1,252 @@
 <meta charset="utf-8">
-<meta name="theme-color" content="#EEF3F8">
+<meta name="theme-color" content="#2F3B55">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Energía Odyle</title>
+<title>Odyle Tracker</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Cinzel:wght@600;700&family=Figtree:wght@400;500;600&display=swap">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Gothic+A1:wght@400;500;700;800&family=Marcellus&display=swap">
 <style>
-  /* Aion 2, two factions. Elyos: dawn sky over the floating isles (light). Asmodian: the Abyss's
-     eternal violet dusk (dark). Every colour below is a token; nothing else in the page hard-codes one. */
+  /* Carta celeste de Atreia. Elyos (Luz): crepusculo dorado sobre pizarra. Asmodian (Sombra): el Abismo violeta.
+     Every colour below is a token; nothing else in the page hard-codes one. --gold / --gold-bright are the faction accent
+     (oro en Elyos, violeta en Asmodian); --line is the 1px rule (oro / plata). */
   :root, :root[data-faction="elyos"] {
-    --bg: #EEF3F8; --bg-2: #DCE7F3;
-    --glass: rgba(255, 255, 255, .88); --glass-strong: #FFFFFF;
-    --fg: #14213A; --muted: #4A5770;
-    --line: rgba(168, 122, 30, .35);
-    --gold: #A87A1E; --gold-bright: #8A6212; --sky: #2E6FB0; --on-gold: #FFFFFF;
-    --danger: #B4232F; --urgent: #B4232F;
-    --field: #FFFFFF; --hover: rgba(20, 33, 58, .05); --track: rgba(20, 33, 58, .12);
-    --glow: rgba(168, 122, 30, .22); --ok: #1E7A4C; --warn: #A2560B; --scrim: rgba(20, 33, 58, .35);
-    --shadow: 0 1px 2px rgba(20, 33, 58, .08), 0 8px 24px rgba(20, 33, 58, .08);
-    --font-display: "Cinzel", "Trajan Pro", Georgia, serif;
-    --font-body: "Figtree", system-ui, -apple-system, "Segoe UI", sans-serif;
+    --bg: #2F3B55; --bg-2: #1F2840;
+    --glass: #1F2840; --glass-strong: #1F2840;
+    --fg: #F4E7C8; --muted: #B9C2D6;
+    --line: rgba(227, 168, 83, .32); --line-strong: rgba(227, 168, 83, .6);
+    --gold: #E3A853; --gold-bright: #F2C77E; --sky: #9CC3E6; --on-gold: #1F2840;
+    --danger: #FF9A8E; --urgent: #D2453A; --urgent-strong: #B9372D;
+    --field: #18203A; --hover: rgba(244, 231, 200, .07); --track: rgba(244, 231, 200, .16);
+    --glow: rgba(227, 168, 83, .22); --ok: #8FD9A8; --warn: #FFC27A; --scrim: rgba(15, 20, 36, .66);
+    --shadow: none;
+    --orb-liquid-top: #F2C77E; --orb-liquid-deep: #5C8DC2; --orb-glass: #18203A;
+    --orb-ring: #E3A853; --orb-ring-off: rgba(244, 231, 200, .26);
+    --font-display: "Marcellus", "Trajan Pro", Georgia, serif;
+    --font-body: "Gothic A1", system-ui, -apple-system, "Segoe UI", sans-serif;
     --ease-out: cubic-bezier(0.23, 1, 0.32, 1);
-    color-scheme: light;
+    color-scheme: dark;
   }
   :root[data-faction="asmodian"] {
-    --bg: #120D17; --bg-2: #241830;
-    --glass: rgba(29, 21, 36, .88); --glass-strong: #1D1524;
-    --fg: #EDE6F2; --muted: #B5A9C4;
-    --line: rgba(201, 195, 214, .28);
-    --gold: #9B6BD6; --gold-bright: #C9A8F0; --sky: #C9C3D6; --on-gold: #120D17;
-    --danger: #E0455A; --urgent: #E0455A;
-    --field: #150F1B; --hover: rgba(237, 230, 242, .05); --track: rgba(237, 230, 242, .12);
-    --glow: rgba(155, 107, 214, .35); --ok: #7EE2A8; --warn: #FFB35C; --scrim: rgba(0, 0, 0, .55);
-    --shadow: 0 8px 24px rgba(0, 0, 0, .35);
-    color-scheme: dark;
+    --bg: #1B1530; --bg-2: #120E22;
+    --glass: #120E22; --glass-strong: #120E22;
+    --fg: #ECE8F6; --muted: #B9B3D0;
+    --line: rgba(200, 205, 228, .30); --line-strong: rgba(200, 205, 228, .6);
+    --gold: #A58CE8; --gold-bright: #C9B8F5; --sky: #C8CDE4; --on-gold: #120E22;
+    --field: #0D0A19; --hover: rgba(236, 232, 246, .07); --track: rgba(236, 232, 246, .16);
+    --glow: rgba(165, 140, 232, .3); --scrim: rgba(5, 3, 12, .7);
+    --orb-liquid-top: #C8CDE4; --orb-liquid-deep: #7A58C0; --orb-glass: #0D0A19;
+    --orb-ring: #A58CE8; --orb-ring-off: rgba(236, 232, 246, .24);
   }
 
   * { box-sizing: border-box; }
   [hidden] { display: none !important; }
-  html { background: var(--bg); }
+  html { background: var(--bg); font-synthesis: none; scrollbar-color: color-mix(in srgb, var(--gold) 55%, transparent) var(--glass); }
+  ::selection { background: color-mix(in srgb, var(--gold) 38%, transparent); color: var(--fg); }
   body {
     margin: 0;
     min-height: 100vh;
-    background: radial-gradient(120% 80% at 50% -10%, var(--bg-2) 0%, var(--bg) 60%) fixed;
+    background: var(--bg);
     color: var(--fg);
     font-family: var(--font-body);
     font-size: 15px;
     line-height: 1.45;
+    font-variant-numeric: tabular-nums;
   }
-  #scene { position: fixed; inset: 0; width: 100%; height: 100%; z-index: 0; pointer-events: none; display: block; }
   .page {
     position: relative; z-index: 1;
-    max-width: 960px; margin-inline: auto;
     padding: 28px 16px 56px;
-    display: flex; flex-direction: column; gap: 24px;
+    display: flex; flex-direction: column; align-items: center; gap: 24px;
   }
+  .page > * { width: min(100%, 928px); min-width: 0; }
 
-  /* ---- Header with live countdown ---- */
-  header { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 16px 24px; }
-  h1 {
-    font-family: var(--font-display); font-weight: 700; font-size: clamp(1.9rem, 6vw, 2.6rem); line-height: 1.05; margin: 0;
-    letter-spacing: .04em; color: var(--gold-bright);
-    text-shadow: 0 0 18px var(--glow);
-  }
+  /* ---- Header: tick ruler + meridian (position = progress to the next recharge, set by paintClock via --mer) ---- */
+  header { position: relative; display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 16px 24px; padding-bottom: 22px; border-bottom: 1px solid var(--gold); }
   .subtitle { margin: 4px 0 0; color: var(--muted); font-size: .875rem; letter-spacing: .08em; text-transform: uppercase; }
-  .clock { display: flex; align-items: center; gap: 12px; }
-  .ring { width: 56px; height: 56px; flex: none; transform: rotate(-90deg); }
-  .ring circle { fill: none; stroke-width: 4; }
-  .ring .track { stroke: color-mix(in srgb, var(--sky) 15%, transparent); }
-  .ring .arc { stroke: var(--sky); stroke-linecap: round; filter: drop-shadow(0 0 4px color-mix(in srgb, var(--sky) 70%, transparent)); }
-  .clock-label { margin: 0; color: var(--muted); font-size: .75rem; letter-spacing: .08em; text-transform: uppercase; }
-  .clock-time { margin: 0; font-size: 1.5rem; font-weight: 600; color: var(--sky); font-variant-numeric: tabular-nums; letter-spacing: .03em; }
-  .clock.missing .clock-time { font-size: 1rem; color: var(--muted); }
-  .clock.missing .ring { display: none; }
+  /* Page head: «Energía», the live recharge line and the two page actions. Desktop: inside the header; phone: top of the Energía section. */
+  .page-head { display: flex; flex-wrap: wrap; align-items: flex-end; justify-content: space-between; gap: 12px 24px; flex: 1 1 auto; min-width: 0; }
+  .page-title { margin: 0; font: 800 1.625rem/1.1 var(--font-body); letter-spacing: 0; }
+  .page-sub { margin: 6px 0 0; color: var(--muted); font-size: 1rem; }
+  .page-sub b { color: var(--gold); font-size: 1.0625rem; font-weight: 700; font-variant-numeric: tabular-nums; }
+  .head-actions { display: flex; flex-wrap: wrap; gap: 10px; }
+  .head-actions button { display: inline-flex; align-items: center; justify-content: center; gap: 8px; }
+  .head-actions .i { width: 18px; height: 18px; }
+  .page-head.plain .page-sub, .page-head.plain .head-actions { display: none; }
+  .ruler { position: absolute; left: 0; right: 0; bottom: 0; height: 22px; pointer-events: none;
+    background: repeating-linear-gradient(90deg, var(--line) 0 1px, transparent 1px 48px) bottom / 100% 8px no-repeat,
+      repeating-linear-gradient(90deg, var(--line) 0 1px, transparent 1px 12px) bottom / 100% 4px no-repeat; }
+  .ruler.missing .meridian { display: none; }
+  .meridian { position: absolute; top: 0; bottom: 0; left: calc(var(--mer, 0) * 100%); width: 1px; background: var(--gold); }
+  .meridian::before { content: ""; position: absolute; left: -3px; top: -1px; width: 7px; height: 7px; background: var(--gold); transform: rotate(45deg); }
+  /* The countdown rides on the meridian (decorative copy; the accessible one is #next-tick). Past ~60 % it flips to the left of the line. */
+  .mer-label { display: none; position: absolute; top: 1px; left: 10px; white-space: nowrap; color: var(--gold); font-size: .6875rem; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; font-variant-numeric: tabular-nums; }
+  .ruler.late .mer-label { left: auto; right: 10px; }
+  @media (min-width: 900px) {
+    header { align-items: flex-end; padding: 0 0 36px; min-height: 104px; }
+    .ruler { height: 30px; }
+    .mer-label { display: block; }
+    .page-title { font-size: 1.875rem; }
+  }
+  @media (max-width: 899.98px) { .ruler { height: 12px; } header { padding-bottom: 12px; } }
 
   /* ---- Theme switch "Luz / Sombra": two pressed-state buttons, no page animation ---- */
-  .theme-switch { display: inline-flex; border: 1px solid var(--line); border-radius: 999px; padding: 3px; gap: 2px; background: var(--glass); }
-  .theme-switch button { min-height: 34px; padding: 4px 14px; border: none; border-radius: 999px; background: none; color: var(--muted); font-family: var(--font-display); letter-spacing: .04em; }
-  .theme-switch button[aria-pressed="true"] { background: var(--gold-bright); color: var(--on-gold); }
+  .theme-switch { display: grid; grid-auto-flow: column; grid-auto-columns: 1fr; border: 1px solid var(--line-strong); }
+  .theme-switch button { min-height: 44px; padding: 4px 14px; border: none; background: none; color: var(--muted); font-weight: 500; }
+  .more-sheet .theme-switch button, .rail-foot .theme-switch button { min-height: 44px; }
+  .theme-switch button[aria-pressed="true"] { background: var(--gold); color: var(--on-gold); font-weight: 700; }
   .label-like { font-size: .8125rem; font-weight: 500; color: var(--muted); }
 
   /* ---- Controls ---- */
-  button, input, select { font: inherit; color: inherit; }
+  button, input, select, textarea { font: inherit; color: inherit; }
   button {
     position: relative; overflow: hidden;
-    cursor: pointer; border-radius: 10px; padding: 9px 16px; font-weight: 600; font-size: .875rem;
-    border: 1px solid var(--line); background: var(--hover); min-height: 40px;
+    cursor: pointer; padding: 9px 16px; font-weight: 700; font-size: .875rem;
+    border: 1px solid var(--gold); background: transparent; min-height: 44px;
     transition: transform 160ms var(--ease-out), border-color .2s, background-color .2s;
   }
-  @media (hover: hover) and (pointer: fine) { button:hover { border-color: var(--gold); } }
+  @media (hover: hover) and (pointer: fine) { button:hover { background: var(--hover); } }
   button:active { transform: scale(0.97); }
   @media (prefers-reduced-motion: reduce) { button { transition: none; } button:active { transform: none; } }
   button.primary {
-    background: var(--gold-bright); color: var(--on-gold); border-color: var(--gold-bright); box-shadow: none;
+    background: var(--gold); color: var(--on-gold); border-color: var(--gold);
   }
-  button.danger { color: var(--danger); border-color: var(--danger); }
-  button:focus-visible, input:focus-visible, select:focus-visible { outline: 2px solid var(--sky); outline-offset: 2px; }
+  @media (hover: hover) and (pointer: fine) { button.primary:hover { background: var(--gold-bright); } }
+  button.danger { color: var(--danger); border-color: var(--urgent-strong); }
+  button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-visible { outline: 2px solid var(--sky); outline-offset: 2px; }
   input, select {
-    background: var(--field); border: 1px solid var(--line); border-radius: 10px;
-    padding: 9px 12px; min-height: 40px; min-width: 0; width: 100%;
+    background: var(--field); border: 1px solid var(--line-strong);
+    padding: 9px 12px; min-height: 44px; min-width: 0; width: 100%;
   }
   select option { background: var(--glass-strong); color: var(--fg); }
+  input, select, textarea, dialog { color: var(--fg); }
+  input::placeholder, textarea::placeholder { color: var(--muted); opacity: 1; }
+  input::file-selector-button { font: inherit; color: var(--fg); background: transparent; border: 1px solid var(--gold); padding: 6px 12px; margin-right: 10px; }
   input[aria-invalid="true"], select[aria-invalid="true"] { border-color: var(--danger); }
   label { font-size: .8125rem; font-weight: 500; color: var(--muted); }
   .error { margin: 0; color: var(--danger); font-size: .8125rem; font-weight: 500; }
 
   .panel {
-    background: var(--glass); border: 1px solid var(--line); border-radius: 16px; padding: 16px;
-    display: flex; flex-direction: column; gap: 12px; box-shadow: var(--shadow);
-    -webkit-backdrop-filter: blur(10px); backdrop-filter: blur(10px);
+    background: var(--glass); border: 1px solid var(--line); padding: 16px;
+    display: flex; flex-direction: column; gap: 12px;
   }
-  h2 { font-family: var(--font-display); font-weight: 600; font-size: 1.2rem; line-height: 1.2; margin: 0; letter-spacing: .03em; }
+  h2 { font-family: var(--font-display); font-weight: 400; font-size: 1.2rem; line-height: 1.2; margin: 0; letter-spacing: .03em; }
   .row { display: flex; flex-wrap: wrap; gap: 8px; align-items: flex-start; }
   .row .field { flex: 1 1 150px; min-width: 0; display: flex; flex-direction: column; gap: 4px; }
   .row .offset { margin-top: 22px; }
 
-  /* ---- Character cards: orb (canvas-drawn) + glass panel ---- */
-  .grid { display: grid; gap: 20px; grid-template-columns: minmax(0, 1fr); }
-  /* one character per row; on wide screens the panel splits into details (left) and actions (right) */
-  .c-main, .c-side { display: flex; flex-direction: column; gap: 12px; min-width: 0; }
-  .c-side:empty { display: none; }
-  @media (min-width: 760px) {
-    .card .panel { flex-direction: row; align-items: flex-start; gap: 28px; }
-    .c-main { flex: 1 1 0; }
-    .c-side { flex: 1.15 1 0; }
+  /* ---- Characters: flat rows on ONE orb column, joined by a dotted gold constellation ---- */
+  .grid { display: flex; flex-direction: column; gap: 0; }
+  /* orb | name + class + status | number | actions. --orb sets the column; every row uses the same one, so the orb and the name
+     always sit at the same x. The constellation is one dotted line from each orb's centre down to the next orb's centre. */
+  .card.row { --orb: 104px; --pady: 8px; position: relative; display: grid; grid-template-columns: var(--orb) minmax(0, 1fr) 132px 264px; grid-template-areas: "orb text num act" "below below below below";
+    align-items: center; gap: 4px 20px; padding: var(--pady) 0; border-bottom: 1px solid var(--line); }
+  .card.row:not(:last-child)::before { content: ""; position: absolute; z-index: 1; left: calc(var(--orb) / 2); width: 1px; pointer-events: none; opacity: .75;
+    top: calc(var(--pady) + var(--orb) / 2); bottom: calc(-1px - var(--pady) - var(--orb) / 2);
+    background: repeating-linear-gradient(to bottom, var(--gold) 0 2px, transparent 2px 7px); }
+  .r-orb { grid-area: orb; margin: 0; align-self: start; position: relative; z-index: 2; }
+  .orb-slot { width: var(--orb); height: var(--orb); position: relative; }
+  .r-text { grid-area: text; min-width: 0; display: flex; flex-direction: column; gap: 4px; }
+  .who { display: flex; flex-wrap: wrap; align-items: baseline; gap: 2px 10px; min-width: 0; }
+  .r-text .name { font-family: var(--font-display); font-weight: 400; font-size: 1.5rem; line-height: 1.2; letter-spacing: .01em; max-width: 100%; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .cls-name { margin: 0; font-size: .6875rem; font-weight: 700; letter-spacing: .14em; text-transform: uppercase; color: var(--sky); }
+  .r-num { grid-area: num; justify-content: flex-end; }
+  .r-num .num { font-size: 3rem; font-weight: 800; line-height: 1; letter-spacing: -.01em; color: var(--fg); }
+  .card.full .r-num .num, .r-text .lost { color: var(--danger); }
+  .card.full button.spend { background: var(--urgent-strong); border-color: var(--urgent-strong); color: var(--fg); }
+  .r-act { grid-area: act; display: flex; flex-wrap: wrap; align-items: center; gap: 8px; justify-content: flex-end; }
+  .r-act button, .r-act button.spend, .r-act button.primary { min-height: 44px; }
+  .r-act button.primary { background: transparent; color: var(--fg); }
+  .r-below { grid-area: below; min-width: 0; display: flex; flex-direction: column; gap: 10px; }
+  .r-below:empty { display: none; }
+  .r-below > form, .r-below > .row { padding-top: 6px; }
+  .menu-wrap { position: relative; }
+  button.more-actions { min-width: 44px; min-height: 44px; padding: 0 12px; line-height: 1; }
+  button.more-actions .i { stroke-width: 3; }
+  .menu { position: absolute; right: 0; top: calc(100% + 4px); z-index: 15; list-style: none; margin: 0; padding: 4px; min-width: 190px;
+    background: var(--glass-strong); border: 1px solid var(--gold); transform-origin: top right; }
+  .menu.up { top: auto; bottom: calc(100% + 4px); transform-origin: bottom right; }
+  .menu li > button { width: 100%; padding: 8px 12px; font-size: .9375rem; min-height: 44px; text-align: left; border: none; background: none; }
+  .menu li > button.remove { color: var(--danger); }
+  @media (hover: hover) and (pointer: fine) { .menu li > button:hover { background: var(--hover); } }
+  @media (prefers-reduced-motion: no-preference) {
+    .menu { animation: menu-in 160ms var(--ease-out); }
+    @keyframes menu-in { from { opacity: 0; transform: scale(0.96); } to { opacity: 1; transform: scale(1); } }
   }
-  .card { display: grid; grid-template-columns: 1fr; justify-items: center; gap: 0; position: relative; }
-  .orb-col { display: flex; flex-direction: column; align-items: center; gap: 2px; margin-bottom: 8px; z-index: 2; }
-  .orb-slot { width: 150px; height: 150px; position: relative; }
-  /* Rune ring of the flat orb: 56 runes, lit ones in the faction accent, crimson at cap. No animation. */
-  .rune-ring { position: absolute; inset: 0; width: 100%; height: 100%; display: none; pointer-events: none; }
-  body.flat .rune-ring { display: block; }
-  .rune { fill: none; stroke: var(--track); stroke-width: 1.1; stroke-linecap: round; stroke-linejoin: round; }
-  .rune.on { stroke: var(--gold-bright); }
-  .rune-ring.full .rune.on { stroke: var(--urgent); }
-  .rune-ring.dots .rune { fill: var(--track); stroke: none; }
-  .rune-ring.dots .rune.on { fill: var(--gold-bright); }
-  .rune-ring.dots.full .rune.on { fill: var(--urgent); }
-  .tick-left { margin: 0; font-size: .8rem; font-weight: 600; color: var(--sky); font-variant-numeric: tabular-nums;
-    letter-spacing: .03em; text-shadow: 0 0 8px var(--glow); white-space: nowrap; }
-  .tick-left.full { color: var(--gold-bright); text-shadow: 0 0 8px var(--glow); }
-  .tick-left.missing { color: var(--muted); text-shadow: none; font-weight: 500; }
-  .card .panel { width: 100%; }
-  @media (min-width: 520px) {
-    .card { grid-template-columns: 150px minmax(0, 1fr); align-items: center; justify-items: stretch; }
-    .orb-col { margin: 0 -26px 0 0; }
-    .card .panel { padding: 16px 16px 16px 40px; }
-  }
-  .card-head { display: flex; align-items: center; gap: 10px; min-width: 0; }
-  .cls-icon { width: 26px; height: 26px; flex: none; fill: none; stroke: color-mix(in srgb, var(--c) 55%, var(--fg)); stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round;
-    }
+  /* Star orb (starorb.js): glass sphere of liquid light inside a ring of 56 four-point stars. Colours are tokens. */
+  .star-orb { display: block; width: 100%; height: 100%; overflow: visible; pointer-events: none; }
+  .so-top { stop-color: var(--orb-liquid-top); }
+  .so-deep { stop-color: var(--orb-liquid-deep); }
+  .so-glass { fill: var(--orb-glass); }
+  .so-rim { fill: none; stroke: var(--sky); stroke-width: 1; opacity: .75; }
+  .so-shine { fill: var(--fg); opacity: .3; }
+  .so-star { fill: var(--orb-ring-off); transform-box: fill-box; transform-origin: center; }
+  .so-star.lit { fill: var(--orb-ring); }
+  .star-orb.full .so-star.lit { fill: var(--urgent); }
+  .star-orb.full .so-rim { stroke: var(--urgent); }
+  .orb-slot .star-orb { position: absolute; inset: 0; }
+  .cls-icon { width: 26px; height: 26px; flex: none; fill: none; stroke: color-mix(in srgb, var(--c, var(--gold)) 55%, var(--fg)); stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; }
   .name { min-width: 0; overflow-wrap: anywhere; }
-  .cls-name::before { content: ""; width: 8px; height: 8px; border-radius: 50%; background: var(--c); flex: none; }
-  .cls-name { margin: 0; color: var(--muted); display: flex; align-items: center; gap: 6px; font-size: .75rem; letter-spacing: .1em; text-transform: uppercase; }
   .energy { display: flex; align-items: baseline; gap: 6px; font-variant-numeric: tabular-nums; }
-  .energy .num { font-size: 2.1rem; font-weight: 600; line-height: 1; color: var(--gold-bright); text-shadow: 0 0 12px var(--glow); }
+  .energy .num { font-size: 2.1rem; font-weight: 600; line-height: 1; color: var(--gold-bright); }
   .energy small { color: var(--muted); font-size: .9rem; }
   .badge { margin-left: auto; align-self: center; font-size: .7rem; font-weight: 600; letter-spacing: .12em; text-transform: uppercase;
-    color: var(--on-gold); background: var(--gold-bright); border-radius: 999px; padding: 3px 10px; }
-  .full-in { margin: 0; font-weight: 600; font-variant-numeric: tabular-nums; }
-  .full-at { margin: 0; color: var(--muted); font-size: .8125rem; }
-  .info { display: flex; flex-direction: column; gap: 2px; }
+    color: var(--on-gold); background: var(--gold); padding: 3px 10px; }
+  .full-in { margin: 0; font-weight: 500; color: var(--muted); font-variant-numeric: tabular-nums; }
+  .full-in::before { content: ""; display: inline-block; width: 6px; height: 6px; transform: rotate(45deg); background: var(--gold); margin-right: 8px; vertical-align: middle; }
+  .card.near .full-in { color: var(--fg); }
+  .card.near .full-in::before { background: var(--gold-bright); box-shadow: 0 0 0 3px color-mix(in srgb, var(--gold) 35%, transparent); }
+  .full-in.lost { font-weight: 700; }
+  .full-in.lost::before { background: var(--urgent); }
   .confirm-text { margin: 0; color: var(--danger); font-size: .875rem; font-weight: 500; }
-  .card.full .panel { border-color: var(--urgent); box-shadow: 0 0 24px color-mix(in srgb, var(--urgent) 28%, transparent), inset 0 0 18px color-mix(in srgb, var(--urgent) 8%, transparent); }
-  .card.near .panel { border-color: var(--gold); }
-
-  /* Flat orb: used when there is no WebGL or the system asks for reduced motion. */
-  .orb-flat { display: none; position: absolute; inset: 14px; border-radius: 50%;
-    border: 2px solid var(--gold);
-    background:
-      radial-gradient(circle at 35% 30%, rgba(255,255,255,.35), transparent 30%),
-      linear-gradient(to top, color-mix(in srgb, var(--c) 70%, var(--gold)) var(--fill), color-mix(in srgb, var(--glass-strong) 85%, transparent) var(--fill));
-    box-shadow: 0 0 18px color-mix(in srgb, var(--gold) 35%, transparent), inset 0 0 14px var(--track); }
-  body.flat .orb-flat { display: block; }
-  body.flat #scene { display: none; }
-
   .gain {
-    position: absolute; z-index: 3; left: 75px; top: 20px; transform: translateX(-50%);
-    font-weight: 700; font-size: 1.4rem; color: var(--gold-bright); pointer-events: none;
-    text-shadow: 0 0 10px var(--glow);
+    position: absolute; z-index: 3; left: calc(var(--orb) / 2); top: 8px; transform: translateX(-50%);
+    font-weight: 700; font-size: 1.1rem; color: var(--gold-bright); pointer-events: none;
   }
-  @media (max-width: 519px) { .gain { left: 50%; } }
+  @media (max-width: 719.98px) { .card.row { --orb: 72px; --pady: 6px; gap: 4px 14px; grid-template-columns: var(--orb) minmax(0, 1fr) auto; grid-template-areas: "orb text num" ". act act" "below below below"; }
+    .r-num .num { font-size: 2rem; } .r-act { justify-content: flex-start; }
+    /* the menu spans the whole action row so it never leaves the screen */
+    .r-act { position: relative; } .menu-wrap { position: static; } .menu { left: 0; right: 0; min-width: 0; transform-origin: top left; } .menu.up { transform-origin: bottom left; } }
 
   .empty {
-    border: 1px dashed var(--line); border-radius: 16px; padding: 24px 16px; text-align: center; margin: 0;
+    border: 1px dashed var(--line); padding: 24px 16px; text-align: center; margin: 0;
     font-weight: 500; font-size: 1rem; background: var(--glass);
+  }
+
+  /* ---- Quick spends and Plan de hoy ---- */
+  .quick, .plan { display: flex; flex-direction: column; gap: 12px; }
+  .quick[hidden], .plan[hidden] { display: none; }
+  .quick h2 span { color: var(--gold); }
+  .chips { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+  .chip { min-height: 44px; padding: 0 14px; font-weight: 500; background: var(--glass); border-color: var(--line); color: var(--fg); }
+  .chip b { color: var(--gold-bright); margin-left: 6px; font-weight: 700; }
+  .chip.undo-last { margin-left: auto; border-color: transparent; background: none; color: var(--muted); font-weight: 500; text-decoration: underline; text-underline-offset: 3px; }
+  .chip.undo-last:disabled { opacity: .45; cursor: default; text-decoration: none; }
+  .plan-scroll { overflow-x: auto; }
+  .plan-table { width: 100%; min-width: 520px; border-collapse: collapse; font-variant-numeric: tabular-nums; }
+  .plan-table th, .plan-table td { text-align: left; padding: 0 12px; height: 44px; border-bottom: 1px solid var(--line); font-weight: 400; vertical-align: middle; }
+  .plan-table thead th { height: 36px; background: var(--glass); border-bottom-color: var(--gold); color: var(--muted); font-size: .8125rem; font-weight: 500; }
+  .plan-table th small { color: var(--muted); font-size: .8125rem; }
+  .plan-table tbody th { font-family: var(--font-display); font-size: 1.0625rem; white-space: nowrap; max-width: 14ch; overflow: hidden; text-overflow: ellipsis; }
+  .plan-table td.hot { color: var(--danger); font-weight: 700; }
+  .plan-table td.dim { color: var(--muted); }
+  .plan-empty { margin: 0; color: var(--muted); }
+  /* Phone: one block per character, name + next goal on top, «N×» per spend in a compact line below. */
+  @media (max-width: 719.98px) {
+    .plan-table { min-width: 0; display: block; }
+    .plan-table thead { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
+    .plan-table tbody { display: block; }
+    .plan-table tr { display: flex; flex-wrap: wrap; align-items: baseline; padding: 10px 0; border-bottom: 1px solid var(--line); }
+    .plan-table th, .plan-table td { height: auto; padding: 0; border: 0; }
+    .plan-table tbody th { order: 0; flex: 0 1 38%; min-width: 0; max-width: none; }
+    .plan-table td:last-child { order: 1; flex: 0 1 62%; text-align: right; font-size: .9375rem; }
+    .plan-table td[data-label] { order: 2; flex: 0 0 auto; margin: 6px 16px 0 0; font-weight: 700; }
+    .plan-table td[data-label]::after { content: " " attr(data-label); color: var(--muted); font-weight: 400; font-size: .8125rem; }
   }
 
   /* ---- News, feedback, data ---- */
   .news { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px; font-size: .875rem; }
   .news time { color: var(--gold-bright); font-weight: 600; margin-right: 6px; }
-  .file-btn { display: inline-flex; align-items: center; border: 1px solid var(--line); border-radius: 10px; padding: 9px 16px; min-height: 40px;
-    font-weight: 600; font-size: .875rem; cursor: pointer; color: var(--fg); }
+  .file-btn { display: inline-flex; align-items: center; border: 1px solid var(--gold); padding: 9px 16px; min-height: 44px;
+    font-weight: 700; font-size: .875rem; cursor: pointer; color: var(--fg); }
   .file-btn input { position: absolute; opacity: 0; width: 1px; height: 1px; }
   .file-btn:focus-within { outline: 2px solid var(--sky); outline-offset: 2px; }
   #feedback-form { display: flex; flex-direction: column; gap: 8px; }
@@ -199,21 +254,21 @@
   /* ---- Week report & achievements ---- */
   .week-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
   .week-stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: 10px; }
-  .stat { border: 1px solid var(--line); border-radius: 12px; padding: 10px 12px; }
+  .stat { border: 1px solid var(--line); padding: 10px 12px; }
   .stat b { display: block; font-size: 1.4rem; color: var(--gold-bright); font-variant-numeric: tabular-nums; }
   .stat span { color: var(--muted); font-size: .8125rem; }
   h3.sub { margin: 4px 0 0; font-size: .875rem; color: var(--muted); letter-spacing: .08em; text-transform: uppercase; }
   .achievements { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 8px; }
-  .ach { border: 1px solid var(--line); border-radius: 10px; padding: 8px 10px; font-size: .8125rem; opacity: .45; }
-  .ach.done { opacity: 1; border-color: var(--gold); box-shadow: 0 0 12px color-mix(in srgb, var(--gold) 25%, transparent); }
+  .ach { border: 1px solid var(--line); padding: 8px 10px; font-size: .8125rem; opacity: .45; }
+  .ach.done { opacity: 1; border-color: var(--gold); }
   .ach strong { display: block; color: var(--fg); }
   .ach span { color: var(--muted); }
 
   /* ---- Runs, simulator, CP goal ---- */
   .runs { margin: 0; color: var(--sky); font-size: .8125rem; }
   .goal { display: flex; flex-direction: column; gap: 4px; }
-  .goal-bar { height: 6px; border-radius: 3px; background: var(--track); overflow: hidden; }
-  .goal-bar span { display: block; height: 100%; background: linear-gradient(90deg, var(--gold), var(--gold-bright)); border-radius: 3px; }
+  .goal-bar { height: 6px; background: var(--track); overflow: hidden; }
+  .goal-bar span { display: block; height: 100%; background: var(--gold); }
   .goal-text { margin: 0; color: var(--muted); font-size: .75rem; }
   #sim-runs { width: 100%; accent-color: var(--gold); min-height: 0; padding: 0; }
   .sim-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 4px; font-size: .875rem; }
@@ -227,35 +282,20 @@
   .task-row input[type=checkbox] { width: 20px; height: 20px; min-height: 0; accent-color: var(--gold); }
   .stepper { display: flex; align-items: center; gap: 6px; font-variant-numeric: tabular-nums; }
   .stepper button { min-height: 30px; padding: 2px 10px; }
-  button.tasks-btn { padding: 6px 12px; min-height: 34px; font-size: .8125rem; }
   .task-warn { margin: 0; color: var(--warn); font-size: .8125rem; font-weight: 600; }
 
   /* ---- First-run guide ---- */
   .guide-steps { margin: 0; padding: 0; list-style: none; display: flex; flex-direction: column; gap: 8px; counter-reset: step; }
   .guide-steps li { display: flex; align-items: center; gap: 10px; counter-increment: step; }
-  .guide-steps li::before { content: counter(step); width: 26px; height: 26px; flex: none; border-radius: 50%; display: grid; place-items: center;
+  .guide-steps li::before { content: counter(step); width: 26px; height: 26px; flex: none; display: grid; place-items: center;
     border: 1px solid var(--gold); color: var(--gold-bright); font-weight: 700; font-size: .8125rem; }
   .guide-steps li.done::before { content: "✓"; background: var(--gold); color: var(--on-gold); }
   .guide-steps li.done button { text-decoration: line-through; opacity: .6; }
 
-  /* ---- Desktop: top navigation bar with sections (mobile keeps the ☰ drawer) ---- */
-  .privacy { border: 1px solid var(--line); border-radius: 12px; padding: 10px 12px; display: flex; flex-direction: column; gap: 6px; }
+  .privacy { border: 1px solid var(--line); padding: 10px 12px; display: flex; flex-direction: column; gap: 6px; }
   .privacy legend { font-family: var(--font-display); padding: 0 6px; }
-  .topnav .badge { margin-left: 6px; min-width: 18px; height: 18px; padding: 0 5px; border-radius: 9px; display: inline-grid; place-items: center; font-size: .7rem; font-weight: 700; background: var(--urgent); color: #fff; font-variant-numeric: tabular-nums; }
-  .topnav { display: none; }
   .legion-empty { display: none; }
-  @media all { /* the nav bar is shown at every width (it scrolls sideways on narrow screens) */
-    #menu-btn { display: none !important; }
-    .topnav {
-      display: flex; gap: 4px; position: sticky; top: 0; z-index: 6; margin: -8px -16px 0; padding: 8px 16px;
-      overflow-x: auto; scrollbar-width: none; /* narrow windows: the tabs scroll sideways instead of wrapping */
-      background: color-mix(in srgb, var(--bg) 80%, transparent); -webkit-backdrop-filter: blur(12px); backdrop-filter: blur(12px);
-      border-bottom: 1px solid var(--line);
-    }
-    .topnav button { flex: none; white-space: nowrap; border: none; background: none; border-radius: 8px; padding: 10px 14px; color: var(--muted); font-weight: 600; position: relative; }
-    @media (hover: hover) and (pointer: fine) { .topnav button:hover { color: var(--fg); background: var(--hover); } }
-    .topnav button[aria-current="page"] { color: var(--gold-bright); }
-    .topnav button[aria-current="page"]::after { content: ""; position: absolute; left: 14px; right: 14px; bottom: 2px; height: 2px; border-radius: 2px; background: var(--gold); box-shadow: 0 0 8px var(--gold); }
+  @media all { /* sections at every width */
     .tab-panel { display: flex; flex-direction: column; gap: 24px; }
     .tab-panel[hidden] { display: none !important; }
     /* settings and news: panels flow into balanced columns, no empty gaps under short panels */
@@ -268,7 +308,7 @@
   }
 
   /* ---- Legion ---- */
-  .group-title { font-size: 1rem; color: var(--muted); letter-spacing: .08em; text-transform: uppercase; margin: 4px 0 -8px; }
+  .group-title { font-size: 1.25rem; margin: 4px 0 -8px; }
   .legion { display: flex; flex-direction: column; gap: 20px; }
   .legion:empty { display: none; }
   .legion .member h2 { margin-bottom: 12px; }
@@ -278,18 +318,18 @@
   .cp-line strong { color: var(--fg); font-weight: 600; }
   .cp-line .up { color: var(--ok); }
   .note-preview { margin: 0; color: var(--muted); font-size: .8125rem; font-style: italic; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-  textarea { font: inherit; color: inherit; background: var(--field); border: 1px solid var(--line); border-radius: 10px; padding: 9px 12px; width: 100%; min-height: 90px; resize: vertical; }
+  textarea { font: inherit; color: inherit; background: var(--field); border: 1px solid var(--line); padding: 9px 12px; width: 100%; min-height: 90px; resize: vertical; }
   .note-count { color: var(--muted); font-size: .75rem; margin: 0; text-align: right; }
   .event-row { grid-template-columns: auto minmax(0, 1fr) auto; }
   .event-row .fav { grid-row: 1 / span 2; align-self: center; background: none; border: none; min-height: 32px; padding: 4px 6px; font-size: 1.1rem; color: var(--muted); }
-  .event-row .fav[aria-pressed="true"] { color: var(--gold-bright); text-shadow: 0 0 8px var(--glow); }
+  .event-row .fav[aria-pressed="true"] { color: var(--gold-bright); }
   .event-row .ev-note { grid-column: 2; }
   .event-row .ev-when { grid-column: 3; }
   .event-row.favorite .ev-name { color: var(--gold-bright); }
-  .alert { position: fixed; z-index: 12; top: 12px; left: 50%; transform: translate(-50%, -20px); opacity: 0;
+  .alert { position: fixed; z-index: 41; top: 12px; left: 50%; transform: translate(-50%, -20px); opacity: 0;
     display: flex; align-items: center; gap: 12px; max-width: calc(100vw - 32px);
-    background: var(--glass-strong); border: 1px solid var(--gold-bright); border-radius: 12px; padding: 10px 12px 10px 16px;
-    box-shadow: 0 0 24px color-mix(in srgb, var(--gold-bright) 35%, transparent); transition: opacity .25s ease, transform .25s ease; font-weight: 600; }
+    background: var(--glass-strong); border: 1px solid var(--gold-bright); padding: 10px 12px 10px 16px;
+    transition: opacity .25s ease, transform .25s ease; font-weight: 600; }
   .alert.show { opacity: 1; transform: translate(-50%, 0); }
   @media (prefers-reduced-motion: reduce) { .alert { transition: none; } }
   .chart .dot { stroke: var(--bg); stroke-width: 2; }
@@ -306,14 +346,21 @@
   .chart .bar { fill: var(--sky); }
   .chart .bar-label { fill: var(--fg); font-size: 11px; font-variant-numeric: tabular-nums; }
   .chart-tip { position: absolute; top: 4px; pointer-events: none; background: var(--glass-strong); border: 1px solid var(--line);
-    border-radius: 8px; padding: 6px 8px; font-size: .75rem; display: flex; flex-direction: column; gap: 2px; }
-  .chart-tip .sw, .legend .sw { display: inline-block; width: 10px; height: 10px; border-radius: 2px; margin-right: 6px; vertical-align: -1px; }
+    padding: 6px 8px; font-size: .75rem; display: flex; flex-direction: column; gap: 2px; }
+  .chart-tip .sw, .legend .sw { display: inline-block; width: 10px; height: 10px; margin-right: 6px; vertical-align: -1px; }
   .legend { list-style: none; margin: 0; padding: 0; display: flex; flex-wrap: wrap; gap: 4px 16px; font-size: .8125rem; color: var(--fg); }
 
   /* ---- Summary and waste warning ---- */
-  .summary { gap: 4px; }
   .sum-label, .sum-next, .hint { color: var(--muted); font-size: .875rem; margin: 0; }
-  .sum-tip { margin: 0; font-weight: 600; }
+  .band { padding: 8px 0; display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; border-bottom: 1px solid var(--line); }
+  .band[hidden] { display: none; }
+  #band-go { min-height: 44px; }
+  .band-text { margin: 0; flex: 1 1 240px; font-weight: 600; }
+  .band-urgent { border-bottom-color: var(--urgent); }
+  .band-urgent .band-text { color: var(--danger); }
+  .band-urgent #band-go { background: var(--urgent-strong); border-color: var(--urgent-strong); color: var(--fg); }
+  .band-warn { border-bottom-color: var(--gold); }
+  .band .sum-next { flex-basis: 100%; }
   .switch { display: flex; gap: 10px; align-items: flex-start; color: var(--fg); font-size: .875rem; cursor: pointer; }
   .switch input { width: 18px; height: 18px; min-height: 0; margin-top: 2px; accent-color: var(--gold); flex: none; }
   .waste { margin: 0; color: var(--warn); font-size: .8125rem; font-weight: 600; }
@@ -333,56 +380,99 @@
   .event-row .ev-when { text-align: right; font-variant-numeric: tabular-nums; font-size: .875rem; color: var(--sky); grid-row: 1 / span 2; grid-column: 2; align-self: center; }
   .event-row .ev-when small { display: block; color: var(--muted); font-size: .75rem; }
   .event-row.active .ev-name, .event-row.active .ev-when { color: var(--gold-bright); }
-  .event-row.active { background: linear-gradient(90deg, color-mix(in srgb, var(--gold) 10%, transparent), transparent); }
+  .event-row.active { background: color-mix(in srgb, var(--gold) 10%, transparent); }
 
-  /* ---- Hamburger drawer, spend buttons, undo toast ---- */
-  .menu-btn { font-size: 1.3rem; line-height: 1; padding: 8px 14px; }
-  .scrim { position: fixed; inset: 0; z-index: 9; background: var(--scrim); }
-  .drawer {
-    position: fixed; z-index: 10; top: 0; right: 0; bottom: 0; width: min(360px, 90vw); overflow-y: auto;
-    background: var(--glass-strong); border-left: 1px solid var(--line);
-    -webkit-backdrop-filter: blur(14px); backdrop-filter: blur(14px);
-    padding: 16px; display: flex; flex-direction: column; gap: 14px;
+  /* ---- Marco: rail (>= 900 px), barra inferior + hoja Más (< 900 px) ---- */
+  .i { width: 22px; height: 22px; flex: none; fill: none; stroke: currentColor; stroke-width: 1.75; stroke-linecap: round; stroke-linejoin: round; }
+  .brand { display: flex; flex-direction: column; }
+  .brand-name { margin: 0; font-family: var(--font-display); font-weight: 400; font-size: 1.35rem; letter-spacing: .06em; color: var(--gold); }
+  header .subtitle { font-size: .7rem; margin: 0; }
+  .topnav { position: fixed; z-index: 20; background: var(--glass); border-color: var(--gold); display: flex; }
+  .topnav button { border: none; background: none; color: var(--muted); font-weight: 500; min-height: 44px; display: flex; align-items: center; gap: 10px; position: relative; }
+  @media (hover: hover) and (pointer: fine) { .topnav button:hover { color: var(--fg); background: var(--hover); } }
+  .topnav button[aria-current="page"] { color: var(--gold); font-weight: 700; background: color-mix(in srgb, var(--gold) 10%, transparent); }
+  .topnav .badge, .more-grid .badge { min-width: 18px; height: 18px; padding: 0 5px; display: inline-grid; place-items: center; font-size: .7rem; font-weight: 700; background: var(--gold); color: var(--on-gold); font-variant-numeric: tabular-nums; letter-spacing: 0; }
+  .fan-note { margin: 0; font-size: .75rem; line-height: 1.4; color: var(--muted); }
+  .more-sheet .fan-note { margin-top: 12px; text-align: center; }
+  .rail-brand, .rail-foot { display: none; }
+  @media (min-width: 900px) {
+    .topnav { top: 0; bottom: 0; left: 0; width: 232px; flex-direction: column; gap: 2px; padding: 24px 16px 16px; border-right: 1px solid var(--gold); overflow-y: auto; }
+    .topnav button { padding: 10px 12px; width: 100%; text-align: left; }
+    .topnav .badge { margin-left: auto; }
+    .topnav .more-btn { display: none; }
+    .rail-brand { display: block; padding: 0 8px 22px; margin-bottom: 14px; border-bottom: 1px solid var(--line); }
+    .rail-brand .brand-name { font-size: 1.9rem; }
+    .rail-foot { display: flex; flex-direction: column; gap: 12px; margin-top: auto; padding-top: 16px; }
+    .page { margin-left: 232px; }
+    header .brand { display: none; }
   }
-  .drawer .panel { background: var(--hover); }
-  .drawer .field { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
-  .drawer .row .field { flex: 1 1 120px; }
-  .drawer .row .field.narrow { flex: 0 1 80px; }
-  .drawer-head { display: flex; align-items: center; justify-content: space-between; }
+  @media (max-width: 899.98px) {
+    .topnav { left: 0; right: 0; bottom: 0; padding: 4px 4px calc(4px + env(safe-area-inset-bottom)); border-top: 1px solid var(--gold); justify-content: space-around; }
+    .topnav button { flex: 1 1 0; flex-direction: column; justify-content: center; gap: 2px; padding: 6px 2px; font-size: .7rem; min-width: 0; }
+    .topnav button.in-more { display: none; }
+    .topnav .badge { position: absolute; top: 2px; left: calc(50% + 6px); }
+    .page { padding-bottom: calc(80px + env(safe-area-inset-bottom)); }
+  }
+  .side { display: none; }
+  @media (min-width: 1200px) {
+    /* The events column is a square panel, top-aligned with the first row (page padding 28 + header 104 + gap 24). */
+    .side { display: flex; flex-direction: column; gap: 20px; position: fixed; top: 156px; right: 16px; width: 248px; max-height: calc(100vh - 156px - 84px); padding: 16px; overflow-y: auto;
+      border: 1px solid var(--line); border-top-color: var(--gold); background: var(--glass); z-index: 10; }
+    .page { margin-right: 280px; }
+  }
+  .side-h { font-size: .75rem; letter-spacing: .08em; text-transform: uppercase; color: var(--gold); font-family: var(--font-body); font-weight: 700; margin: 0 0 8px; }
+  .side-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
+  .side-list li { display: flex; justify-content: space-between; gap: 8px; align-items: center; min-width: 0; font-size: .875rem; }
+  .side-list li > span:not(.dot) { min-width: 0; overflow-wrap: anywhere; display: -webkit-box; -webkit-line-clamp: 2; line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+  .side-list li b { flex: none; color: var(--sky); font-weight: 700; }
+  .side-list .dot { flex: none; width: 8px; height: 8px; background: var(--ok); }
+  .side-list li:has(.dot) { justify-content: flex-start; }
+  .side-link { margin-top: 8px; min-height: 44px; padding: 4px 12px; font-size: .8125rem; border: 1px solid var(--line-strong); background: none; color: var(--fg);
+    transition: transform .16s var(--ease-out), background-color .16s var(--ease-out); }
+  .side-link:active { transform: scale(0.97); }
+  @media (hover: hover) and (pointer: fine) { .side-link:hover { background: var(--hover); } }
+  @media (prefers-reduced-motion: reduce) { .side-link { transition: none; } }
+  .more-sheet { position: fixed; z-index: 30; inset: auto 0 0 0; margin: 0; width: 100%; max-width: none; max-height: 80vh; border: 1px solid var(--gold); border-bottom: none;
+    background: var(--glass-strong); color: var(--fg); padding: 16px 16px calc(16px + env(safe-area-inset-bottom)); }
+  .more-sheet::backdrop { background: var(--scrim); }
+  .more-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; margin-bottom: 16px; }
+  .more-grid button { flex-direction: column; min-height: 72px; display: flex; align-items: center; justify-content: center; gap: 6px; position: relative; }
+  .more-grid button[aria-current="page"] { color: var(--gold); border-color: var(--gold); background: color-mix(in srgb, var(--gold) 10%, transparent); }
+  .more-grid .badge { position: absolute; top: 6px; right: 8px; }
+  @media (prefers-reduced-motion: no-preference) {
+    .more-sheet[open] { animation: sheet-in 240ms var(--ease-out); }
+    @keyframes sheet-in { from { transform: translateY(100%); } to { transform: translateY(0); } }
+  }
+
+  /* ---- Spend buttons, undo toast ---- */
   .preset-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
   .preset-list li { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
   .preset-list li span { overflow-wrap: anywhere; }
   .preset-list .muted { color: var(--muted); font-size: .875rem; }
-  .spend-row { display: flex; flex-wrap: wrap; gap: 6px; }
-  button.spend { border-color: var(--sky); color: var(--sky); padding: 6px 12px; min-height: 34px; font-size: .8125rem; }
+  button.spend { border-color: var(--sky); color: var(--sky); }
   button.extra { padding: 6px 12px; min-height: 34px; font-size: .8125rem; }
   .toast {
-    position: fixed; z-index: 11; left: 50%; bottom: 20px; transform: translateX(-50%);
+    position: fixed; z-index: 38; left: 50%; bottom: 20px; transform: translateX(-50%);
     display: flex; align-items: center; gap: 12px; max-width: calc(100vw - 32px);
-    background: var(--glass-strong); border: 1px solid var(--gold); border-radius: 12px; padding: 10px 12px 10px 16px;
-    box-shadow: var(--shadow);
+    background: var(--glass-strong); border: 1px solid var(--gold); padding: 10px 12px 10px 16px;
   }
   .toast span { overflow-wrap: anywhere; }
 
   /* ---- Open/close animations (instant with reduced motion) ---- */
-  .drawer { transform: translateX(100%); transition: transform .28s cubic-bezier(.2, .7, .2, 1); }
-  .drawer.open { transform: none; }
-  .scrim { opacity: 0; transition: opacity .28s ease; }
-  .scrim.open { opacity: 1; }
   .toast { opacity: 0; transform: translate(-50%, 16px); transition: opacity .22s ease, transform .22s ease; }
   .toast.show { opacity: 1; transform: translate(-50%, 0); }
   .pop { animation: pop .22s ease-out both; }
   @keyframes pop { from { opacity: 0; transform: translateY(-4px); } to { opacity: 1; transform: none; } }
   @media (prefers-reduced-motion: reduce) {
-    .drawer, .scrim, .toast, .events summary::after { transition: none; }
+    .toast, .events summary::after { transition: none; }
     .pop { animation: none; }
   }
 
   /* ---- Online now and "Busco grupo" ---- */
-  .online-pill { border-radius: 999px; padding: 6px 12px; min-height: 0; font-size: .8125rem; color: var(--ok); border-color: color-mix(in srgb, var(--ok) 45%, transparent); }
+  .online-pill { padding: 6px 12px; min-height: 44px; font-size: .8125rem; color: var(--ok); border-color: color-mix(in srgb, var(--ok) 45%, transparent); }
   .online-list { list-style: none; margin: 0; padding: 0; display: flex; flex-wrap: wrap; gap: 6px; }
-  .online-list li { display: flex; align-items: center; gap: 6px; padding: 4px 10px; border-radius: 999px; background: var(--hover); border: 1px solid var(--line); font-size: .8125rem; }
-  .online-list li::before { content: ""; width: 8px; height: 8px; border-radius: 50%; background: var(--ok); box-shadow: 0 0 6px var(--ok); }
+  .online-list li { display: flex; align-items: center; gap: 6px; padding: 4px 10px; background: var(--hover); border: 1px solid var(--line); font-size: .8125rem; }
+  .online-list li::before { content: ""; width: 8px; height: 8px; background: var(--ok); }
   .online-list li.me { border-color: var(--gold); }
   .online-list small { color: var(--muted); }
   .lfg-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
@@ -414,12 +504,11 @@
 
   /* ---- AI assistant ---- */
   .sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
-  .ai-fab { position: fixed; z-index: 8; right: 16px; bottom: 16px; border-radius: 999px; padding: 10px 16px; font-weight: 600;
-    background: var(--glass-strong); border-color: var(--gold); color: var(--gold-bright); box-shadow: 0 0 20px color-mix(in srgb, var(--gold) 30%, transparent);
-    -webkit-backdrop-filter: blur(10px); backdrop-filter: blur(10px); }
-  .ai-panel { position: fixed; z-index: 9; right: 16px; bottom: 70px; width: min(400px, calc(100vw - 32px)); height: min(560px, calc(100vh - 100px));
-    display: flex; flex-direction: column; gap: 8px; padding: 12px; border-radius: 16px; border: 1px solid var(--line);
-    background: var(--glass-strong); -webkit-backdrop-filter: blur(14px); backdrop-filter: blur(14px); box-shadow: var(--shadow);
+  .ai-fab { position: fixed; z-index: 36; right: 16px; bottom: 16px; padding: 10px 16px; font-weight: 700;
+    background: var(--glass-strong); border-color: var(--gold); color: var(--gold); }
+  .ai-panel { position: fixed; z-index: 37; right: 16px; bottom: 70px; width: min(400px, calc(100vw - 32px)); height: min(560px, calc(100vh - 100px));
+    display: flex; flex-direction: column; gap: 8px; padding: 12px; border: 1px solid var(--gold);
+    background: var(--glass-strong);
     opacity: 0; transform: translateY(12px) scale(.98); transform-origin: bottom right; transition: opacity .22s ease, transform .22s ease; }
   .ai-panel.open { opacity: 1; transform: none; }
   @media (prefers-reduced-motion: reduce) { .ai-panel { transition: none; } }
@@ -427,7 +516,7 @@
   .ai-head h2 { flex: 1; margin: 0; }
   .ai-head button { padding: 4px 10px; min-height: 32px; }
   .ai-log { flex: 1; overflow-y: auto; display: flex; flex-direction: column; gap: 8px; padding-right: 4px; }
-  .ai-msg { margin: 0; padding: 8px 12px; border-radius: 12px; font-size: .875rem; line-height: 1.5; max-width: 92%; overflow-wrap: anywhere; }
+  .ai-msg { margin: 0; padding: 8px 12px; font-size: .875rem; line-height: 1.5; max-width: 92%; overflow-wrap: anywhere; }
   .ai-msg.user { align-self: flex-end; background: color-mix(in srgb, var(--sky) 14%, transparent); border: 1px solid color-mix(in srgb, var(--sky) 35%, transparent); white-space: pre-wrap; }
   .ai-msg.bot { align-self: flex-start; background: var(--hover); border: 1px solid var(--line); }
   .ai-msg.bot p { margin: 0 0 6px; } .ai-msg.bot p:last-child { margin: 0; }
@@ -435,27 +524,36 @@
   .ai-msg.err { color: var(--danger); border-color: var(--danger); }
   .ai-msg.wait { color: var(--muted); font-style: italic; }
   .ai-quick { display: flex; flex-wrap: wrap; gap: 6px; }
-  .ai-quick button { padding: 4px 10px; min-height: 30px; font-size: .75rem; border-radius: 999px; }
+  .ai-quick button { padding: 4px 10px; min-height: 30px; font-size: .75rem; }
   .ai-form { display: flex; gap: 6px; align-items: flex-end; }
   .ai-form textarea { min-height: 44px; max-height: 120px; flex: 1; }
+  .ai-fab { display: inline-flex; align-items: center; gap: 8px; }
+  .ai-fab .ai-ico { display: inline-flex; }
   body.toast-up .ai-fab { bottom: calc(var(--toast-h, 50px) + 32px); }
   body.toast-up .ai-panel { bottom: calc(var(--toast-h, 50px) + 86px); height: min(560px, calc(100vh - var(--toast-h, 50px) - 116px)); }
+  @media (max-width: 899.98px) { /* por encima de la barra inferior */
+    /* the undo toast is a bar docked just above the bottom nav; the page reserves its height while it shows, so it never covers a row */
+    .toast { left: 0; right: 0; max-width: none; justify-content: space-between; bottom: calc(64px + env(safe-area-inset-bottom)); transform: translateY(16px); border-width: 1px 0; }
+    .toast.show { transform: none; }
+    body.toast-up .page { padding-bottom: calc(80px + var(--toast-h, 50px) + 12px + env(safe-area-inset-bottom)); }
+    /* on phones the assistant is an icon button in the header, so it never covers a row */
+    .ai-fab { position: static; width: 44px; height: 44px; padding: 0; display: grid; place-items: center; flex: none; }
+    .ai-fab .ai-ico { display: grid; }
+    .ai-fab .ai-lbl { display: none; }
+    .ai-panel { bottom: calc(126px + env(safe-area-inset-bottom)); height: min(560px, calc(100vh - 160px)); }
+    body.toast-up .ai-panel { bottom: calc(126px + env(safe-area-inset-bottom)); height: min(560px, calc(100vh - 160px)); }
+  }
 
   /* ---- Personajes: "+" button and the add-character modal ---- */
   .chars-bar { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: -8px; }
-  .chars-bar h2 { font-size: 1rem; color: var(--muted); letter-spacing: .08em; text-transform: uppercase; font-family: var(--font-body); font-weight: 600; }
-  .add-btn { width: 44px; height: 44px; min-height: 0; padding: 0; border-radius: 50%; font-size: 1.6rem; line-height: 1; font-weight: 500;
-    background: linear-gradient(180deg, var(--gold-bright), var(--gold)); color: var(--on-gold); border-color: var(--gold);
-    box-shadow: 0 0 16px color-mix(in srgb, var(--gold) 40%, transparent); display: grid; place-items: center; }
-  @media (hover: hover) and (pointer: fine) { .add-btn:hover { box-shadow: 0 0 22px color-mix(in srgb, var(--gold) 65%, transparent); } }
-  .modal { position: fixed; inset: 0; z-index: 14; display: grid; place-items: center; padding: 16px; background: var(--scrim);
+  .chars-bar h2 { font-size: 1.25rem; }
+  .modal { position: fixed; inset: 0; z-index: 40; display: grid; place-items: center; padding: 16px; background: var(--scrim);
     opacity: 0; transition: opacity .22s ease; }
   .modal.open { opacity: 1; }
   .modal-box { width: min(440px, 100%); transform: translateY(10px) scale(.98); transition: transform .22s cubic-bezier(.2, .7, .2, 1); }
   .modal.open .modal-box { transform: none; }
-  .modal-box .panel { background: var(--glass-strong); box-shadow: var(--shadow); }
+  .modal-box .panel { background: var(--glass-strong); border-color: var(--gold); }
   .modal-box .field { display: flex; flex-direction: column; gap: 4px; }
-  .drawer-head button { padding: 4px 10px; min-height: 32px; }
   @media (prefers-reduced-motion: reduce) { .modal, .modal-box { transition: none; } }
 
   /* ---- Your legion ---- */
@@ -465,7 +563,7 @@
   .lg-head h2 { color: var(--gold-bright); }
   .lg-role { color: var(--muted); font-size: .8125rem; }
   .lg-code-row { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
-  .lg-code { font: 600 1.05rem var(--font-body); letter-spacing: .18em; color: var(--gold-bright); padding: 4px 10px; border: 1px dashed var(--line); border-radius: 8px; }
+  .lg-code { font: 600 1.05rem var(--font-body); letter-spacing: .18em; color: var(--gold-bright); padding: 4px 10px; border: 1px dashed var(--line); }
   .lg-code-row button, .lg-members button { padding: 4px 12px; min-height: 32px; font-size: .8125rem; }
   .lg-members { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; }
   .lg-members li { display: flex; align-items: center; gap: 10px; padding: 6px 0; border-top: 1px solid color-mix(in srgb, var(--gold) 12%, transparent); }
@@ -474,20 +572,35 @@
   .lg-members small { color: var(--muted); margin-left: 6px; }
 
   .chars-actions { display: flex; align-items: center; gap: 10px; }
-  .presets-btn { border-radius: 999px; padding: 8px 14px; min-height: 40px; border-color: var(--sky); color: var(--sky); }
-  @media (hover: hover) and (pointer: fine) { .presets-btn:hover { border-color: var(--sky); box-shadow: 0 0 14px color-mix(in srgb, var(--sky) 35%, transparent); } }
+  .presets-btn { display: inline-flex; align-items: center; gap: 8px; padding: 8px 14px; min-height: 44px; border-color: var(--sky); color: var(--sky); }
+  .presets-btn .i, .ai-fab .i { width: 18px; height: 18px; }
+  button .i { pointer-events: none; }
+  button.icon-only { display: inline-grid; place-items: center; min-width: 44px; padding: 0 10px; }
+  @media (hover: hover) and (pointer: fine) { .presets-btn:hover { border-color: var(--sky); } }
 
   /* ---- Profile chip in the header ---- */
-  .profile-chip { display: flex; align-items: center; gap: 10px; padding: 6px 14px 6px 6px; border-radius: 999px; min-height: 0; text-align: left;
+  .profile-chip { display: flex; align-items: center; gap: 10px; padding: 6px 14px 6px 6px; min-height: 44px; text-align: left;
     background: var(--glass); border-color: var(--line); margin-left: auto; }
-  .pc-icon { width: 34px; height: 34px; border-radius: 50%; display: grid; place-items: center; border: 1px solid var(--c, var(--gold)); flex: none;
-    box-shadow: 0 0 10px color-mix(in srgb, var(--c, var(--gold)) 45%, transparent); }
+  .pc-icon { width: 34px; height: 34px; display: grid; place-items: center; border: 1px solid var(--c, var(--gold)); flex: none; }
   .pc-icon .cls-icon { width: 20px; height: 20px; }
   .pc-text { display: flex; flex-direction: column; line-height: 1.15; min-width: 0; }
   .pc-text b { font-weight: 600; color: var(--fg); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 180px; }
   .pc-text small { color: var(--gold-bright); font-size: .75rem; font-weight: 500; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 180px; }
   .pc-text small:empty { display: none; }
   .profile-chip + .online-pill { margin-left: 0; }
+
+  @media (max-width: 899.98px) {
+    header { flex-wrap: nowrap; gap: 8px 10px; }
+    header > .brand { min-width: 0; flex: 1 1 auto; }
+    .page-title { font-size: 1.625rem; }
+    .head-actions { width: 100%; }
+    .head-actions button { flex: 1 1 auto; }
+    .profile-chip { padding: 4px; margin-left: 0; flex: none; }
+    .profile-chip .pc-text { display: none; }
+    .profile-chip .pc-icon { width: 36px; height: 36px; }
+    .subtitle { display: none; }
+    .online-pill { display: none; }
+  }
 
   /* ---- Custom timers ---- */
   .timer-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
@@ -499,9 +612,9 @@
   .row .field.narrow { flex: 0 1 90px; }
 
   /* ---- Keyboard shortcuts ---- */
-  .card.selected .panel { outline: 1px solid var(--sky); outline-offset: 2px; }
-  kbd { font: 600 .8em var(--font-body); border: 1px solid var(--line); border-bottom-width: 2px; border-radius: 5px; padding: 1px 6px; background: var(--hover); }
-  .keys-help { position: fixed; inset: 0; z-index: 13; display: grid; place-items: center; padding: 16px; background: var(--scrim); }
+  .card.selected { background: var(--hover); }
+  kbd { font: 600 .8em var(--font-body); border: 1px solid var(--line); border-bottom-width: 2px; padding: 1px 6px; background: var(--hover); }
+  .keys-help { position: fixed; inset: 0; z-index: 39; display: grid; place-items: center; padding: 16px; background: var(--scrim); }
   .keys-help .panel { width: min(440px, 100%); background: var(--glass-strong); }
   .keys { display: grid; grid-template-columns: auto 1fr; gap: 8px 14px; margin: 0; align-items: baseline; }
   .keys dt { white-space: nowrap; } .keys dd { margin: 0; color: var(--muted); font-size: .875rem; }
@@ -509,74 +622,59 @@
   @media (pointer: fine) and (min-width: 700px) { .keys-hint { display: block; } }
 
   /* ---- Compact mode: small orb beside a short panel, no charts or extra panels ---- */
-  body.compact .grid { gap: 10px; }
-  body.compact .card { grid-template-columns: 76px minmax(0, 1fr); align-items: center; justify-items: stretch; }
-  body.compact .orb-col { margin: 0 -14px 0 0; }
-  body.compact .orb-slot { width: 76px; height: 76px; }
-  body.compact .tick-left { font-size: .7rem; }
-  body.compact .card .panel { padding: 10px 12px 10px 24px; gap: 6px; }
-  body.compact .card .energy .num { font-size: 1.6rem; }
-  body.compact .info .full-at, body.compact .info .runs, body.compact .note-preview, body.compact .tasks-wrap,
-  body.compact .goal-text, body.compact .cls-name, body.compact .guide { display: none; }
-  body.compact .chart-panel, body.compact #week-panel, body.compact #sim-panel, body.compact #summary { display: none !important; }
+  body.compact .card.row { --orb: 64px; --pady: 6px; }
+  body.compact .r-num .num { font-size: 2rem; }
+  body.compact .note-preview, body.compact .goal-text, body.compact .cls-name, body.compact .guide, body.compact #plan { display: none; }
+  body.compact .chart-panel, body.compact #week-panel, body.compact #sim-panel { display: none !important; }
 
   /* ---- Motion (only when allowed) ---- */
   @media (prefers-reduced-motion: no-preference) {
-    .card.enter { animation: rise .6s cubic-bezier(.2, .7, .2, 1) both; animation-delay: calc(var(--i) * 90ms); }
+    /* The one authored moment: recharge ripple (once, ~900 ms), the new star scales in, the ring beats at the cap.
+       Off with «Reducir animaciones» (body.calm). Only markGain / the cap state start them, never a repaint. */
+    body:not(.calm) .star-orb.ripple .so-surface { animation: so-ripple 900ms var(--ease-out) var(--so-ripple-delay, 0ms) 1; }
+    body:not(.calm) .star-orb.ripple .so-star.new { animation: so-star-in 500ms var(--ease-out) var(--so-ripple-delay, 0ms) 1; }
+    body:not(.calm) .orb-slot .star-orb.full .so-ring { animation: so-beat 2.4s ease-in-out var(--so-beat-delay, 0ms) infinite; }
+    @keyframes so-ripple { 0% { transform: translate(0, 0); } 35% { transform: translate(-14px, -2.5px); } 100% { transform: translate(-36px, 0); } }
+    @keyframes so-star-in { from { transform: scale(.6); opacity: .4; } to { transform: scale(1); opacity: 1; } }
+    @keyframes so-beat { 0%, 100% { opacity: 1; } 50% { opacity: .5; } }
     @keyframes rise { from { opacity: 0; transform: translateY(14px); } to { opacity: 1; transform: none; } }
-    .card .panel { transition: transform .25s ease, box-shadow .25s ease, border-color .25s; transform: perspective(900px) rotateX(var(--rx, 0deg)) rotateY(var(--ry, 0deg)); }
-    .card.near .panel { animation: pulse 1.6s ease-in-out infinite; }
-    @keyframes pulse {
-      0%, 100% { box-shadow: 0 0 0 color-mix(in srgb, var(--gold) 0%, transparent); }
-      50% { box-shadow: 0 0 22px color-mix(in srgb, var(--gold) 45%, transparent); border-color: var(--gold-bright); }
-    }
     .gain { animation: float 1.6s ease-out forwards; }
     @keyframes float {
       0% { opacity: 0; transform: translate(-50%, 10px) scale(.8); }
       20% { opacity: 1; transform: translate(-50%, 0) scale(1.1); }
       100% { opacity: 0; transform: translate(-50%, -40px) scale(1); }
     }
-    button.primary::after {
-      content: ""; position: absolute; inset: 0; transform: translateX(-120%);
-      background: linear-gradient(100deg, transparent 30%, color-mix(in srgb, var(--on-gold) 55%, transparent) 50%, transparent 70%);
-    }
-    @media (hover: hover) and (pointer: fine) { button.primary:hover::after { transition: transform .7s ease; transform: translateX(120%); } }
-    .ring .arc { transition: stroke-dashoffset 1s linear; }
   }
 </style>
 
-<canvas id="scene" aria-hidden="true"></canvas>
 <div class="page">
   <header>
-    <div>
-      <h1>Energía Odyle</h1>
-      <p class="subtitle" id="subtitle">Daevas de Elyos</p>
-    </div>
-    <div class="clock" id="clock">
-      <svg class="ring" viewBox="0 0 60 60" aria-hidden="true">
-        <circle class="track" cx="30" cy="30" r="26"></circle>
-        <circle class="arc" id="ring-arc" cx="30" cy="30" r="26" stroke-dasharray="163.36" stroke-dashoffset="0"></circle>
-      </svg>
-      <div>
-        <p class="clock-label">Próxima recarga</p>
-        <p class="clock-time" id="next-tick"></p>
+    <div class="page-head" id="page-head">
+      <div class="head-text">
+        <h1 class="page-title" id="page-title">Energía</h1>
+        <p class="page-sub" id="page-sub"><span id="sub-time">+15 OD en <b id="next-tick"></b></span><span id="sub-missing" hidden>Falta la hora de recarga</span> · <span id="sub-count"></span> · <span>tope 840</span></p>
+      </div>
+      <div class="head-actions">
+        <button type="button" id="clock-fix">Ajustar recarga</button>
+        <button type="button" id="add-btn" class="add-btn primary" title="Añadir personaje" aria-haspopup="dialog" data-icon="anadir" hidden>Añadir personaje</button>
       </div>
     </div>
-    <div class="theme-slot" id="theme-slot-header"></div>
+    <div class="brand"><p class="brand-name">Odyle</p><span class="subtitle" id="subtitle">Daevas de Elyos</span></div>
     <button type="button" id="profile-chip" class="profile-chip" aria-haspopup="dialog" hidden>
       <span class="pc-icon" id="pc-icon" aria-hidden="true"></span>
       <span class="pc-text"><b id="pc-name"></b><small id="pc-title"></small></span>
     </button>
     <button type="button" id="online-pill" class="online-pill" hidden></button>
-    <button type="button" id="motion-btn" hidden>Activar movimiento</button>
-    <button type="button" id="menu-btn" class="menu-btn" aria-label="Menú" aria-expanded="false" aria-controls="drawer" hidden>☰</button>
+    <div class="ruler" id="ruler" aria-hidden="true"><div class="meridian"><span class="mer-label">Próxima recarga <span id="mer-time"></span></span></div></div>
   </header>
 
-  <section class="panel summary" id="summary" aria-label="Resumen" hidden>
-    <p class="sum-tip" id="sum-tip"></p>
-    <p class="sum-next" id="sum-next"></p>
+  <section class="band" id="summary" hidden>
+    <p class="band-text" id="sum-tip"></p>
+    <button type="button" id="band-go" hidden>Gastar</button>
     <p class="sum-next" id="sum-legion" hidden></p>
   </section>
+
+  <p class="sr-only" id="band-status" role="status"></p>
 
   <details class="panel events" id="events">
     <summary><h2>Eventos</h2><span class="events-next" id="events-next"></span></summary>
@@ -600,11 +698,18 @@
   <div class="chars-bar" id="chars-bar">
     <h2>Tus personajes</h2>
     <div class="chars-actions">
-      <button type="button" id="presets-btn" class="presets-btn" aria-label="Botones de gasto" title="Botones de gasto" aria-haspopup="dialog" hidden>⚡ Gastos</button>
-      <button type="button" id="add-btn" class="add-btn" aria-label="Añadir personaje" title="Añadir personaje" aria-haspopup="dialog" hidden>+</button>
+      <button type="button" id="presets-btn" class="presets-btn" aria-label="Botones de gasto" title="Botones de gasto" aria-haspopup="dialog" data-icon="rayo" hidden>Gastos</button>
     </div>
   </div>
   <section class="grid" id="cards" aria-label="Personajes"></section>
+  <section class="quick" id="quick" aria-labelledby="quick-title" hidden>
+    <h2 id="quick-title">Gastos rápidos</h2>
+    <div class="chips" id="quick-chips"></div>
+  </section>
+  <section class="plan" id="plan" aria-labelledby="plan-title" hidden>
+    <h2 id="plan-title">Plan de hoy</h2>
+    <div id="plan-body"></div>
+  </section>
   <section class="panel legion-panel" id="legion-panel" aria-labelledby="lg-heading" hidden>
     <div id="lg-none">
       <h2 id="lg-heading">Tu legión</h2>
@@ -731,16 +836,16 @@
     <svg id="history" class="chart" role="img" aria-label="OD gastada cada día, últimos 7 días"></svg>
   </section>
 </div>
+<aside id="side" class="side" aria-label="Resumen">
+  <section><h2 class="side-h">Eventos</h2><ul id="side-events" class="side-list"></ul><button type="button" class="side-link" data-go="eventos">Ver todos</button></section>
+  <section id="side-online-box" hidden><h2 class="side-h">En línea</h2><ul id="side-online" class="side-list"></ul><button type="button" class="side-link" id="side-online-go" data-go="amigos">Ver todos</button></section>
+</aside>
 
-<div id="scrim" class="scrim" hidden></div>
-<aside id="drawer" class="drawer" role="dialog" aria-modal="true" aria-labelledby="drawer-title" hidden>
-  <div class="drawer-head">
-    <h2 id="drawer-title">Menú</h2>
-    <button type="button" id="drawer-close" aria-label="Cerrar menú">✕</button>
-  </div>
+<!-- Almacén oculto: de aquí toman Ajustes y Novedades sus paneles (applyLayout los mueve a su sección). -->
+<aside id="drawer" class="drawer" hidden>
 
   <form class="panel" id="add-form" novalidate>
-    <div class="drawer-head"><h2 id="add-title">Añadir personaje</h2><button type="button" id="add-close" aria-label="Cerrar">✕</button></div>
+    <div class="drawer-head"><h2 id="add-title">Añadir personaje</h2><button type="button" id="add-close" class="icon-only" aria-label="Cerrar" data-icon="cerrar"></button></div>
     <div class="field">
       <label for="add-name">Nombre</label>
       <input id="add-name" maxlength="60" autocomplete="off" placeholder="Máximo 24 caracteres">
@@ -767,7 +872,7 @@
   </section>
 
   <section class="panel" id="presets-panel" aria-labelledby="presets-title">
-    <div class="drawer-head"><h2 id="presets-title">Botones de gasto</h2><button type="button" class="modal-close" aria-label="Cerrar">✕</button></div>
+    <div class="drawer-head"><h2 id="presets-title">Botones de gasto</h2><button type="button" class="modal-close icon-only" aria-label="Cerrar" data-icon="cerrar"></button></div>
     <p class="hint">Cada botón aparece en tus tarjetas y resta su coste de un toque. El primero también se usa para calcular las mazmorras de hoy.</p>
     <ul class="preset-list" id="preset-list"></ul>
     <form id="preset-form" class="row" novalidate>
@@ -792,7 +897,7 @@
   <section class="panel" aria-labelledby="look-title">
     <h2 id="look-title">Apariencia</h2>
     <div class="theme-slot" id="theme-slot-look"></div>
-    <label class="switch"><input type="checkbox" id="lite-toggle"> Modo ligero (sin 3D, ahorra batería)</label>
+    <label class="switch"><input type="checkbox" id="lite-toggle"> Reducir animaciones (sin ondulación ni latido en los orbes)</label>
     <label class="switch"><input type="checkbox" id="compact-toggle"> Modo compacto (tarjetas pequeñas, sin gráficos)</label>
     <p class="hint keys-hint">Atajos de teclado: pulsa <kbd>?</kbd> para verlos.</p>
     <div class="field"><label for="lang-select">Idioma</label><select id="lang-select"></select></div>
@@ -846,15 +951,15 @@
 <div id="alert" class="alert" role="alert" hidden>
   <span id="alert-text"></span>
   <button type="button" id="alert-action" class="primary" hidden></button>
-  <button type="button" id="alert-close" aria-label="Cerrar aviso">✕</button>
+  <button type="button" id="alert-close" class="icon-only" aria-label="Cerrar aviso" data-icon="cerrar"></button>
 </div>
 
-<button type="button" id="ai-fab" class="ai-fab" aria-expanded="false" aria-controls="ai-panel" hidden>✦ Asistente</button>
+<button type="button" id="ai-fab" class="ai-fab" aria-expanded="false" aria-controls="ai-panel" hidden><span class="ai-ico" data-icon="asistente" aria-hidden="true"></span><span class="ai-lbl">Asistente</span></button>
 <section id="ai-panel" class="ai-panel" role="dialog" aria-labelledby="ai-title" hidden>
   <div class="ai-head">
     <h2 id="ai-title">Asistente</h2>
     <button type="button" id="ai-clear" aria-label="Nueva conversación" title="Nueva conversación">↺</button>
-    <button type="button" id="ai-close" aria-label="Cerrar asistente">✕</button>
+    <button type="button" id="ai-close" class="icon-only" aria-label="Cerrar asistente" data-icon="cerrar"></button>
   </div>
   <div class="ai-log" id="ai-log" aria-live="polite">
     <p class="ai-msg bot intro">Hola, soy tu asistente. Conozco tus personajes, su energía, tus tareas, los eventos y el calendario de la legión. Pregúntame lo que quieras.</p>
@@ -874,7 +979,7 @@
 
 <div id="profile-modal" class="modal" role="dialog" aria-modal="true" aria-labelledby="profile-title" hidden><div class="modal-box">
   <form class="panel" id="profile-form" novalidate>
-    <div class="drawer-head"><h2 id="profile-title">Tu perfil</h2><button type="button" class="modal-close" aria-label="Cerrar">✕</button></div>
+    <div class="drawer-head"><h2 id="profile-title">Tu perfil</h2><button type="button" class="modal-close icon-only" aria-label="Cerrar" data-icon="cerrar"></button></div>
     <p class="hint">Así te verán los demás: tu nombre, tu personaje principal y, si eres de una legión, su nombre debajo.</p>
     <div class="field"><label for="profile-nick">Nombre en el juego</label><input id="profile-nick" maxlength="20" autocomplete="off" placeholder="SaltyGhosty"></div>
     <div class="field"><label for="profile-main">Personaje principal</label><select id="profile-main"></select></div>
@@ -904,7 +1009,7 @@
 
 <div id="keys-help" class="keys-help" role="dialog" aria-modal="true" aria-labelledby="keys-title" hidden>
   <div class="panel">
-    <div class="drawer-head"><h2 id="keys-title">Atajos de teclado</h2><button type="button" id="keys-close" aria-label="Cerrar">✕</button></div>
+    <div class="drawer-head"><h2 id="keys-title">Atajos de teclado</h2><button type="button" id="keys-close" class="icon-only" aria-label="Cerrar" data-icon="cerrar"></button></div>
     <dl class="keys">
       <dt><kbd>1</kbd>–<kbd>9</kbd></dt><dd>Gastar con el botón 1–9 en el personaje seleccionado</dd>
       <dt><kbd>Z</kbd></dt><dd>Deshacer el último cambio</dd>
@@ -922,6 +1027,8 @@
 </div>
 
 <script type="module">
+  import { SECTIONS, navModel, resolveTab, decisionBand, planRows } from './layout.js';
+  import { iconSvg } from './icons.js';
   import { startI18n, tr, LOCALE, LANG, LANGS, setLang, onLangChange } from './i18n.js';
   startI18n();
   import { buildView, parseEnergyInput, parseMinutesInput, parseNameInput, parseClassInput } from './view.js';
@@ -931,7 +1038,7 @@
   import { paths, planMigration } from './store.js';
   import { applyDelta, parsePreset, parseExtraInput } from './spend.js';
   import { EVENTS, nextOccurrence } from './events.js';
-  import { summary, wasteWarning, projectEnergy, runsToday, simulate, cpEta } from './planner.js';
+  import { wasteWarning, projectEnergy, runsToday, simulate, cpEta } from './planner.js';
   import { dailySpent, staleEvents } from './spend.js';
   import { renderForecast, renderHistory, renderCp, CHART_COLORS } from './charts.js';
   import { createSound } from './sound.js';
@@ -939,43 +1046,26 @@
   import { EMPTY_STATS, bumped, unlocked, streak, weekTotals } from './achievements.js';
   const sound = createSound();
   import { makeCode, normalizeCode, hashCode, roomName, parseLegionName, parseProfile, legionOf, sameLegion, legionTitle, proofFor, pickLegion, legionKey } from './legion.js';
-  import { formatClock, detectGains, rollValue, becameFull, sceneOptions } from './motion.js';
-  import { litRunes, buildRuneRing } from './runes.js';
+  import { formatClock, detectGains, rollValue, becameFull } from './motion.js';
+  import { buildStarOrb, updateStarOrb, markGain, syncOrbMotion } from './starorb.js';
 
   // Data comes only from db snapshots. Writes happen only after a user action.
   const state = { characters: [], memberData: new Map(), stats: null, tasks: DEFAULT_TASKS, progress: new Map(), cpHist: new Map(), hiddenMembers: 0, others: new Map(), names: {}, schedule: null, presets: [], events: [], timers: [], calendar: [], wall: [], legions: new Map(), prefs: { quietStart: '00:00', quietEnd: '08:00', favEvents: [] } };
   // Interface-only state: which card is editing/confirming, validation messages.
   // noDb: no db in this view. readOnly: viewer cannot write (or a write was refused).
-  const ui = { pop: null, notesId: null, tasksOpen: new Set(), menuOpen: false, editingId: null, extraId: null, confirmId: null, errors: {}, selectedId: null, noDb: false, readOnly: false, loaded: false };
+  const ui = { pop: null, notesId: null, tasksOpen: new Set(), editingId: null, extraId: null, confirmId: null, errors: {}, selectedId: null, menuFor: null, noDb: false, readOnly: false, loaded: false };
 
   let db = null;
   let user = null;
   let my = null; // paths(myUid): this viewer's own part of the db
   let myUid = null;
 
-  // ---- Motion setup: the 3D scene loads in the background; flat orbs until it is ready ----
+  // ---- Motion setup: orbs are drawn SVG; «Reducir animaciones» (body.calm) and the system setting switch the motion off ----
   const reduceMotion = matchMedia('(prefers-reduced-motion: reduce)').matches;
-  let scene = null;
-  let animate = false;
-  document.body.classList.add('flat');
-  let lite = false;
+  let lite = false; // «Reducir animaciones» (key odyle-lite kept from the old «Modo ligero»)
   try { lite = localStorage.getItem('odyle-lite') === '1'; } catch {}
-  async function initScene() {
-    if (reduceMotion || lite) return;
-    if (scene) { animate = true; document.body.classList.remove('flat'); scene.start(); render(); return; }
-    try {
-      const { createScene } = await import('./orb.js');
-      scene = createScene(document.getElementById('scene'), sceneOptions(innerWidth));
-    } catch { scene = null; }
-    if (!scene) return;
-    animate = true;
-    document.body.classList.remove('flat');
-    scene.setPalette({ ...themeOf(theme).orb, light: themeOf(theme).light });
-    scene.start();
-    enableTilt();
-    enableOrientation();
-    render();
-  }
+  let animate = !reduceMotion && !lite;
+  document.body.classList.toggle('calm', lite);
 
   // ---- Actions (the only functions that write data), one write at a time ----
   let queue = Promise.resolve();
@@ -1009,7 +1099,7 @@
     if (!db || !my) { showNotice('No se pudo guardar'); return Promise.resolve(false); }
     const ref = db.collection(my.characters).doc();
     const data = {
-      name, classId, energy: 0, recordedAt: Date.now(),
+      name, ...(classId ? { classId } : {}), energy: 0, recordedAt: Date.now(), // the server rejects a null classId
       order: Math.max(0, ...state.characters.map(c => Number(c.order) || 0)) + 1,
     };
     return save(() => ref.set(data));
@@ -1029,7 +1119,7 @@
     const plan = compute(row);
     if (!plan) return false;
     const { energy, event, label } = plan;
-    const prev = { energy: before.energy, recordedAt: before.recordedAt, classId: before.classId ?? null };
+    const prev = { energy: before.energy, recordedAt: before.recordedAt, classId: before.classId ?? '' };
     const at = Date.now();
     busy.set(id, at);
     setTimeout(() => { if (busy.get(id) === at) { busy.delete(id); render(); } }, 4000);
@@ -1043,17 +1133,18 @@
     return true;
   }
   function showUndo(entry, text) {
-    undo = entry;
+    undo = entry; syncUndoBtn();
     $('toast-text').textContent = text;
     reveal($('toast'), 'show'); document.body.classList.add('toast-up');
     document.body.style.setProperty('--toast-h', $('toast').offsetHeight + 'px'); // the assistant button moves above it
     clearTimeout(undoTimer);
-    undoTimer = setTimeout(() => { undo = null; (conceal($('toast'), 'show'), document.body.classList.remove('toast-up')); }, 8000);
+    undoTimer = setTimeout(() => { undo = null; syncUndoBtn(); (conceal($('toast'), 'show'), document.body.classList.remove('toast-up')); }, 8000);
   }
+  const syncUndoBtn = () => { const b = document.getElementById('undo-last'); if (b) b.disabled = !undo; };
   async function undoLast() {
     const u = undo;
     if (!u) return;
-    undo = null; clearTimeout(undoTimer); (conceal($('toast'), 'show'), document.body.classList.remove('toast-up'));
+    undo = null; syncUndoBtn(); clearTimeout(undoTimer); (conceal($('toast'), 'show'), document.body.classList.remove('toast-up'));
     await save(() => db.doc(my.characters + '/' + u.charId).update(u.prev), u.charId);
     if (u.eventId) await save(() => db.doc(my.events + '/' + u.eventId).delete());
     if (u.spent) await bumpStats({ spent: -u.spent, spends: -1 });
@@ -1061,7 +1152,7 @@
   async function updateCharacter(row, value, classId, cp, goal = null) {
     const before = state.characters.find(c => c.id === row.id);
     const cpChanged = cp !== null && cp !== before?.cp;
-    const extra = { classId };
+    const extra = { classId: classId ?? '' }; // '' = no class: the server rejects null and a PATCH cannot delete a key
     if (cp !== null) extra.cp = cp;
     if (goal !== null) extra.cpGoal = goal || null; // 0 clears the goal
     const ok = await changeEnergy(row.id, r => ({
@@ -1074,35 +1165,34 @@
     return ok;
   }
   // ---- Task list on each own card ----
-  function tasksBlock(row) {
+  // Tasks: the toggle lives in the row's menu, the warning in the text zone, the list below the row.
+  function tasksInfo(row) {
     const now = Date.now();
     const prog = progressFor(state.progress.get(row.id), state.tasks, now);
     const total = state.tasks.reduce((a, t) => a + t.max, 0);
     const done = state.tasks.reduce((a, t) => a + prog[t.id], 0);
     const pendingDaily = state.tasks.filter(t => t.kind === 'daily' && prog[t.id] < t.max).length;
-    const left = nextDailyReset(now) - now;
-    const wrap = el('div', { class: 'tasks-wrap' });
-    const open = ui.tasksOpen.has(row.id);
-    wrap.append(el('button', { type: 'button', class: 'tasks-btn', 'aria-expanded': String(open),
-      onclick: () => { open ? ui.tasksOpen.delete(row.id) : ui.tasksOpen.add(row.id); ui.pop = row.id; render(); } },
-      `Tareas ${done}/${total} ${open ? '▴' : '▾'}`));
-    if (pendingDaily && left < 2 * 3_600_000) wrap.append(el('p', { class: 'task-warn' }, `Quedan ${pendingDaily} diarias · reinicio en ${formatDuration(left)}`));
-    if (open) {
-      const box = el('div', { class: `tasks-box ${ui.pop === row.id ? 'pop' : ''}` });
-      for (const t of state.tasks) {
-        const n = prog[t.id];
-        const name = el('span', { class: 'task-name' }, t.name, el('span', { class: 'kind' }, t.kind === 'daily' ? 'diaria' : 'semanal'));
-        const control = t.max === 1
-          ? el('input', { type: 'checkbox', checked: n >= 1, 'aria-label': t.name, onchange: e => setTask(row.id, t, e.target.checked ? 1 : 0) })
-          : el('span', { class: 'stepper' },
-              el('button', { type: 'button', 'aria-label': `Quitar una: ${t.name}`, disabled: n <= 0, onclick: () => setTask(row.id, t, n - 1) }, '−'),
-              `${n}/${t.max}`,
-              el('button', { type: 'button', 'aria-label': `Añadir una: ${t.name}`, disabled: n >= t.max, onclick: () => setTask(row.id, t, n + 1) }, '+'));
-        box.append(el('div', { class: `task-row ${n >= t.max ? 'done' : ''}` }, name, control));
-      }
-      wrap.append(box);
+    return { prog, total, done, pendingDaily, left: nextDailyReset(now) - now };
+  }
+  function tasksWarn(row) {
+    const { pendingDaily, left } = tasksInfo(row);
+    return pendingDaily && left < 2 * 3_600_000 ? el('p', { class: 'task-warn' }, `Quedan ${pendingDaily} diarias · reinicio en ${formatDuration(left)}`) : null;
+  }
+  function tasksList(row) {
+    const { prog } = tasksInfo(row);
+    const box = el('div', { class: `tasks-box ${ui.pop === row.id ? 'pop' : ''}` });
+    for (const t of state.tasks) {
+      const n = prog[t.id];
+      const name = el('span', { class: 'task-name' }, t.name, el('span', { class: 'kind' }, t.kind === 'daily' ? 'diaria' : 'semanal'));
+      const control = t.max === 1
+        ? el('input', { type: 'checkbox', checked: n >= 1, 'aria-label': t.name, onchange: e => setTask(row.id, t, e.target.checked ? 1 : 0) })
+        : el('span', { class: 'stepper' },
+            el('button', { type: 'button', 'aria-label': `Quitar una: ${t.name}`, disabled: n <= 0, class: 'icon-only', onclick: () => setTask(row.id, t, n - 1) }, iconSvg(document, 'quitar')),
+            `${n}/${t.max}`,
+            el('button', { type: 'button', 'aria-label': `Añadir una: ${t.name}`, disabled: n >= t.max, class: 'icon-only', onclick: () => setTask(row.id, t, n + 1) }, iconSvg(document, 'anadir')));
+      box.append(el('div', { class: `task-row ${n >= t.max ? 'done' : ''}` }, name, control));
     }
-    return wrap;
+    return box;
   }
   async function setTask(charId, task, count) {
     const allDaily = p => state.tasks.filter(t => t.kind === 'daily').every(t => p[t.id] >= t.max);
@@ -1192,7 +1282,7 @@
     }
     return group;
   }
-  for (const id of ['theme-slot-header', 'theme-slot-look', 'theme-slot-profile']) $(id).append(themeSwitch());
+  for (const id of ['theme-slot-look', 'theme-slot-profile']) $(id).append(themeSwitch());
   function applyTheme(t, { persist = false } = {}) {
     const th = themeOf(t);
     theme = th.id;
@@ -1201,7 +1291,6 @@
     const meta = document.querySelector('meta[name="theme-color"]');
     if (meta) meta.setAttribute('content', th.themeColor);
     for (const b of document.querySelectorAll('[data-theme-choice]')) b.setAttribute('aria-pressed', String(b.dataset.themeChoice === th.id));
-    if (scene) scene.setPalette({ ...th.orb, light: th.light });
     try { localStorage.setItem('odyle-theme', th.id); } catch {}
     if (persist && my && !ui.readOnly && state.prefs.theme !== th.id) {
       state.prefs = { ...state.prefs, theme: th.id };
@@ -1263,6 +1352,15 @@
 
   const seen = new Set();
 
+  // One SVG orb per character, reused across repaints (updateStarOrb only changes attributes, so nothing restarts).
+  const orbNodes = new Map();
+  function orbFor(row) {
+    const stateOf = row.isFull ? 'full' : row.nearFull ? 'near' : 'normal';
+    let svg = orbNodes.get(row.id);
+    if (svg) updateStarOrb(svg, { energy: row.energy, state: stateOf });
+    else { svg = buildStarOrb(document, { energy: row.energy, state: stateOf, id: row.id }); orbNodes.set(row.id, svg); }
+    return svg;
+  }
   function cardNode(row, index, readonly = false) {
     const editing = ui.editingId === row.id;
     const confirming = ui.confirmId === row.id;
@@ -1271,46 +1369,33 @@
     const mood = row.isFull ? 'full' : row.nearFull ? 'near' : '';
     const fresh = !seen.has(row.id);
     seen.add(row.id);
-    const card = el('article', { class: `card ${mood} ${fresh && animate ? 'enter' : ''} ${!readonly && ui.selectedId === row.id ? 'selected' : ''}`, 'data-id': row.id,
+    const card = el('article', { class: `card row ${mood} ${fresh && animate ? 'enter' : ''} ${!readonly && ui.selectedId === row.id ? 'selected' : ''}`, 'data-id': row.id,
       style: `--c:${row.color};--i:${index}` });
 
-    card.append(el('div', { class: 'orb-col' },
+    const orb = el('div', { class: 'r-orb orb-col' },
       el('div', { class: 'orb-slot', 'data-orb': row.id, role: 'img', 'aria-label': `${row.percent}% de energía` },
-        el('div', { class: 'orb-flat', style: `--fill:${row.percent}%` }),
-        buildRuneRing(document, litRunes(row.energy), { full: row.isFull })),
-      el('p', { class: 'tick-left', 'data-full': row.isFull ? '1' : null })));
+        orbFor(row)));
 
-    const panel = el('div', { class: 'panel' });
-    const head = el('div', { class: 'card-head' });
-    if (cls) head.append(classIcon(cls));
-    head.append(el('div', {}, el('h2', { class: 'name' }, row.name), cls ? el('p', { class: 'cls-name' }, cls.name) : null));
-    panel.append(head);
+    const text = el('div', { class: 'r-text' });
+    text.append(el('div', { class: 'who' }, el('h2', { class: 'name', title: row.name }, row.name), cls ? el('p', { class: 'cls-name' }, cls.name) : null));
 
     const prevShown = shown.get(row.id);
     const rolling = animate && prevShown !== undefined && prevShown !== row.energy;
     const display = rolling ? (rolls.has(row.id) ? shown.get(row.id) : prevShown) : row.energy;
     if (rolling) startRoll(row.id, display, row.energy); else { rolls.delete(row.id); shown.set(row.id, row.energy); }
-    panel.append(el('div', { class: 'energy' },
+    const num = el('div', { class: 'r-num energy' },
       el('span', { class: 'num', 'data-num': row.id }, String(display)),
-      el('small', {}, `/ ${row.max}`),
-      row.isFull ? el('span', { class: 'badge' }, 'Lleno') : null));
+      el('small', {}, `/ ${row.max}`));
 
-    if (Number.isFinite(row.cp)) panel.append(cpLine(row));
-    const info = el('div', { class: 'info' });
-    info.append(el('p', { class: 'full-in' }, row.isFull ? 'Energía al máximo' : (row.fullAtMs === null ? row.fullInText : `Lleno en ${row.fullInText}`)));
-    if (row.fullAtMs !== null) info.append(el('p', { class: 'full-at' }, dateFmt.format(new Date(row.fullAtMs))));
-    if (!readonly) {
-      const cost = state.presets[0]?.cost ?? 40;
-      const anchor = state.schedule && Number.isFinite(state.schedule.anchorMs) ? state.schedule.anchorMs : null;
-      const eod = new Date(); eod.setHours(23, 59, 59, 999);
-      const r = runsToday(row.energy, cost, anchor, Date.now(), eod.getTime());
-      info.append(el('p', { class: 'runs' }, `Mazmorras (${cost}): ${r.now} ahora · ${r.byMidnight} antes de medianoche`));
-    }
-    const waste = readonly ? '' : row.isFull ? 'Estás perdiendo 15 de OD cada 3 h' : wasteText(row);
-    if (waste) info.append(el('p', { class: 'waste' }, waste));
-    panel.append(info);
-    if (row.notes && ui.notesId !== row.id) panel.append(el('p', { class: 'note-preview', title: row.notes }, '📝 ' + row.notes.split('\n')[0]));
+    if (Number.isFinite(row.cp)) text.append(cpLine(row));
+    const statusText = row.isFull ? 'Lleno · perdiendo energía' : (row.fullAtMs === null ? row.fullInText : `Lleno en ${row.fullInText} · ${dateFmt.format(new Date(row.fullAtMs))}`);
+    text.append(el('p', { class: `full-in ${row.isFull ? 'lost' : ''}` }, statusText));
+    const waste = readonly || row.isFull ? '' : wasteText(row);
+    if (waste) text.append(el('p', { class: 'waste' }, waste));
+    if (row.notes && ui.notesId !== row.id) text.append(el('p', { class: 'note-preview', title: row.notes }, '📝 ' + row.notes.split('\n')[0]));
 
+    const act = el('div', { class: 'r-act' });
+    const below = el('div', { class: 'r-below' });
     if (readonly || ui.readOnly || ui.noDb) {
       // someone else's character, read-only viewer, or stale: no edit controls
     } else if (editing) {
@@ -1346,7 +1431,7 @@
         el('button', { type: 'submit', class: 'primary' }, 'Guardar'),
         el('button', { type: 'button',
           onclick: () => { ui.editingId = null; delete ui.errors[row.id]; render(); } }, 'Cancelar')));
-      panel.append(form);
+      below.append(form);
     } else if (ui.extraId === row.id) {
       const inputId = `extra-${row.id}`;
       const form = el('form', { class: ui.pop === row.id ? 'pop' : '', novalidate: true, onsubmit: async e => {
@@ -1364,7 +1449,7 @@
       form.append(field, el('div', { class: 'row' },
         el('button', { type: 'submit', class: 'primary' }, 'Añadir'),
         el('button', { type: 'button', onclick: () => { ui.extraId = null; delete ui.errors[row.id]; render(); } }, 'Cancelar')));
-      panel.append(form);
+      below.append(form);
     } else if (ui.notesId === row.id) {
       const noteId = `notes-${row.id}`;
       const count = el('p', { class: 'note-count', id: `notes-count-${row.id}` }, `${(row.notes || '').length}/500`);
@@ -1379,30 +1464,94 @@
         el('div', { class: 'row' },
           el('button', { type: 'submit', class: 'primary' }, 'Guardar'),
           el('button', { type: 'button', onclick: () => { ui.notesId = null; render(); } }, 'Cancelar')));
-      panel.append(form);
+      below.append(form);
     } else if (confirming) {
-      panel.append(el('p', { class: `confirm-text ${ui.pop === row.id ? 'pop' : ''}` }, `¿Quitar a ${row.name}?`));
-      panel.append(el('div', { class: 'row' },
+      below.append(el('p', { class: `confirm-text ${ui.pop === row.id ? 'pop' : ''}` }, `¿Quitar a ${row.name}?`));
+      below.append(el('div', { class: 'row' },
         el('button', { type: 'button', class: 'danger', onclick: async () => { if (!await removeCharacter(row.id)) return; ui.confirmId = null; render(); } }, 'Sí, quitar'),
         el('button', { type: 'button', onclick: () => { ui.confirmId = null; render(); } }, 'Cancelar')));
     } else {
-      if (err) panel.append(errorLine(`err-${row.id}`, err));
-      panel.append(el('div', { class: 'spend-row' },
-        ...state.presets.map(p => el('button', { type: 'button', class: 'spend', disabled: busy.has(row.id), onclick: () => spend(row, p) }, `${p.name} −${p.cost}`)),
-        el('button', { type: 'button', class: 'extra', disabled: busy.has(row.id), onclick: () => { ui.pop = row.id; ui.extraId = row.id; ui.editingId = ui.confirmId = ui.notesId = null; delete ui.errors[row.id]; render(); $('extra-' + row.id)?.focus(); } }, '+ Extra')));
-      panel.append(tasksBlock(row));
-      panel.append(el('div', { class: 'row' },
+      if (err) below.append(errorLine(`err-${row.id}`, err));
+      const warn = tasksWarn(row);
+      if (warn) text.append(warn);
+      const tasksOpen = ui.tasksOpen.has(row.id);
+      if (tasksOpen) below.append(tasksList(row));
+      const ti = tasksInfo(row);
+      act.append(
+        ...(state.presets[0] ? [el('button', { type: 'button', class: 'spend', title: `${state.presets[0].name} −${state.presets[0].cost}`, 'aria-label': `Gastar ${state.presets[0].name} −${state.presets[0].cost} en ${row.name}`, disabled: busy.has(row.id), onclick: () => spend(row, state.presets[0]) }, 'Gastar')] : []),
         el('button', { type: 'button', class: 'primary', onclick: () => { ui.pop = row.id; ui.editingId = row.id; ui.confirmId = ui.extraId = ui.notesId = null; delete ui.errors[row.id]; render(); $('energy-' + row.id)?.select(); } }, 'Actualizar'),
-        el('button', { type: 'button', class: 'notes', onclick: () => { ui.pop = row.id; ui.notesId = row.id; ui.editingId = ui.extraId = ui.confirmId = null; render(); $('notes-' + row.id)?.focus(); } }, 'Notas'),
-        el('button', { type: 'button', class: 'remove', onclick: () => { ui.pop = row.id; ui.confirmId = row.id; ui.editingId = ui.extraId = ui.notesId = null; render(); } }, 'Quitar')));
+        moreActions(row, [
+          ['+ Extra', 'extra', () => { ui.pop = row.id; ui.extraId = row.id; ui.editingId = ui.confirmId = ui.notesId = null; delete ui.errors[row.id]; render(); $('extra-' + row.id)?.focus(); }, busy.has(row.id)],
+          [tasksOpen ? 'Ocultar tareas' : `Tareas ${ti.done}/${ti.total}`, 'tasks', () => { tasksOpen ? ui.tasksOpen.delete(row.id) : ui.tasksOpen.add(row.id); ui.pop = row.id; render(); }],
+          ['Notas', 'notes', () => { ui.pop = row.id; ui.notesId = row.id; ui.editingId = ui.extraId = ui.confirmId = null; render(); $('notes-' + row.id)?.focus(); }],
+          ['Quitar', 'remove', () => { ui.pop = row.id; ui.confirmId = row.id; ui.editingId = ui.extraId = ui.notesId = null; render(); }],
+        ]));
     }
-    // split into details and actions (side by side on wide screens)
-    const main = el('div', { class: 'c-main' }), side = el('div', { class: 'c-side' });
-    for (const n of [...panel.children]) (n.matches('.spend-row, .tasks-wrap, form, .row, .confirm-text, .error') ? side : main).append(n);
-    panel.append(main, side);
-    card.append(panel);
+    card.append(orb, text, num, act, below);
     return card;
   }
+
+  // Secondary actions of a row. They survive repaints: ui.menuFor says which row has its menu open.
+  function moreActions(row, items) {
+    const open = ui.menuFor === row.id;
+    const btn = el('button', { type: 'button', class: 'more-actions', 'aria-haspopup': 'menu', 'aria-expanded': String(open),
+      'aria-label': `Más acciones: ${row.name}`, 'data-menu-for': row.id,
+      onclick: () => { ui.menuFor = open ? null : row.id; render(); if (!open) focusMenu(row.id, 0); } }, iconSvg(document, 'mas'));
+    const wrap = el('div', { class: 'menu-wrap' }, btn);
+    if (open) {
+      const list = el('ul', { class: 'menu', role: 'menu', 'aria-label': `Acciones de ${row.name}` },
+        ...items.map(([label, cls, run, off]) => el('li', { role: 'none' },
+          el('button', { type: 'button', role: 'menuitem', class: cls, tabindex: '-1', disabled: !!off, onclick: () => { ui.menuFor = null; run(); settleFocus(row.id, cls); } }, label))));
+      wrap.append(list);
+    }
+    // Tab out of an open menu closes it; only a real destination counts, so a repaint (relatedTarget null) never does.
+    wrap.addEventListener('focusout', (e) => {
+      const to = e.relatedTarget; // where focus goes; null on a repaint, a click on plain text or a click in Safari
+      if (!open || !to || wrap.contains(to) || !wrap.isConnected || ui.menuFor !== row.id) return;
+      ui.menuFor = null; // no repaint: it would detach the element Tab is moving to
+      wrap.querySelector('.menu')?.remove(); btn.setAttribute('aria-expanded', 'false');
+    });
+    wrap.addEventListener('keydown', e => {
+      const list = wrap.querySelector('.menu');
+      if (!list) {
+        if (e.key === 'ArrowDown' && e.target === btn) { e.preventDefault(); ui.menuFor = row.id; render(); focusMenu(row.id, 0); }
+        return;
+      }
+      const all = [...list.querySelectorAll('[role="menuitem"]:not(:disabled)')];
+      const i = all.indexOf(document.activeElement);
+      if (e.key === 'ArrowDown') { e.preventDefault(); all[(i + 1) % all.length]?.focus(); }
+      else if (e.key === 'ArrowUp') { e.preventDefault(); all[(i - 1 + all.length) % all.length]?.focus(); }
+      else if (e.key === 'Home') { e.preventDefault(); all[0]?.focus(); }
+      else if (e.key === 'End') { e.preventDefault(); all.at(-1)?.focus(); }
+      else if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); ui.menuFor = null; render(); document.querySelector(`[data-menu-for="${CSS.escape(row.id)}"]`)?.focus(); }
+    });
+    return wrap;
+  }
+  // After a menu option the repaint detaches the focused item: put focus back on the trigger (or the confirm button of «Quitar»).
+  function settleFocus(id, cls) {
+    const a = document.activeElement;
+    if (a && a !== document.body) return;
+    const card = document.querySelector(`#cards article[data-id="${CSS.escape(id)}"]`);
+    const target = (cls === 'remove' && card?.querySelector('button.danger')) || document.querySelector(`[data-menu-for="${CSS.escape(id)}"]`);
+    target?.focus();
+  }
+  // Open the menu upward when it would run under the bottom bar / past the viewport (only matters on phones).
+  function placeMenu(id) {
+    const btn = document.querySelector(`[data-menu-for="${CSS.escape(id)}"]`);
+    const list = btn?.parentElement?.querySelector('.menu');
+    if (!btn || !list) return;
+    list.classList.remove('up');
+    const barTop = $('topnav').getBoundingClientRect().top; // > 0 only for the bottom bar (phones)
+    const limit = barTop > 0 ? barTop : window.innerHeight;
+    const b = btn.getBoundingClientRect();
+    const h = list.offsetHeight + 4;
+    if (b.bottom + h > limit && b.top - h > 0) list.classList.add('up');
+  }
+  function focusMenu(id, i) { document.querySelectorAll(`[data-menu-for="${CSS.escape(id)}"] + .menu [role="menuitem"]:not(:disabled)`)[i]?.focus(); }
+  // A click outside any menu closes it.
+  document.addEventListener('click', e => {
+    if (ui.menuFor && !e.target.closest('.menu-wrap')) { ui.menuFor = null; render(); }
+  });
 
   // Header clock: text + ring every second, no data work.
   function wasteText(row) {
@@ -1589,26 +1738,27 @@
     } catch (e) { if (!e || e.code !== 'declined') showNotice('No se pudo descargar la imagen aquí'); }
   });
 
-  // ---- Desktop layout: nav bar + sections. The same nodes are moved between the sections (desktop)
-  // and their original places in the page and the ☰ drawer (mobile); nothing is duplicated. ----
-  const DESKTOP = matchMedia('all') // sections + nav bar at every width; the ☰ drawer is no longer used;
-  const TABS = [['personajes', 'Personajes'], ['eventos', 'Eventos'], ['estadisticas', 'Estadísticas'], ['legion', 'Legión'], ['ajustes', 'Ajustes'], ['novedades', 'Novedades']];
-  // Solo web (window.odyleSocialApi viene de social-api.js): amigos, chat y búsqueda de perfiles.
-  const SOCIAL = !!window.odyleSocialApi;
-  if (SOCIAL) TABS.splice(3, 0, ['amigos', 'Amigos'], ['chat', 'Chat'], ['buscar', 'Buscar']);
+  // ---- Layout: rail (>= 900 px) or bottom bar + "Más" sheet (< 900 px). The same nodes are moved into the
+  // section panels; nothing is duplicated. ----
+  const SOCIAL = !!window.odyleSocialApi; // web only (social-api.js): friends, chat and profile search
+  const NAV = navModel({ social: SOCIAL });
+  const SECTION = Object.fromEntries(SECTIONS.map(x => [x.id, x]));
+  const TABS = NAV.rail.map(id => [id, SECTION[id].label]);
+  const WIDE = matchMedia('(min-width: 900px)');
   const socialPanels = SOCIAL ? {
     amigos: el('div', { class: 'social', id: 'social-amigos' }),
     chat: el('div', { class: 'social', id: 'social-chat' }),
     buscar: el('div', { class: 'social', id: 'social-buscar' }),
   } : {};
   let social = null;
+  for (const n of document.querySelectorAll('[data-icon]')) n.prepend(iconSvg(document, n.dataset.icon));
   const pageEl = document.querySelector('.page');
-  const pageOrder = [...pageEl.children];
+  const pageHead = $('page-head');
   const drawerOrder = [...$('drawer').children];
   const drawerPanels = drawerOrder.filter(n => !n.classList.contains('drawer-head'));
   const isNews = n => n.querySelector && (n.querySelector('#news') || n.querySelector('#feedback-form'));
   const PLACE = {
-    personajes: () => ['guide', 'summary', 'empty', 'chars-bar', 'cards'].map(id => $(id)),
+    personajes: () => ['guide', 'summary', 'empty', 'chars-bar', 'cards', 'quick', 'plan'].map(id => $(id)),
     eventos: () => [$('events'), $('timers-panel')],
     estadisticas: () => ['week-panel', 'sim-panel', 'forecast-panel', 'cp-panel', 'history-panel'].map(id => $(id)),
     legion: () => ['legion-panel', 'online-panel', 'calendar-panel', 'rank-panel', 'wall-panel', 'legion', 'legion-empty'].map(id => $(id)),
@@ -1616,54 +1766,98 @@
     novedades: () => drawerPanels.filter(isNews),
     ...(SOCIAL ? { amigos: () => [socialPanels.amigos], chat: () => [socialPanels.chat], buscar: () => [socialPanels.buscar] } : {}),
   };
-  const nav = el('nav', { class: 'topnav', id: 'topnav', 'aria-label': 'Secciones' });
+  const navButton = id => el('button', { type: 'button', 'data-tab': id, onclick: () => setTab(id) },
+    iconSvg(document, SECTION[id].icon), el('span', { class: 'lbl' }, SECTION[id].label));
+  const nav = el('nav', { class: 'topnav', id: 'topnav', 'aria-label': 'Secciones' },
+    el('div', { class: 'rail-brand' }, el('p', { class: 'brand-name' }, 'Odyle')));
   const tabWrap = el('div', { class: 'tabs' });
   const tabPanels = {};
   for (const [id, label] of TABS) {
-    nav.append(el('button', { type: 'button', 'data-tab': id, onclick: () => setTab(id) }, label));
+    const b = navButton(id);
+    if (!NAV.bar.includes(id)) b.classList.add('in-more'); // hidden in the mobile bar
+    nav.append(b);
     tabPanels[id] = el('section', { class: 'tab-panel', id: 'tab-' + id, 'aria-label': label });
     tabWrap.append(tabPanels[id]);
   }
+  const moreBtn = el('button', { type: 'button', class: 'more-btn', 'data-more': '', 'aria-haspopup': 'dialog', onclick: () => openMore() },
+    iconSvg(document, 'mas'), el('span', { class: 'lbl' }, 'Más'));
+  nav.append(moreBtn);
+  const FAN = 'Sitio de fans no oficial · no afiliado a NCSOFT';
+  const fanNote = el('p', { class: 'fan-note' }, FAN);
+  const railFoot = el('div', { class: 'rail-foot' }, themeSwitch(), fanNote);
+  nav.append(railFoot);
+  const moreSheet = el('dialog', { class: 'more-sheet', id: 'more-sheet', 'aria-label': 'Más secciones' });
+  const moreInner = el('div', { class: 'more-inner' }, el('div', { class: 'more-grid' }, ...NAV.more.map(id => navButton(id)),
+    el('button', { type: 'button', 'data-profile': '', onclick: () => { closeMore(); $('profile-chip').click(); } },
+      iconSvg(document, 'perfil'), el('span', { class: 'lbl' }, 'Perfil'))),
+    themeSwitch(), el('p', { class: 'fan-note' }, FAN));
+  moreSheet.append(moreInner);
+  // Only a tap on the backdrop (outside the dialog's box) closes it; a tap on its own padding does not.
+  moreSheet.addEventListener('click', e => {
+    if (e.target !== moreSheet) return;
+    const r = moreSheet.getBoundingClientRect();
+    if (e.clientX < r.left || e.clientX > r.right || e.clientY < r.top || e.clientY > r.bottom) closeMore();
+  });
+  document.body.append(moreSheet);
+  function openMore() { if (!moreSheet.open) moreSheet.showModal(); }
+  function closeMore() { if (moreSheet.open) moreSheet.close(); }
+  applyTheme(theme); // marks the switches just created
   function setBadge(id, n) {
-    const b = nav.querySelector(`[data-tab="${id}"]`);
-    if (!b) return;
-    let s = b.querySelector('.badge');
-    if (!n) { if (s) s.remove(); return; }
-    if (!s) { s = el('span', { class: 'badge' }); b.append(s); }
-    s.textContent = n > 99 ? '99+' : String(n);
+    for (const b of document.querySelectorAll(`#topnav [data-tab="${id}"], #more-sheet [data-tab="${id}"]`)) {
+      let s = b.querySelector('.badge');
+      if (!n) { if (s) s.remove(); continue; }
+      if (!s) { s = el('span', { class: 'badge' }); b.append(s); }
+      s.textContent = n > 99 ? '99+' : String(n);
+    }
   }
   let activeTab = 'personajes';
-  try { const t = localStorage.getItem('odyle-tab'); if (TABS.some(([id]) => id === t)) activeTab = t; } catch {}
+  try { activeTab = resolveTab(localStorage.getItem('odyle-tab'), { social: SOCIAL }); } catch {}
+  function paintSideOnline(list, go) {
+    $('side-online-box').hidden = list.length === 0;
+    $('side-online').replaceChildren(...list.slice(0, 8).map((u) => el('li', {}, el('span', { class: 'dot', 'aria-hidden': 'true' }), el('span', { translate: 'no', title: u.nick || '' }, u.nick || '—'))));
+    $('side-online-go').dataset.go = go;
+  }
+  $('side').addEventListener('click', (ev) => {
+    const b = ev.target.closest('[data-go]');
+    if (b) setTab(b.dataset.go);
+  });
   function setTab(id) {
+    id = resolveTab(id, { social: SOCIAL });
     activeTab = id;
     try { localStorage.setItem('odyle-tab', id); } catch {}
     for (const [k, p] of Object.entries(tabPanels)) p.hidden = k !== id;
-    for (const b of nav.querySelectorAll('button')) b.toggleAttribute('aria-current', b.dataset.tab === id), b.dataset.tab === id && b.setAttribute('aria-current', 'page');
+    for (const b of document.querySelectorAll('#topnav [data-tab], #more-sheet [data-tab]')) {
+      if (b.dataset.tab === id) b.setAttribute('aria-current', 'page'); else b.removeAttribute('aria-current');
+    }
+    if (NAV.more.includes(id)) moreBtn.setAttribute('aria-current', 'page'); else moreBtn.removeAttribute('aria-current');
+    closeMore();
+    $('page-title').textContent = SECTION[id].label;
+    pageHead.classList.toggle('plain', id !== 'personajes');
     if (id === 'eventos') $('events').open = true;
     if (id === 'novedades') loadInbox(); // the owner's feedback inbox
     window.scrollTo({ top: 0 });
     if (social) social.onTab(id);
     render();
   }
-  function applyLayout() {
-    if (DESKTOP.matches) {
-      if (ui.menuOpen) closeMenu();
-      const header = pageEl.querySelector('header');
-      header.after(nav);
-      nav.after(tabWrap);
-      // notices stay above the sections
-      tabWrap.before($('nodata'), $('notice'));
-      for (const [id] of TABS) tabPanels[id].replaceChildren(...PLACE[id]());
-      setTab(activeTab);
-    } else {
-      nav.remove(); tabWrap.remove();
-      for (const n of pageOrder) pageEl.append(n);
-      for (const n of drawerOrder) $('drawer').append(n);
-    }
+  // The profile chip lives at the foot of the rail on desktop and in the header on mobile.
+  function placeChrome() {
+    const header = pageEl.querySelector('header');
+    if (WIDE.matches) { fanNote.before($('profile-chip')); closeMore(); header.prepend(pageHead); }
+    else { header.append($('profile-chip')); tabPanels.personajes.prepend(pageHead); }
+    if (WIDE.matches) document.body.append($('ai-fab')); else pageEl.querySelector('header').append($('ai-fab'));
   }
-  // Where a step lives: a section on desktop, the drawer on mobile.
+  function applyLayout() {
+    pageEl.before(nav);
+    pageEl.querySelector('header').after(tabWrap);
+    // notices stay above the sections
+    tabWrap.before($('nodata'), $('notice'));
+    for (const [id] of TABS) tabPanels[id].replaceChildren(...PLACE[id]());
+    placeChrome();
+    setTab(activeTab);
+  }
+  WIDE.addEventListener('change', placeChrome);
   function goTo(tab, focusId) {
-    if (DESKTOP.matches) { setTab(tab); } else openMenu();
+    setTab(tab);
     const f = $(focusId); if (f) { f.focus({ preventScroll: true }); f.scrollIntoView({ block: 'center' }); }
   }
 
@@ -1676,10 +1870,11 @@
     $('guide').hidden = !show;
     [s1, s2, s3].forEach((d, i) => $('step-' + (i + 1)).classList.toggle('done', d));
   }
+  $('clock-fix').addEventListener('click', () => goTo('ajustes', 'adjust-minutes'));
   $('guide').addEventListener('click', e => {
     const b = e.target.closest('[data-step]'); if (!b) return;
     const step = b.dataset.step;
-    if (step === '1') { if (DESKTOP.matches) setTab('personajes'); openAdd(); }
+    if (step === '1') { setTab('personajes'); openAdd(); }
     else if (step === '2') {
       const first = buildView(state.characters, state.schedule, Date.now()).rows[0];
       if (!first) { openAdd(); return; }
@@ -1687,18 +1882,71 @@
     } else goTo('ajustes', 'adjust-minutes');
   });
 
+  let lastBandKey = '';
   function paintSummary(rows) {
     const box = $('summary');
-    box.hidden = rows.length === 0;
-    if (!rows.length) return;
-    const s = summary(rows, Date.now());
-    $('sum-tip').textContent = s.tip;
-    $('sum-tip').hidden = !s.tip;
+    const b = decisionBand(rows, Date.now(), { quiet: { start: state.prefs.quietStart, end: state.prefs.quietEnd }, tzOffsetMin: new Date().getTimezoneOffset() });
+    box.hidden = !b;
+    if (!b) { lastBandKey = ''; return null; }
+    // The band text ticks every minute; screen readers only hear it when the tone or the target changes.
+    const bandKey = `${b.tone}:${b.targetId || ''}`;
+    if (bandKey !== lastBandKey) { lastBandKey = bandKey; $('band-status').textContent = b.text; }
+    box.className = `band band-${b.tone}`;
+    $('sum-tip').textContent = b.text;
+    const go = $('band-go');
+    go.hidden = !b.targetId || b.tone === 'calm' || ui.readOnly || ui.noDb;
+    go.onclick = () => goSpend(b.targetId);
     const need = state.presets[0]?.cost ?? 40;
     const everyone = [...rows, ...[...state.others.values()].flatMap(m => buildView(m.characters, state.schedule, Date.now()).rows)];
     $('sum-legion').hidden = state.others.size === 0;
     $('sum-legion').textContent = `Listos para mazmorra en la legión: ${everyone.filter(r => r.energy >= need).length} personajes con ${need} o más de OD`;
-    $('sum-next').textContent = s.nextFull ? `Se llena primero: ${s.nextFull.name} · ${dateFmt.format(new Date(s.nextFull.fullAtMs))}` : '';
+    return b;
+  }
+
+  // Gastos rápidos: the presets of the character that needs them most (the band's target, or the selected one when nobody is
+  // urgent, or the first). Plan de hoy: runs per preset today for every character plus what to do next.
+  let planRowsNow = [], planBand = null;
+  function paintQuick() {
+    const rows = planRowsNow;
+    const urgent = planBand && planBand.tone === 'urgent' ? planBand.targetId : null;
+    const target = rows.find(r => r.id === urgent) || rows.find(r => r.id === ui.selectedId) || rows.find(r => r.id === planBand?.targetId) || rows[0];
+    const box = $('quick');
+    const editable = !!target && !ui.readOnly && !ui.noDb && state.presets.length > 0;
+    box.hidden = !editable;
+    if (!editable) return;
+    const title = $('quick-title');
+    title.replaceChildren('Gastos rápidos', ' · ', el('span', {}, target.name));
+    const undoBtn = el('button', { type: 'button', class: 'chip undo-last', id: 'undo-last', onclick: undoLast }, 'Deshacer último');
+    undoBtn.disabled = !undo;
+    $('quick-chips').replaceChildren(
+      ...state.presets.map(p => el('button', { type: 'button', class: 'chip', 'data-quick': p.id, disabled: busy.has(target.id), onclick: () => spend(target, p) },
+        p.name, el('b', {}, `−${p.cost}`))),
+      undoBtn);
+  }
+  function paintPlan() {
+    const rows = planRowsNow;
+    const box = $('plan');
+    box.hidden = rows.length === 0;
+    if (!rows.length) return;
+    if (!state.presets.length) { $('plan-body').replaceChildren(el('p', { class: 'plan-empty' }, 'Crea un gasto para ver el plan')); return; }
+    const anchor = state.schedule && Number.isFinite(state.schedule.anchorMs) ? state.schedule.anchorMs : null;
+    const eod = new Date(); eod.setHours(23, 59, 59, 999);
+    const plan = planRows(rows, state.presets, { anchorMs: anchor, now: Date.now(), endOfDayMs: eod.getTime() });
+    const head = el('tr', {}, el('th', { scope: 'col' }, 'Personaje'),
+      ...state.presets.map(p => el('th', { scope: 'col' }, p.name, ' ', el('small', {}, `(${p.cost})`))),
+      el('th', { scope: 'col' }, 'Próxima meta'));
+    const body = plan.map(r => el('tr', { 'data-plan': r.id }, el('th', { scope: 'row', title: r.name }, r.name),
+      ...state.presets.map(p => el('td', { 'data-label': p.name }, `${r.runs[p.id]}×`)),
+      el('td', { class: r.next.tone === 'urgent' ? 'hot' : r.next.tone === 'empty' ? 'dim' : '' }, r.next.text)));
+    $('plan-body').replaceChildren(el('div', { class: 'plan-scroll' }, el('table', { class: 'plan-table' }, el('thead', {}, head), el('tbody', {}, ...body))));
+  }
+  // «Gastar» de la banda: lleva a la fila y pone el foco en su primer gasto; sin presets abre los gastos.
+  function goSpend(id) {
+    const card = document.querySelector(`#cards article[data-id="${CSS.escape(id)}"]`);
+    if (!card) return;
+    card.scrollIntoView({ block: 'center', behavior: matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth' });
+    const first = card.querySelector('button.spend:not(:disabled)');
+    if (first) first.focus({ preventScroll: true }); else $('presets-btn').click();
   }
 
   // Event timers: sorted by what happens next; running events first, in gold.
@@ -1753,6 +2001,8 @@
     const activeNow = new Set(items.filter(i => i.o.active && i.e.durationMin > 0).map(i => i.e.id));
     for (const id of activeNow) if (lastActive && !lastActive.has(id)) sound.chime();
     lastActive = activeNow;
+    $('side-events').replaceChildren(...items.slice(0, 3).map(({ e, o }) => el('li', {},
+      el('span', {}, e.name), el('b', { class: 'num' }, o.active ? 'En curso' : countdown(o.startMs - now)))));
     const first = items[0];
     $('events-next').textContent = first.o.active ? `${first.e.name}: en curso` : `Próximo: ${first.e.name} en ${countdown(first.o.startMs - now)}`;
   }
@@ -1769,7 +2019,7 @@
       $('timer-list').replaceChildren(...[...state.timers].sort((a, b) => a.endsAt - b.endsAt).map(t => el('li', { 'data-timer': t.id },
         el('span', { class: 't-name' }, t.name),
         el('span', { class: 't-left', 'data-ends': String(t.endsAt) }),
-        ui.readOnly ? null : el('button', { type: 'button', id: `timer-del-${t.id}`, 'aria-label': `Quitar ${t.name}`, onclick: () => saveTimers(state.timers.filter(x => x.id !== t.id)) }, '✕'))));
+        ui.readOnly ? null : el('button', { type: 'button', id: `timer-del-${t.id}`, 'aria-label': `Quitar ${t.name}`, class: 'icon-only', onclick: () => saveTimers(state.timers.filter(x => x.id !== t.id)) }, iconSvg(document, 'cerrar')))));
     }
     for (const li of $('timer-list').children) {
       const left = Number(li.querySelector('.t-left').dataset.ends) - now;
@@ -1803,24 +2053,27 @@
   }
 
   // Also the per-card rune timers ("+15 en hh:mm:ss") and the rune ring progress.
-  let orbList = [];
   function paintClock() {
     paintEvents(Date.now());
     paintTimers(Date.now());
     paintCalendar(Date.now());
     const anchor = state.schedule && Number.isFinite(state.schedule.anchorMs) ? state.schedule.anchorMs : null;
     const left = anchor === null ? null : nextTickAt(anchor, Date.now()) - Date.now();
-    for (const p of document.querySelectorAll('.tick-left')) {
-      const full = p.dataset.full === '1';
-      p.classList.toggle('full', full);
-      p.classList.toggle('missing', !full && anchor === null);
-      p.textContent = full ? 'Lleno' : anchor === null ? 'Falta la hora de recarga' : `+15 en ${formatClock(left)}`;
-    }
-    $('clock').classList.toggle('missing', anchor === null);
-    if (anchor === null) { $('next-tick').textContent = 'Falta la hora de recarga'; return; }
-    $('next-tick').textContent = formatClock(left);
+    $('ruler').classList.toggle('missing', anchor === null);
+    $('sub-time').hidden = anchor === null;
+    $('sub-missing').hidden = anchor !== null;
+    const count = state.characters.length;
+    const countText = count === 1 ? '1 personaje' : `${count} personajes`;
+    if ($('sub-count').textContent !== countText) $('sub-count').textContent = countText;
+    if (anchor === null) { $('mer-time').textContent = ''; return; }
+    const clock = formatClock(left);
+    $('next-tick').textContent = clock;
+    $('mer-time').textContent = clock;
     $('next-tick').setAttribute('aria-label', `en ${formatDuration(left)}`);
-    $('ring-arc').setAttribute('stroke-dashoffset', String(163.36 * (1 - left / TICK_MS)));
+    // The meridian: 0 just recharged, 1 when the next recharge arrives. Same tick as the clock; only a CSS variable changes.
+    const mer = Math.min(1, Math.max(0, 1 - left / TICK_MS));
+    $('ruler').style.setProperty('--mer', String(mer));
+    $('ruler').classList.toggle('late', mer > 0.6);
   }
 
   let lastEnergy = new Map();
@@ -1832,19 +2085,24 @@
     paintClock();
     const locked = ui.noDb || ui.readOnly;
     $('nodata').hidden = !ui.noDb;
-    $('menu-btn').hidden = locked || !db || !ui.loaded;
     $('add-btn').hidden = locked || !db || !ui.loaded; // nothing to add to without data or permission
     $('presets-btn').hidden = $('add-btn').hidden;
     if ($('presets-btn').hidden && !$('presets-modal').hidden) conceal($('presets-modal'), 'open');
     if ($('add-btn').hidden && !$('add-modal').hidden) closeAdd();
-    if ($('menu-btn').hidden && ui.menuOpen) closeMenu();
     paintPresets();
     paintTaskList();
-    $('clock').hidden = ui.noDb;
+    $('page-sub').hidden = ui.noDb;
 
     // Keep focus and caret across repaints (timers repaint too).
     const active = document.activeElement;
     const focusId = active && active.id ? active.id : null;
+    // The row menu is rebuilt with the rows: remember where focus was inside it (item index, or the trigger).
+    let menuFocus = null;
+    if (ui.menuFor && active) {
+      const items = [...document.querySelectorAll('.menu [role="menuitem"]:not(:disabled)')];
+      if (items.includes(active)) menuFocus = items.indexOf(active);
+      else if (active.matches?.('.more-actions')) menuFocus = 'btn';
+    }
     const caret = focusId && 'selectionStart' in active ? [active.selectionStart, active.selectionEnd] : null;
 
     const cards = $('cards');
@@ -1857,7 +2115,10 @@
     $('empty').hidden = ui.noDb || view.rows.length > 0 || !ui.loaded;
     $('empty').textContent = ui.readOnly ? 'Aún no hay personajes.' : 'Aún no hay personajes. Pulsa + para añadir el primero.';
     cards.hidden = view.rows.length === 0;
-    paintSummary(view.rows);
+    planBand = paintSummary(view.rows);
+    planRowsNow = view.rows;
+    paintQuick();
+    paintPlan();
     paintGuide(view.rows);
     paintWeek(view.rows);
     paintSim(view.rows);
@@ -1881,12 +2142,7 @@
     if (state.hiddenMembers > 0) groups.push(el('p', { class: 'hint' }, `Mostrando ${MAX_SHOWN_TEXT(state.others.size, state.others.size + state.hiddenMembers)}`));
     $('legion').replaceChildren(...groups);
     $('chars-bar').hidden = ui.noDb || !ui.loaded || (!view.rows.length && $('add-btn').hidden);
-    orbList = [...view.rows, ...otherRows].map(r => ({
-      id: r.id, el: document.querySelector(`[data-orb="${CSS.escape(r.id)}"]`), runes: litRunes(r.energy),
-      percent: r.percent, color: r.color, state: r.isFull ? 'full' : r.nearFull ? 'near' : 'normal',
-    }));
     paintClock(); // fills the new cards' timers and the orbs' rune progress
-    if (scene) scene.setOrbs(orbList);
 
     // Recharge gains (not manual edits): floating "+N" and an orb ripple.
     const recorded = new Map(state.characters.map(c => [c.id, c.recordedAt]));
@@ -1897,14 +2153,22 @@
       for (const g of detectGains(lastEnergy, now)) {
         const card = cards.querySelector(`article[data-id="${CSS.escape(g.id)}"]`);
         if (card) card.append(el('span', { class: 'gain', 'aria-hidden': 'true' }, `+${g.gain}`));
-        scene.ripple(g.id);
+        const orb = orbNodes.get(g.id);
+        if (orb) markGain(orb);
         sound.chime();
       }
-      if (anchor === lastAnchor) for (const id of becameFull(lastEnergy, now, MAX)) { scene.beam(id); sound.fanfare(); }
+      if (anchor === lastAnchor) for (const id of becameFull(lastEnergy, now, MAX)) sound.fanfare();
     }
+    // Drop the orbs of characters that are gone; resume the motion of the rest after their cards were re-inserted.
+    const liveIds = new Set([...view.rows, ...otherRows].map(r => r.id));
+    for (const [id, svg] of orbNodes) { if (liveIds.has(id)) syncOrbMotion(svg); else orbNodes.delete(id); }
     if (!keepBaseline) lastEnergy = new Map(now.map(r => [r.id, r]));
     lastAnchor = anchor;
 
+    if (menuFocus !== null && ui.menuFor) {
+      if (menuFocus === 'btn') document.querySelector(`[data-menu-for="${CSS.escape(ui.menuFor)}"]`)?.focus();
+      else focusMenu(ui.menuFor, menuFocus);
+    }
     if (focusId && document.activeElement !== $(focusId)) {
       const again = $(focusId);
       if (again) { again.focus(); if (caret && again.setSelectionRange) again.setSelectionRange(caret[0], caret[1]); }
@@ -1913,6 +2177,7 @@
 
   function render() {
     paint(buildView(state.characters, state.schedule, Date.now()));
+    if (ui.menuFor) placeMenu(ui.menuFor);
   }
 
   // ---- Events ----
@@ -1933,21 +2198,6 @@
     hideTimers.set(node, setTimeout(() => { node.hidden = true; }, ANIM_MS));
   }
 
-  // Hamburger drawer: Esc / scrim / ✕ close it; focus moves in and back to ☰; Tab stays inside.
-  function openMenu() {
-    ui.menuOpen = true;
-    reveal($('drawer'), 'open'); reveal($('scrim'), 'open');
-    loadInbox();
-    $('menu-btn').setAttribute('aria-expanded', 'true');
-    $('add-name').focus({ preventScroll: true });
-  }
-  function closeMenu() {
-    ui.menuOpen = false;
-    conceal($('drawer'), 'open'); conceal($('scrim'), 'open');
-    $('menu-btn').setAttribute('aria-expanded', 'false');
-    if (!$('menu-btn').hidden) $('menu-btn').focus();
-  }
-
   // Events panel: animate the height when opening/closing instead of jumping.
   $('events').querySelector('summary').addEventListener('click', e => {
     const box = $('events');
@@ -1966,19 +2216,6 @@
       const fade = $('event-list').animate([{ opacity: 1 }, { opacity: 0 }], { duration: 200, fill: 'forwards' });
       a.onfinish = () => { box.open = false; fade.cancel(); };
     }
-  });
-  $('menu-btn').addEventListener('click', () => ui.menuOpen ? closeMenu() : openMenu());
-  $('drawer-close').addEventListener('click', closeMenu);
-  $('scrim').addEventListener('click', closeMenu);
-  document.addEventListener('keydown', e => {
-    if (!ui.menuOpen) return;
-    if (e.key === 'Escape') { e.preventDefault(); closeMenu(); return; }
-    if (e.key !== 'Tab') return;
-    const f = [...$('drawer').querySelectorAll('button, input, select')].filter(x => !x.disabled && x.offsetParent !== null);
-    if (!f.length) return;
-    if (!$('drawer').contains(document.activeElement)) { e.preventDefault(); f[0].focus(); return; }
-    if (e.shiftKey && document.activeElement === f[0]) { e.preventDefault(); f.at(-1).focus(); }
-    else if (!e.shiftKey && document.activeElement === f.at(-1)) { e.preventDefault(); f[0].focus(); }
   });
   $('undo').addEventListener('click', undoLast);
   $('sim-runs').addEventListener('input', () => render());
@@ -2008,7 +2245,7 @@
   // Keyboard shortcuts (desktop): 1–9 spend, Z undo, ←/→ sections, ? help. Ignored while typing.
   $('cards').addEventListener('pointerdown', e => {
     const card = e.target.closest('article[data-id]');
-    if (card && ui.selectedId !== card.dataset.id) { ui.selectedId = card.dataset.id; for (const c of $('cards').children) c.classList.toggle('selected', c === card); }
+    if (card && ui.selectedId !== card.dataset.id) { ui.selectedId = card.dataset.id; for (const c of $('cards').children) c.classList.toggle('selected', c === card); paintQuick(); }
   });
   const keysOpen = () => !$('keys-help').hidden;
   function toggleKeys(show = !keysOpen()) {
@@ -2017,15 +2254,16 @@
   $('keys-close').addEventListener('click', () => toggleKeys(false));
   $('keys-help').addEventListener('click', e => { if (e.target === $('keys-help')) toggleKeys(false); });
   document.addEventListener('keydown', e => {
-    if (e.ctrlKey || e.metaKey || e.altKey || e.repeat || ui.menuOpen || !$('ai-panel').hidden || document.querySelector('.modal:not([hidden])')) return;
+    if (e.ctrlKey || e.metaKey || e.altKey || e.repeat || moreSheet.open || !$('ai-panel').hidden || document.querySelector('.modal:not([hidden])')) return;
     if (keysOpen() && e.key === 'Escape') { e.preventDefault(); toggleKeys(false); return; }
     const t = e.target;
+    if (ui.menuFor && t?.closest?.('.menu-wrap')) return; // arrows and digits belong to the open ⋯ menu
     if (t && (t.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(t.tagName))) return;
     if (e.key === '?') { e.preventDefault(); toggleKeys(); return; }
     if (keysOpen()) return;
     if (/^[1-9]$/.test(e.key)) {
       const preset = state.presets[Number(e.key) - 1];
-      if (!preset || !my || ui.readOnly || ui.noDb || (DESKTOP.matches && activeTab !== 'personajes')) return;
+      if (!preset || !my || ui.readOnly || ui.noDb || activeTab !== 'personajes') return;
       const rows = buildView(state.characters, state.schedule, Date.now()).rows;
       const row = rows.find(r => r.id === ui.selectedId) || rows[0];
       if (!row) return;
@@ -2033,12 +2271,12 @@
       spend(row, preset);
     } else if (e.key === 'z' || e.key === 'Z') {
       if (undo) { e.preventDefault(); undoLast(); }
-    } else if ((e.key === 'ArrowLeft' || e.key === 'ArrowRight') && DESKTOP.matches) {
+    } else if ((e.key === 'ArrowLeft' || e.key === 'ArrowRight')) {
       const i = TABS.findIndex(([id]) => id === activeTab);
       const next = TABS[(i + (e.key === 'ArrowRight' ? 1 : TABS.length - 1)) % TABS.length][0];
       e.preventDefault();
       setTab(next);
-      nav.querySelector(`[data-tab="${next}"]`)?.focus({ preventScroll: true });
+      const nb = nav.querySelector(`[data-tab="${next}"]`); if (nb && nb.offsetParent) nb.focus({ preventScroll: true });
     }
   });
   for (const [code, label] of Object.entries(LANGS)) $('lang-select').append(el('option', { value: code, selected: code === LANG }, label));
@@ -2060,8 +2298,9 @@
   $('lite-toggle').addEventListener('change', e => {
     lite = e.target.checked;
     try { localStorage.setItem('odyle-lite', lite ? '1' : '0'); } catch {}
-    if (lite) { animate = false; if (scene) scene.stop(); document.body.classList.add('flat'); render(); }
-    else initScene();
+    animate = !reduceMotion && !lite;
+    document.body.classList.toggle('calm', lite);
+    render();
   });
   $('event-list').addEventListener('click', e => { const b = e.target.closest('[data-fav]'); if (b) toggleFav(b.dataset.fav); });
   $('alert-close').addEventListener('click', () => { clearTimeout(alertTimer); conceal($('alert'), 'show'); });
@@ -2086,7 +2325,7 @@
     const list = $('preset-list');
     list.replaceChildren(...(state.presets.length ? state.presets.map(p => el('li', {},
       el('span', {}, `${p.name} · ${p.cost}`),
-      el('button', { type: 'button', id: `preset-del-${p.id}`, 'aria-label': `Quitar ${p.name}`, onclick: () => savePresets(state.presets.filter(x => x.id !== p.id)) }, '✕')))
+      el('button', { type: 'button', id: `preset-del-${p.id}`, 'aria-label': `Quitar ${p.name}`, class: 'icon-only', onclick: () => savePresets(state.presets.filter(x => x.id !== p.id)) }, iconSvg(document, 'cerrar'))))
       : [el('li', { class: 'muted' }, 'Aún no hay botones. Crea uno, p. ej. "Mazmorra" con coste 40.')]));
   }
   let paintedTasks = '';
@@ -2096,7 +2335,7 @@
     paintedTasks = key;
     $('task-list').replaceChildren(...state.tasks.map(t => el('li', {},
       el('span', {}, `${t.name} · ${t.kind === 'daily' ? 'diaria' : 'semanal'}${t.max > 1 ? ` ×${t.max}` : ''}`),
-      el('button', { type: 'button', id: `task-del-${t.id}`, 'aria-label': `Quitar ${t.name}`, onclick: () => saveTasks(state.tasks.filter(x => x.id !== t.id)) }, '✕'))));
+      el('button', { type: 'button', id: `task-del-${t.id}`, 'aria-label': `Quitar ${t.name}`, class: 'icon-only', onclick: () => saveTasks(state.tasks.filter(x => x.id !== t.id)) }, iconSvg(document, 'cerrar')))));
   }
   $('task-form').addEventListener('submit', async e => {
     e.preventDefault();
@@ -2353,7 +2592,7 @@
     const main = state.characters.find(c => c.id === prof?.mainCharId) || [...state.characters].sort((a, b) => (a.order || 0) - (b.order || 0))[0];
     const cls = classById(main?.classId);
     $('profile-chip').style.setProperty('--c', cls ? cls.color : 'var(--gold)');
-    $('pc-icon').replaceChildren(cls ? classIcon(cls) : '✦');
+    $('pc-icon').replaceChildren(cls ? classIcon(cls) : iconSvg(document, 'perfil'));
     $('pc-name').textContent = prof?.nick || state.names[myUid] || (ui.readOnly ? 'Invitado' : 'Crea tu perfil');
     $('pc-title').textContent = myLegionTitle();
     $('profile-chip').setAttribute('aria-label', `Tu perfil: ${$('pc-name').textContent} ${$('pc-title').textContent}`.trim());
@@ -2416,36 +2655,6 @@
     render();
   });
 
-  // Phones: orbs follow the device's tilt. iOS needs a tap to grant permission.
-  function enableOrientation() {
-    if (!matchMedia('(pointer: coarse)').matches || !window.DeviceOrientationEvent) return;
-    if (typeof DeviceOrientationEvent.requestPermission === 'function') {
-      $('motion-btn').hidden = false;
-      $('motion-btn').addEventListener('click', async () => {
-        if (await scene.enableOrientation()) { $('motion-btn').hidden = true; return; }
-        // Denied: iOS won't ask again, so don't leave a button that does nothing.
-        $('motion-btn').disabled = true;
-        $('motion-btn').textContent = 'Movimiento no disponible';
-      });
-    } else scene.enableOrientation();
-  }
-
-  // Gentle tilt on hover (fine pointers only); delegated because cards are re-created.
-  function enableTilt() {
-    if (!matchMedia('(pointer: fine)').matches) return;
-    $('cards').addEventListener('pointermove', e => {
-      const panel = e.target.closest('.card .panel');
-      if (!panel) return;
-      const r = panel.getBoundingClientRect();
-      panel.style.setProperty('--ry', `${((e.clientX - r.left) / r.width - .5) * 5}deg`);
-      panel.style.setProperty('--rx', `${-((e.clientY - r.top) / r.height - .5) * 5}deg`);
-    });
-    $('cards').addEventListener('pointerout', e => {
-      const panel = e.target.closest('.card .panel');
-      if (panel && !panel.contains(e.relatedTarget)) { panel.style.removeProperty('--rx'); panel.style.removeProperty('--ry'); }
-    });
-  }
-
   // Shared legion data (calendar, wall): a refused write only affects that write, never the viewer's own data.
   async function saveShared(fn) {
     showNotice('');
@@ -2483,7 +2692,7 @@
           el('small', {}, `${dateFmt.format(new Date(c.at))} · ${c.durationMin} min · ${live ? 'en curso' : 'en ' + formatDuration(c.at - now)} · por ${c.uid === myUid ? 'ti' : nameOf(c.uid)}`),
           el('small', {}, ` · Voy ${n('yes')} · Quizá ${n('maybe')} · No ${n('no')}`)),
         el('div', { class: 'rsvp' }, voteBtn(c, 'yes', 'Voy'), voteBtn(c, 'maybe', 'Quizá'), voteBtn(c, 'no', 'No'),
-          c.uid === myUid && !ui.readOnly ? el('button', { type: 'button', 'aria-label': `Borrar ${c.title}`, onclick: () => saveShared(() => db.doc(legionBase() + '/calendar/' + c.id).delete()) }, '✕') : null));
+          c.uid === myUid && !ui.readOnly ? el('button', { type: 'button', class: 'icon-only', 'aria-label': `Borrar ${c.title}`, onclick: () => saveShared(() => db.doc(legionBase() + '/calendar/' + c.id).delete()) }, iconSvg(document, 'cerrar')) : null));
     }) : [el('li', { class: 'muted hint' }, 'No hay citas próximas. Crea la primera.')]));
   }
   $('cal-form').addEventListener('submit', async e => {
@@ -2600,6 +2809,7 @@
     $('online-title').textContent = lroom ? `En línea (${list.length})` : 'En línea';
     $('online-list').replaceChildren(...list.map(u => el('li', { class: u.me ? 'me' : '' },
       u.me ? 'Tú' : nameOf(u.uid), u.char ? el('small', {}, u.char) : null)));
+    if (!SOCIAL) paintSideOnline(lroom ? list.filter(u => !u.me).map(u => ({ uid: u.uid, nick: nameOf(u.uid) })) : [], 'legion');
     const now = Date.now();
     while (lfgs.length && now - lfgs[0].at > LFG_TTL) lfgs.shift();
     const lfgKey = JSON.stringify(lfgs.map(o => [o.id, o.replied])) + JSON.stringify(state.names) + ui.readOnly;
@@ -2710,7 +2920,7 @@
     }
   }
   $('online-pill').addEventListener('click', () => {
-    if (DESKTOP.matches) setTab('legion');
+    setTab('legion');
     $('online-panel').scrollIntoView({ block: 'start', behavior: reduceMotion ? 'auto' : 'smooth' });
   });
 
@@ -2850,10 +3060,8 @@
     $('ai-fab').hidden = !sample;
   }
 
-  DESKTOP.addEventListener('change', applyLayout);
   applyLayout(); // after every top-level declaration: it renders
   render();
-  initScene();
   // Timers only repaint from memory; they never write.
   let nextRepaintAt = Infinity;
   setInterval(() => {
@@ -2883,7 +3091,7 @@
     if (SOCIAL && my && !social) {
       import('./social-ui.js').then((m) => {
         social = m.startSocial({
-          api: window.odyleSocialApi, me: myUid, panels: socialPanels, setBadge, goTab: setTab,
+          api: window.odyleSocialApi, me: myUid, onOnline: (list) => paintSideOnline(list, 'amigos'), panels: socialPanels, setBadge, goTab: setTab,
           myRows: () => buildView(state.characters, state.schedule, Date.now()).rows,
           anchorMs: () => (state.schedule && Number.isFinite(state.schedule.anchorMs) ? state.schedule.anchorMs : null),
         });

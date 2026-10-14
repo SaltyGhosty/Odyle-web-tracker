@@ -10,7 +10,6 @@ export const STRINGS = {
   "500 gastos registrados": "500 expenses logged",
   "500K de poder": "500K power",
   "Activar avisos del navegador": "Enable browser alerts",
-  "Activar movimiento": "Enable motion",
   "Actividades semanales y raids": "Weekly activities and raids",
   "Actividades, misiones y entradas a mazmorras": "Activities, quests and dungeon entries",
   "Ajusta cuánto falta para la recarga": "Adjust how long until the recharge",
@@ -101,9 +100,8 @@ export const STRINGS = {
   "Minutos que faltan para la próxima recarga": "Minutes until the next recharge",
   "Misiones de deber": "Duty quests",
   "Mié": "Wed",
-  "Modo ligero (sin 3D, ahorra batería)": "Light mode (no 3D, saves battery)",
+  "Reducir animaciones (sin ondulación ni latido en los orbes)": "Reduce motion (no ripple or pulse on the orbs)",
   "Mostrando {0}": "Showing {0}",
-  "Movimiento no disponible": "Motion not available",
   "Máximo 24 caracteres": "24 characters max",
   "Nadie ha marcado disponibilidad para esta hora.": "Nobody has set availability for this time.",
   "No hay energía suficiente": "Not enough energy",
@@ -194,7 +192,6 @@ export const STRINGS = {
   "500 gastos registrados": "500 spese registrate",
   "500K de poder": "500K di potenza",
   "Activar avisos del navegador": "Attiva gli avvisi del browser",
-  "Activar movimiento": "Attiva movimento",
   "Actividades semanales y raids": "Attività settimanali e raid",
   "Actividades, misiones y entradas a mazmorras": "Attività, missioni e ingressi ai dungeon",
   "Ajusta cuánto falta para la recarga": "Regola quanto manca alla ricarica",
@@ -285,9 +282,8 @@ export const STRINGS = {
   "Minutos que faltan para la próxima recarga": "Minuti alla prossima ricarica",
   "Misiones de deber": "Missioni del dovere",
   "Mié": "Mer",
-  "Modo ligero (sin 3D, ahorra batería)": "Modalità leggera (senza 3D, risparmia batteria)",
+  "Reducir animaciones (sin ondulación ni latido en los orbes)": "Riduci le animazioni (senza onda né pulsazione negli orbi)",
   "Mostrando {0}": "In visualizzazione: {0}",
-  "Movimiento no disponible": "Movimento non disponibile",
   "Máximo 24 caracteres": "Massimo 24 caratteri",
   "Nadie ha marcado disponibilidad para esta hora.": "Nessuno ha indicato la disponibilità per quest'ora.",
   "No hay energía suficiente": "Energia insufficiente",
@@ -378,7 +374,6 @@ export const STRINGS = {
   "500 gastos registrados": "500 gastos registrados",
   "500K de poder": "500K de poder",
   "Activar avisos del navegador": "Ativar avisos do navegador",
-  "Activar movimiento": "Ativar movimento",
   "Actividades semanales y raids": "Atividades semanais e raids",
   "Actividades, misiones y entradas a mazmorras": "Atividades, missões e entradas em masmorras",
   "Ajusta cuánto falta para la recarga": "Ajuste quanto falta para a recarga",
@@ -469,9 +464,8 @@ export const STRINGS = {
   "Minutos que faltan para la próxima recarga": "Minutos até a próxima recarga",
   "Misiones de deber": "Missões de dever",
   "Mié": "Qua",
-  "Modo ligero (sin 3D, ahorra batería)": "Modo leve (sem 3D, economiza bateria)",
+  "Reducir animaciones (sin ondulación ni latido en los orbes)": "Reduzir animações (sem ondulação nem pulsação nos orbes)",
   "Mostrando {0}": "Mostrando {0}",
-  "Movimiento no disponible": "Movimento indisponível",
   "Máximo 24 caracteres": "Máximo de 24 caracteres",
   "Nadie ha marcado disponibilidad para esta hora.": "Ninguém marcou disponibilidade para este horário.",
   "No hay energía suficiente": "Energia insuficiente",
@@ -578,6 +572,14 @@ for (const l of Object.keys(NAV)) Object.assign(STRINGS[l], NAV[l]);
 Object.assign(STRINGS.en, { 'Cuando otros miembros de tu legión usen la página, aquí verás sus personajes.': 'When other members of your legion use the page, their characters will show up here.' });
 Object.assign(STRINGS.it, { 'Cuando otros miembros de tu legión usen la página, aquí verás sus personajes.': 'Quando altri membri della tua legione useranno la pagina, qui vedrai i loro personaggi.' });
 Object.assign(STRINGS.pt, { 'Cuando otros miembros de tu legión usen la página, aquí verás sus personajes.': 'Quando outros membros da sua legião usarem a página, você verá os personagens deles aqui.' });
+
+// Quick spends and "Plan de hoy" (2026-10-14).
+const PLAN = {
+  en: { 'Gastos rápidos': 'Quick spends', 'Plan de hoy': "Today's plan", 'Próxima meta': 'Next goal', 'Deshacer último': 'Undo last', 'Gastar ya: está al tope': 'Spend now: at cap', 'Sin hora de recarga': 'No recharge time', '{0} ×{1} en {2}': '{0} ×{1} in {2}', 'Crea un gasto para ver el plan': 'Create a spend button to see the plan' },
+  it: { 'Gastos rápidos': 'Spese rapide', 'Plan de hoy': 'Piano di oggi', 'Próxima meta': 'Prossimo obiettivo', 'Deshacer último': 'Annulla ultimo', 'Gastar ya: está al tope': 'Spendi ora: al massimo', 'Sin hora de recarga': 'Nessun orario di ricarica', '{0} ×{1} en {2}': '{0} ×{1} tra {2}', 'Crea un gasto para ver el plan': 'Crea una spesa per vedere il piano' },
+  pt: { 'Gastos rápidos': 'Gastos rápidos', 'Plan de hoy': 'Plano de hoje', 'Próxima meta': 'Próxima meta', 'Deshacer último': 'Desfazer último', 'Gastar ya: está al tope': 'Gaste já: no limite', 'Sin hora de recarga': 'Sem hora de recarga', '{0} ×{1} en {2}': '{0} ×{1} em {2}', 'Crea un gasto para ver el plan': 'Crie um gasto para ver o plano' },
+};
+for (const l of Object.keys(PLAN)) for (const [k, v] of Object.entries(PLAN[l])) if (!(k in STRINGS[l])) STRINGS[l][k] = v;
 
 const ACH = {
   en: { 'Calentando': 'Warming up', '5 gastos registrados': '5 spends logged', '25 gastos registrados': '25 spends logged', 'Primeros pasos': 'First steps', 'Gasta 300 de OD en total': 'Spend 300 OD in total', 'Gasta 1.500 de OD en total': 'Spend 1,500 OD in total', 'Gasta 5.000 de OD en total': 'Spend 5,000 OD in total', 'Vuelvo mañana': 'See you tomorrow', 'Racha de 2 días': '2-day streak', 'Racha de 5 días': '5-day streak', 'Racha de 14 días': '14-day streak', 'Semana redonda': 'Perfect week', 'Completa todas las diarias 7 veces': 'Complete all dailies 7 times', 'Daeva en marcha': 'Daeva on the move', 'Guerrero probado': 'Proven warrior', 'Élite de Atreia': 'Elite of Atreia', 'Un personaje con 25.000 de PC': 'A character with 25,000 CP', 'Un personaje con 75.000 de PC': 'A character with 75,000 CP', 'Un personaje con 150.000 de PC': 'A character with 150,000 CP', 'Un personaje con 300.000 de PC': 'A character with 300,000 CP' },
@@ -914,3 +916,19 @@ const SOCIAL_ERRORS = {
 };
 for (const l of Object.keys(SOCIAL_ERRORS)) for (const [k, v] of Object.entries(SOCIAL_ERRORS[l])) if (!(k in STRINGS[l])) STRINGS[l][k] = v;
 
+
+// Frame: rail, bottom bar and "more" sheet (2026-10-14).
+const FRAME = {
+  en: { Resumen: 'Summary', 'Ver todos': 'See all', 'En curso': 'In progress', 'En línea': 'Online', 'Más': 'More', 'Más secciones': 'More sections', Perfil: 'Profile', Secciones: 'Sections', 'Odyle Tracker': 'Odyle Tracker', 'Gastar': 'Spend', 'Más acciones: {0}': 'More actions: {0}', 'Acciones de {0}': 'Actions for {0}', 'Lleno · perdiendo energía': 'Full · losing energy', '{0} está al tope · pierde 15 OD cada 3 h': '{0} is at cap · loses 15 OD every 3 h', '{0} personajes al tope · pierden 15 OD cada 3 h': '{0} characters at cap · losing 15 OD every 3 h', '{0} se llena en {1} · perderías {2} OD si no juegas antes': '{0} fills up in {1} · you would lose {2} OD if you do not play before', 'Nadie al tope': 'Nobody at cap', 'Nadie al tope · el próximo, {0} en {1}': 'Nobody at cap · next up, {0} in {1}', 'Tareas {0}/{1}': 'Tasks {0}/{1}', 'Ocultar tareas': 'Hide tasks' },
+  it: { Resumen: 'Riepilogo', 'Ver todos': 'Vedi tutti', 'En curso': 'In corso', 'En línea': 'Online', 'Más': 'Altro', 'Más secciones': 'Altre sezioni', Perfil: 'Profilo', Secciones: 'Sezioni', 'Odyle Tracker': 'Odyle Tracker', 'Gastar': 'Spendi', 'Más acciones: {0}': 'Altre azioni: {0}', 'Acciones de {0}': 'Azioni di {0}', 'Lleno · perdiendo energía': 'Pieno · energia in perdita', '{0} está al tope · pierde 15 OD cada 3 h': '{0} è al massimo · perde 15 OD ogni 3 h', '{0} personajes al tope · pierden 15 OD cada 3 h': '{0} personaggi al massimo · perdono 15 OD ogni 3 h', '{0} se llena en {1} · perderías {2} OD si no juegas antes': '{0} si riempie tra {1} · perderesti {2} OD se non giochi prima', 'Nadie al tope': 'Nessuno al massimo', 'Nadie al tope · el próximo, {0} en {1}': 'Nessuno al massimo · il prossimo, {0} tra {1}', 'Tareas {0}/{1}': 'Attività {0}/{1}', 'Ocultar tareas': 'Nascondi attività' },
+  pt: { Resumen: 'Resumo', 'Ver todos': 'Ver todos', 'En curso': 'Em andamento', 'En línea': 'Online', 'Más': 'Mais', 'Más secciones': 'Mais seções', Perfil: 'Perfil', Secciones: 'Seções', 'Odyle Tracker': 'Odyle Tracker', 'Gastar': 'Gastar', 'Más acciones: {0}': 'Mais ações: {0}', 'Acciones de {0}': 'Ações de {0}', 'Lleno · perdiendo energía': 'Cheio · perdendo energia', '{0} está al tope · pierde 15 OD cada 3 h': '{0} está no limite · perde 15 OD a cada 3 h', '{0} personajes al tope · pierden 15 OD cada 3 h': '{0} personagens no limite · perdem 15 OD a cada 3 h', '{0} se llena en {1} · perderías {2} OD si no juegas antes': '{0} enche em {1} · você perderia {2} OD se não jogar antes', 'Nadie al tope': 'Ninguém no limite', 'Nadie al tope · el próximo, {0} en {1}': 'Ninguém no limite · o próximo, {0} em {1}', 'Tareas {0}/{1}': 'Tarefas {0}/{1}', 'Ocultar tareas': 'Ocultar tarefas' },
+};
+for (const l of Object.keys(FRAME)) for (const [k, v] of Object.entries(FRAME[l])) if (!(k in STRINGS[l])) STRINGS[l][k] = v;
+
+// Page head, fan notice and spend button (2026-10-14).
+const HEAD = {
+  en: { '+15 OD en': '+15 OD in', '1 personaje': '1 character', '{0} personajes': '{0} characters', 'tope 840': 'cap 840', 'Gastos': 'Spending', 'Sitio de fans no oficial · no afiliado a NCSOFT': 'Unofficial fan site · not affiliated with NCSOFT' },
+  it: { '+15 OD en': '+15 OD tra', '1 personaje': '1 personaggio', '{0} personajes': '{0} personaggi', 'tope 840': 'massimo 840', 'Gastos': 'Spese', 'Sitio de fans no oficial · no afiliado a NCSOFT': 'Sito di fan non ufficiale · non affiliato a NCSOFT' },
+  pt: { '+15 OD en': '+15 OD em', '1 personaje': '1 personagem', '{0} personajes': '{0} personagens', 'tope 840': 'limite 840', 'Gastos': 'Gastos', 'Sitio de fans no oficial · no afiliado a NCSOFT': 'Site de fãs não oficial · não afiliado à NCSOFT' },
+};
+for (const l of Object.keys(HEAD)) for (const [k, v] of Object.entries(HEAD[l])) if (!(k in STRINGS[l])) STRINGS[l][k] = v;

@@ -1,7 +1,7 @@
 // web/social-dom.js
 // Ayudas de DOM para las pantallas sociales (solo web). Todo el texto va por textContent/append (SR-2, SR-43).
 // Lo que escribe un usuario lleva translate="no": la traducción en vivo de la página nunca lo reescribe.
-import { buildRuneRing, litRunes } from './runes.js';
+import { buildStarOrb } from './starorb.js';
 import { classById } from './classes.js';
 import { LOCALE } from './i18n.js';
 
@@ -55,14 +55,14 @@ export function personHead(p, { online = false } = {}) {
       online ? el('span', { class: 'online-text' }, S('En línea')) : null));
 }
 
-// Orbe pequeño, siempre plano: relleno por porcentaje y anillo de 56 runas en puntos.
+// Orbe pequeño: el mismo orbe de luz dibujado (starorb.js) a 44 px, sin animación.
 export function miniOrb(row) {
   const wrap = el('span', { class: 'mini-orb' + (row && row.isFull ? ' full' : '') + (row ? '' : ' hidden-energy'), role: 'img',
     'aria-label': row ? fmt(S('{0} de 840 de energía'), row.energy) : S('Energía no compartida') });
-  wrap.append(el('span', { class: 'mini-orb-fill', style: `--fill:${row ? row.percent : 0}%` }));
-  wrap.append(buildRuneRing(document, row ? litRunes(row.energy) : 0, { size: 44, glyphs: false, full: !!(row && row.isFull) }));
+  wrap.append(buildStarOrb(document, { energy: row ? row.energy : 0, state: row && row.isFull ? 'full' : 'normal', size: 44, id: 'mini' + (miniSeq++) }));
   return wrap;
 }
+let miniSeq = 0;
 
 const sameDay = (a, b) => a.getFullYear() === b.getFullYear() && a.getMonth() === b.getMonth() && a.getDate() === b.getDate();
 export function timeLabel(at) {
