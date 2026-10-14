@@ -71,9 +71,6 @@
   .head-actions button { display: inline-flex; align-items: center; justify-content: center; gap: 8px; }
   .head-actions .i { width: 18px; height: 18px; }
   .page-head.plain .page-sub, .page-head.plain .head-actions { display: none; }
-  .clock { display: flex; align-items: center; gap: 12px; }
-  .clock-time { margin: 0; font-size: 1.5rem; font-weight: 700; color: var(--gold); font-variant-numeric: tabular-nums; letter-spacing: .03em; }
-  .clock.missing .clock-time { font-size: .8125rem; font-weight: 500; color: var(--muted); letter-spacing: 0; }
   .ruler { position: absolute; left: 0; right: 0; bottom: 0; height: 22px; pointer-events: none;
     background: repeating-linear-gradient(90deg, var(--line) 0 1px, transparent 1px 48px) bottom / 100% 8px no-repeat,
       repeating-linear-gradient(90deg, var(--line) 0 1px, transparent 1px 12px) bottom / 100% 4px no-repeat; }
@@ -87,7 +84,6 @@
     header { align-items: flex-end; padding: 0 0 36px; min-height: 104px; }
     .ruler { height: 30px; }
     .mer-label { display: block; }
-    .clock { display: none; }
     .page-title { font-size: 1.875rem; }
   }
   @media (max-width: 899.98px) { .ruler { height: 12px; } header { padding-bottom: 12px; } }
@@ -427,7 +423,7 @@
   .side-h { font-size: .75rem; letter-spacing: .08em; text-transform: uppercase; color: var(--gold); font-family: var(--font-body); font-weight: 700; margin: 0 0 8px; }
   .side-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
   .side-list li { display: flex; justify-content: space-between; gap: 8px; align-items: center; min-width: 0; font-size: .875rem; }
-  .side-list li > span:not(.dot) { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .side-list li > span:not(.dot) { min-width: 0; overflow-wrap: anywhere; display: -webkit-box; -webkit-line-clamp: 2; line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
   .side-list li b { flex: none; color: var(--sky); font-weight: 700; }
   .side-list .dot { flex: none; width: 8px; height: 8px; background: var(--ok); }
   .side-list li:has(.dot) { justify-content: flex-start; }
@@ -596,8 +592,6 @@
   @media (max-width: 899.98px) {
     header { flex-wrap: nowrap; gap: 8px 10px; }
     header > .brand { min-width: 0; flex: 1 1 auto; }
-    .clock { gap: 8px; flex: none; }
-    .clock-time { font-size: 1.15rem; }
     .page-title { font-size: 1.625rem; }
     .head-actions { width: 100%; }
     .head-actions button { flex: 1 1 auto; }
@@ -666,7 +660,6 @@
       </div>
     </div>
     <div class="brand"><p class="brand-name">Odyle</p><span class="subtitle" id="subtitle">Daevas de Elyos</span></div>
-    <div class="clock" id="clock" aria-hidden="true"><p class="clock-time" id="clock-time"></p></div>
     <button type="button" id="profile-chip" class="profile-chip" aria-haspopup="dialog" hidden>
       <span class="pc-icon" id="pc-icon" aria-hidden="true"></span>
       <span class="pc-text"><b id="pc-name"></b><small id="pc-title"></small></span>
@@ -1194,9 +1187,9 @@
       const control = t.max === 1
         ? el('input', { type: 'checkbox', checked: n >= 1, 'aria-label': t.name, onchange: e => setTask(row.id, t, e.target.checked ? 1 : 0) })
         : el('span', { class: 'stepper' },
-            el('button', { type: 'button', 'aria-label': `Quitar una: ${t.name}`, disabled: n <= 0, onclick: () => setTask(row.id, t, n - 1) }, '−'),
+            el('button', { type: 'button', 'aria-label': `Quitar una: ${t.name}`, disabled: n <= 0, class: 'icon-only', onclick: () => setTask(row.id, t, n - 1) }, iconSvg(document, 'quitar')),
             `${n}/${t.max}`,
-            el('button', { type: 'button', 'aria-label': `Añadir una: ${t.name}`, disabled: n >= t.max, onclick: () => setTask(row.id, t, n + 1) }, '+'));
+            el('button', { type: 'button', 'aria-label': `Añadir una: ${t.name}`, disabled: n >= t.max, class: 'icon-only', onclick: () => setTask(row.id, t, n + 1) }, iconSvg(document, 'anadir')));
       box.append(el('div', { class: `task-row ${n >= t.max ? 'done' : ''}` }, name, control));
     }
     return box;
@@ -2066,17 +2059,15 @@
     paintCalendar(Date.now());
     const anchor = state.schedule && Number.isFinite(state.schedule.anchorMs) ? state.schedule.anchorMs : null;
     const left = anchor === null ? null : nextTickAt(anchor, Date.now()) - Date.now();
-    $('clock').classList.toggle('missing', anchor === null);
     $('ruler').classList.toggle('missing', anchor === null);
     $('sub-time').hidden = anchor === null;
     $('sub-missing').hidden = anchor !== null;
     const count = state.characters.length;
     const countText = count === 1 ? '1 personaje' : `${count} personajes`;
     if ($('sub-count').textContent !== countText) $('sub-count').textContent = countText;
-    if (anchor === null) { $('clock-time').textContent = 'Sin hora de recarga'; $('mer-time').textContent = ''; return; }
+    if (anchor === null) { $('mer-time').textContent = ''; return; }
     const clock = formatClock(left);
     $('next-tick').textContent = clock;
-    $('clock-time').textContent = clock;
     $('mer-time').textContent = clock;
     $('next-tick').setAttribute('aria-label', `en ${formatDuration(left)}`);
     // The meridian: 0 just recharged, 1 when the next recharge arrives. Same tick as the clock; only a CSS variable changes.
@@ -2100,7 +2091,6 @@
     if ($('add-btn').hidden && !$('add-modal').hidden) closeAdd();
     paintPresets();
     paintTaskList();
-    $('clock').hidden = ui.noDb;
     $('page-sub').hidden = ui.noDb;
 
     // Keep focus and caret across repaints (timers repaint too).

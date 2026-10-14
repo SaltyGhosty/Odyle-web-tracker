@@ -310,7 +310,7 @@ check('legión: el código solo vive en el servidor (cifrado, sin código ni has
   const hd = await p.evaluate(() => {
     const h = document.querySelector('header').getBoundingClientRect();
     const b = document.querySelector('header .brand-name').getBoundingClientRect();
-    const c = document.getElementById('clock').getBoundingClientRect();
+    const c = document.getElementById('profile-chip').getBoundingClientRect();
     const pill = document.getElementById('online-pill');
     return { h: h.height, hit: !(b.right <= c.left || b.left >= c.right || b.bottom <= c.top || b.top >= c.bottom), brandW: b.width,
       pill: getComputedStyle(pill).display };
