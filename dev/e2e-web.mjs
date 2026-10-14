@@ -511,6 +511,10 @@ check('cerrar todas: la cookie de renovación vieja de B no renueva', (await rep
   await pc.waitForFunction(() => /DaniSombra/.test(document.querySelector('#side-online')?.textContent || ''), null, { timeout: 10000 }).catch(() => {});
   check('columna lateral: a 1440 px se ve y muestra al amigo en línea',
     await pc.locator('#side').isVisible() && /DaniSombra/.test(await text(pc, '#side-online')) && !(await pc.locator('#side-online-box').isHidden()));
+  const sideRows = await pc.locator('#side-events li').count();
+  check('columna lateral: eventos con 1 a 3 filas', sideRows >= 1 && sideRows <= 3, String(sideRows));
+  await pc.click('#side [data-go="eventos"]');
+  check('columna lateral: Ver todos abre Eventos', (await pc.getAttribute('#topnav [data-tab="eventos"]', 'aria-current')) === 'page' && await pc.locator('#tab-eventos').isVisible());
   check('columna lateral: sin scroll horizontal a 1440 px', await pc.evaluate(() => document.documentElement.scrollWidth <= innerWidth));
   await pc.setViewportSize({ width: 1000, height: 800 });
   check('columna lateral: a 1000 px está oculta', await pc.locator('#side').isHidden());

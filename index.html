@@ -378,7 +378,7 @@
   }
   .side { display: none; }
   @media (min-width: 1200px) {
-    .side { display: flex; flex-direction: column; gap: 20px; position: fixed; top: 0; right: 0; bottom: 0; width: 280px; padding: 20px 16px; overflow-y: auto;
+    .side { display: flex; flex-direction: column; gap: 20px; position: fixed; top: 0; right: 0; bottom: 0; width: 280px; padding: 20px 16px 84px; overflow-y: auto;
       border-left: 1px solid var(--line); background: var(--glass-strong); z-index: 10;
       -webkit-backdrop-filter: blur(12px); backdrop-filter: blur(12px); }
     .page { margin-right: 280px; }
@@ -806,7 +806,7 @@
 </div>
 <aside id="side" class="side" aria-label="Resumen">
   <section><h2 class="side-h">Eventos</h2><ul id="side-events" class="side-list"></ul><button type="button" class="side-link" data-go="eventos">Ver todos</button></section>
-  <section id="side-online-box" hidden><h2 class="side-h">En línea</h2><ul id="side-online" class="side-list"></ul></section>
+  <section id="side-online-box" hidden><h2 class="side-h">En línea</h2><ul id="side-online" class="side-list"></ul><button type="button" class="side-link" id="side-online-go" data-go="amigos">Ver todos</button></section>
 </aside>
 
 <!-- Almacén oculto: de aquí toman Ajustes y Novedades sus paneles (applyLayout los mueve a su sección). -->
@@ -1764,9 +1764,8 @@
   try { activeTab = resolveTab(localStorage.getItem('odyle-tab'), { social: SOCIAL }); } catch {}
   function paintSideOnline(list, go) {
     $('side-online-box').hidden = list.length === 0;
-    $('side-online').replaceChildren(...list.slice(0, 8).map((u) => el('li', {}, el('span', { class: 'dot', 'aria-hidden': 'true' }), el('span', { translate: 'no' }, u.nick || '—'))));
-    $('side-online-box').querySelector('.side-link')?.remove();
-    $('side-online-box').append(el('button', { type: 'button', class: 'side-link', 'data-go': go }, 'Ver todos'));
+    $('side-online').replaceChildren(...list.slice(0, 8).map((u) => el('li', {}, el('span', { class: 'dot', 'aria-hidden': 'true' }), el('span', { translate: 'no', title: u.nick || '' }, u.nick || '—'))));
+    $('side-online-go').dataset.go = go;
   }
   $('side').addEventListener('click', (ev) => {
     const b = ev.target.closest('[data-go]');
