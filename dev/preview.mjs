@@ -130,7 +130,15 @@ for (const [label, width, height] of [['mobile', 390, 844], ['desktop', 1280, 80
     await shot('3-cards');
     const tl = id => page.evaluate(i => document.querySelector(`article[data-id=${i}] .tick-left`)?.textContent ?? '', id);
     check(`${label}/${scheme} rune timer text`, /^\+15 en \d\d:\d\d:\d\d$/.test(await tl('c1')) && (await tl('c3')) === 'Lleno');
-    check(`${label}/${scheme} orbs are drawn SVG (no 3D canvas)`, await page.locator('.star-orb').count() === 3 && await page.locator('#scene').count() === 0);
+    // Was "orbs are drawn SVG (no 3D canvas)". Now: still no full-page canvas (no particles behind the page), and every slot
+    // has its orb: the 3D canvas over the (hidden) SVG when WebGL works, the SVG alone otherwise.
+    const orbs = await page.evaluate(() => ({
+      gl: !!document.createElement('canvas').getContext('webgl'),
+      big: [...document.querySelectorAll('canvas')].filter((c) => { const r = c.getBoundingClientRect(); return r.width > 110 || r.height > 110; }).length,
+      slots: [...document.querySelectorAll('.orb-slot')].map((s) => ({ svg: !!s.querySelector('.star-orb'), c3d: !!s.querySelector('canvas.orb3d'), has3d: s.classList.contains('has-3d') })),
+    }));
+    check(`${label}/${scheme} no full-page canvas; each slot has its orb (${orbs.gl ? '3D' : 'SVG'})`, orbs.big === 0 && await page.locator('#scene').count() === 0 &&
+      orbs.slots.length === 3 && orbs.slots.every((s) => s.svg && (orbs.gl ? s.c3d && s.has3d : !s.c3d && !s.has3d)));
     const slots = await page.locator('.orb-slot').count();
     check(`${label}/${scheme} one orb slot per card`, slots === await page.locator('article.card').count() && slots === 3);
     // a near-full and a full card get their classes
@@ -145,8 +153,10 @@ for (const [label, width, height] of [['mobile', 390, 844], ['desktop', 1280, 80
       await page.evaluate(() => { document.querySelector('article[data-id=c3] .orb-slot').scrollIntoView({ block: 'center' }); window.scrollBy(0, 60); });
       await page.waitForTimeout(400);
       const slot = await page.locator('article[data-id=c3] .orb-slot').boundingBox();
-      const svg = await page.locator('article[data-id=c3] .orb-slot .star-orb').boundingBox();
-      check(`${label} orb stays inside its slot after scroll`, svg && Math.abs(svg.x - slot.x) < 1 && Math.abs(svg.y - slot.y) < 1 && await page.locator('article[data-id=c3] .so-star').count() === 56);
+      const svg = await page.evaluate(() => document.querySelector('article[data-id=c3] .orb-slot .star-orb').getBoundingClientRect().toJSON());
+      const c3d = await page.locator('article[data-id=c3] .orb-slot canvas.orb3d').boundingBox();
+      const inSlot = (b) => b && Math.abs(b.x - slot.x) < 1 && Math.abs(b.y - slot.y) < 1 && Math.abs(b.width - slot.width) < 1;
+      check(`${label} orb stays inside its slot after scroll`, inSlot(svg) && (!orbs.gl || inSlot(c3d)) && await page.locator('article[data-id=c3] .so-star').count() === 56);
       await page.evaluate(() => window.scrollTo(0, 0));
     }
     if (label === 'desktop' && scheme === 'dark') {
