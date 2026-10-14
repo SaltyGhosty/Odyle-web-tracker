@@ -63,6 +63,33 @@ Si pasa de Premium a Normal con más de 560, se queda con lo que tiene y no reca
 - Los orbes miden lo mismo y siguen alineados. El líquido sube con `energy / max` del personaje.
 - Vale para el orbe 3D (`orb3d.js`), el SVG de respaldo (`starorb.js`) y los mini orbes de amigos.
 
+### Runas propias de Atreia (pedido del usuario, 2026-10-14)
+
+Las estrellas de cuatro puntas del anillo se sustituyen por **runas de verdad**: un alfabeto rúnico propio de Odyle,
+inspirado en el aire de Aion (trazos angulosos, alas y arcos) pero dibujado desde cero. No se copia la escritura oficial de
+Aion 2 ni ningún arte de NCSOFT.
+
+- **Alfabeto:** 28 runas distintas, cada una con un nombre interno, que se repiten dos veces alrededor de las 56 posiciones.
+- **Reglas de dibujo**, para que formen una familia y se lean a 7–8 px:
+  - Rejilla de 10 × 14 unidades.
+  - Un trazo principal vertical o diagonal.
+  - Como mucho 4 trazos por runa: rectas, y como mucho un arco.
+  - Sin rellenos, con trazo de grosor fijo y extremos rectos.
+  - Ninguna runa debe parecer una letra latina ni una del Futhark.
+- **Datos:** los trazos viven en `runes.js` (`RUNE_GLYPHS`), en coordenadas de la rejilla.
+  - Los usa el SVG, con un `path` por runa.
+  - Los usa también el 3D, con una textura de atlas dibujada una vez en un canvas 2D a partir de los mismos trazos.
+- **Estados:**
+  - Apagada: trazo tenue.
+  - Encendida: tinta de la facción con brillo suave.
+  - La recién encendida destella una vez.
+  - Al tope, el anillo late en carmesí, como ahora.
+- **En 3D:** cada runa mira hacia fuera del anillo inclinado. Las de detrás se ven más tenues, como ahora.
+- **Mini orbes de 44 px:** las runas no se leen a ese tamaño, así que llevan trazos cortos. Siguen usando las mismas
+  posiciones y el mismo número de runas encendidas.
+- **Aprobación previa:** antes de montarlas en el orbe se genera una hoja de muestra con las 28 runas, grandes y a tamaño
+  real, en Luz y en Sombra. El usuario la aprueba.
+
 ## 5. Interfaz
 
 - **Formularios de añadir y editar:** un selector de dos botones «Normal · Premium», con una línea de ayuda bajo él:
@@ -91,7 +118,7 @@ Si pasa de Premium a Normal con más de 560, se queda con lo que tiene y no reca
 - **Unitarias (`energy.test.js`, `planner.test.js`, `view.test.js`, `runes.test.js`, `social.test.js`, `layout.test.js`):**
   energía y «Lleno en» con +15/560 y +30/840; personaje sin `account` = Premium; cambio de cuenta a mitad de recarga;
   energía por encima del tope tras pasar a Normal; pérdida y Plan de hoy en las dos cuentas; runas encendidas con
-  tope 560; energía de amigos con su cuenta; cabecera con cuentas mezcladas.
+  tope 560; las 28 runas cumplen las reglas de dibujo (rejilla, ≤ 4 trazos, sin duplicados); energía de amigos con su cuenta; cabecera con cuentas mezcladas.
 - **Servidor:** `account` válido se guarda; otro valor (número, `'gold'`, etc.) da error de validación.
 - **E2E (`dev/e2e-web.mjs`):** crear un personaje Normal (tope 560) y otro Premium (840), comprobar el número y el selector,
   cambiar uno de cuenta y comprobar que la energía no salta; sin errores en consola.
@@ -102,4 +129,5 @@ Si pasa de Premium a Normal con más de 560, se queda con lo que tiene y no reca
 2. Planner, view, layout, charts, runas y social con las reglas por personaje.
 3. Servidor: validación de `account`.
 4. Interfaz: selector, marca Premium, cabecera, asistente, traducciones.
-5. E2E y `DESIGN.md`.
+5. Runas de Atreia: alfabeto en `runes.js`, hoja de muestra para el usuario y, tras su visto bueno, SVG y atlas 3D.
+6. E2E y `DESIGN.md`.
