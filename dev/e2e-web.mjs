@@ -223,6 +223,64 @@ check('legión: el código solo vive en el servidor (cifrado, sin código ni has
   return l && l.name === 'Guardianes' && !('codeHash' in l) && !JSON.stringify(l).includes(code.replace('-', ''));
 })());
 
+// ================= Marco: banda carmesí, rail, barra inferior, Más y anchuras (usuario A: con personajes y legión) =================
+{
+  const p = pa;
+  await p.setViewportSize({ width: 1280, height: 900 });
+  await p.click('#topnav [data-tab="personajes"]');
+  // banda carmesí: un personaje al tope (840)
+  await p.click('article[data-id="imp1"] button.primary');
+  await p.fill('#energy-imp1', '840');
+  await p.press('#energy-imp1', 'Enter');
+  await p.waitForSelector('#summary.band-urgent', { timeout: 5000 }).catch(() => {});
+  check('banda: carmesí con un personaje al tope', await p.locator('#summary.band-urgent').isVisible() && /al tope · pierd/.test(await text(p, '#sum-tip')), await text(p, '#sum-tip'));
+
+  check('rail: columna a 1280 px con Energía activa',
+    (await p.locator('#topnav').evaluate((n) => getComputedStyle(n).flexDirection === 'column'))
+    && (await p.getAttribute('#topnav [data-tab="personajes"]', 'aria-current')) === 'page');
+  await p.click('#topnav [data-tab="legion"]');
+  check('rail: navega a Legión', !(await p.locator('#tab-legion').isHidden()));
+
+  await p.setViewportSize({ width: 390, height: 844 });
+  await p.waitForTimeout(300);
+  check('móvil: barra inferior con 4 secciones + Más', (await p.locator('#topnav [data-tab]:visible').count()) === 4 && await p.locator('#topnav [data-more]').isVisible());
+  check('móvil: Legión (en Más) marca el botón Más', (await p.getAttribute('#topnav [data-more]', 'aria-current')) === 'page');
+  await p.click('#topnav [data-more]');
+  await p.waitForSelector('#more-sheet[open]');
+  await p.click('#more-sheet [data-tab="ajustes"]');
+  check('Más: abre Ajustes y se cierra', !(await p.locator('#tab-ajustes').isHidden()) && !(await p.locator('#more-sheet[open]').count()));
+
+  // Review Focus 1: redimensionar con la hoja abierta
+  await p.click('#topnav [data-more]');
+  await p.waitForSelector('#more-sheet[open]');
+  await p.setViewportSize({ width: 1280, height: 900 });
+  await p.waitForTimeout(300);
+  check('redimensionar con Más abierto: se cierra y el rail sigue usable', !(await p.locator('#more-sheet[open]').count()) && await p.locator('#topnav [data-tab="eventos"]').isEnabled());
+  await p.click('#topnav [data-tab="eventos"]');
+  check('redimensionar con Más abierto: la navegación sigue funcionando', !(await p.locator('#tab-eventos').isHidden()));
+  await p.click('#topnav [data-tab="personajes"]');
+
+  // Review Focus 4 y 5: 375 px con un nombre de 24 caracteres (el máximo) sin espacios; último botón pulsable
+  await p.click('#add-btn');
+  await p.fill('#add-name', 'W'.repeat(24));
+  await p.selectOption('#add-class', { index: 2 });
+  await p.click('#add-form button[type=submit]');
+  await p.waitForFunction(() => [...document.querySelectorAll('article.card')].some((c) => /W{24}/.test(c.textContent)));
+  await p.setViewportSize({ width: 375, height: 700 });
+  await p.waitForTimeout(300);
+  check('375 px: sin scroll horizontal en Energía con nombre largo y varios personajes',
+    (await p.locator('article.card').count()) >= 3 && await p.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth));
+  await p.waitForSelector('#toast', { state: 'hidden', timeout: 12000 }); // el aviso temporal de «añadido» (8 s) tapa a propósito la parte baja
+  const lastBtn = p.locator('article.card button.primary').last();
+  await lastBtn.scrollIntoViewIfNeeded();
+  const box = await lastBtn.boundingBox();
+  const barTop = await p.locator('#topnav').evaluate((n) => n.getBoundingClientRect().top);
+  check('375 px: el último botón no queda tapado por la barra', !!box && box.y + box.height <= barTop, JSON.stringify({ box, barTop }));
+  const topEl = await p.evaluate(({ x, y }) => { const e = document.elementFromPoint(x, y); return { ok: !!e?.closest('article.card button.primary'), tag: e?.tagName + '.' + e?.className + '#' + e?.id }; }, { x: box.x + box.width / 2, y: box.y + box.height / 2 });
+  check('375 px: el último botón recibe el clic (no hay nada encima)', topEl.ok, JSON.stringify(topEl));
+  await p.setViewportSize({ width: 1280, height: 900 });
+}
+
 // ================= Usuario B =================
 const B = await newUser('B');
 const pb = B.page;

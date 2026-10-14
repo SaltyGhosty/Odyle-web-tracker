@@ -21,7 +21,7 @@ OWN-WORLD:
 
 STORY: El jugador ve quién está al tope o a punto, juega con ese personaje, gasta con un preset, mira eventos, y queda con sus amigos por chat para una mazmorra.
 
-FIRST VIEWPORT: Cabecera con título, reloj de próxima recarga, botón Luz/Sombra y ficha de perfil; barra de pestañas (Personajes, Eventos, Estadísticas, Amigos, Chat, Buscar, Legión, Ajustes, Novedades) con insignias de no leídos y solicitudes; tarjetas de personaje con orbe y anillo de runas, número grande tabular.
+FIRST VIEWPORT: En escritorio, rail izquierdo de 220px (marca, Energia, Eventos, Legion, Estadisticas, Ajustes, Novedades y, en la web, Amigos, Chat y Buscar; al pie Luz/Sombra y la ficha de perfil) y, desde 1200px, columna lateral de 280px con Eventos y En linea. En movil, cabecera de una linea (Odyle, reloj, perfil) y barra inferior con Energia, Eventos, Amigos, Chat y Mas (hoja con el resto, Perfil y Luz/Sombra); insignias de no leidos y solicitudes. En la pantalla Energia: reloj de proxima recarga, banda de proxima decision (carmesi si alguien esta al tope) y una fila por personaje con orbe y anillo de runas, numero grande tabular, Actualizar y menu "...".
 Signature move: el anillo de 56 runas que se enciende con la energía y late en carmesí al tope.
 
 CONSTRAINTS: Sitio de fans: nada de logos, arte ni iconos de NCSOFT. CSP estricta, sin innerHTML. El cambio de tema es instantáneo. Sin WebGL o con «reducir movimiento»: orbe plano en CSS con el mismo anillo en SVG, sin partículas ni animación.

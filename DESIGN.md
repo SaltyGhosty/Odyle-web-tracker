@@ -58,11 +58,22 @@ Roles: `--gold` y `--gold-bright` son el acento de marca (oro en Elyos, violeta 
 - Orbe plano (sin WebGL o con reducir movimiento): anillo SVG (`.rune-ring`, `buildRuneRing`); runas encendidas con `--gold-bright`, apagadas con `--track`, carmesi (`--urgent`) cuando esta lleno. Sin particulas y sin animacion.
 - Orbe pequeno (`.mini-orb`, 44px): anillo de puntos (`.rune-ring.dots`) y relleno por `--fill`; carmesi al tope; atenuado (`opacity .45`) si el amigo no comparte su energia.
 
-## 5. Componentes
+## 5. Marco
 
-- Tarjeta de personaje: panel `--glass` con orbe, nombre en Cinzel, energia grande tabular y "Lleno en ..."; el contador "+15 en hh:mm:ss" va bajo el orbe.
+- Escritorio (>= 900px): rail fijo a la izquierda (`.topnav`, 220px, `--glass-strong`, filete `--line`) con la marca Odyle, las secciones, y al pie el interruptor Luz/Sombra y la ficha de perfil. La columna principal (`.page`) se desplaza 220px (`margin-left`).
+- Movil (< 900px): barra inferior fija (`.topnav`, icono sobre etiqueta de .7rem, `aria-current="page"` en lo activo) con cuatro secciones y "Mas". Web: Energia, Eventos, Amigos, Chat, Mas; artifact: Energia, Eventos, Legion, Estadisticas, Mas. La pagina deja `padding-bottom: calc(80px + env(safe-area-inset-bottom))` para que la barra no tape lo ultimo.
+- Hoja "Mas" (`dialog.more-sheet`): nace abajo (`translateY(100%)` a 0 en 240ms), alto maximo 80vh, esquinas superiores de 16px; rejilla de 3 columnas con el resto de secciones y Perfil, y el interruptor Luz/Sombra. Al pasar a >= 900px se cierra sola.
+- Columna lateral (`.side`, >= 1200px): fija a la derecha, 280px, mismo cristal que el rail; Eventos (1 a 3 filas, con "Ver todos") y "En linea" (amigos en la web, legion en el artifact). Por debajo de 1200px no se muestra; la pagina deja `margin-right: 280px` cuando existe.
+- Cabecera compacta: en escritorio es la franja superior de la columna principal con el reloj de proxima recarga; en movil una sola linea con "Odyle", reloj, ficha de perfil y asistente.
+- Objetivos tactiles de al menos 44px en rail, barra, hoja y acciones de fila.
+
+## 6. Componentes
+
+- Banda de proxima decision (`.band`, `#summary`): radio 14px, relleno 12px 14px, texto en negrita 600 y boton "Gastar" a la derecha. Tres tonos: `band-urgent` (relleno `--urgent-strong`, texto `#fff`, boton blanco; hay alguien al tope), `band-warn` (filete `--gold` y velo de `--gold` al 12%; alguien a punto) y `band-calm` (cristal `--glass` con filete `--line`; "Nadie al tope - el proximo, X en T").
+- Fila de personaje (`article.card.row`): una por personaje, rejilla de cuatro zonas `orb | text | num | act` y una linea `below` para formularios y tareas. Radio 14px, relleno 10px 14px, huecos 4px 16px, filete `--line`; `full` lo pasa a `--urgent` y `near` a `--gold`. Orbe de 72px (columna 88px); 56px (columna 64px) por debajo de 720px, donde `act` pasa a su propia linea bajo el texto; 48px en modo compacto (`body.compact`).
+- Menu "..." (`button.more-actions` + `.menu`): acciones secundarias de la fila (Notas, Tareas, +Extra, Quitar). Panel `--glass-strong` anclado al boton, ancho minimo 190px, opciones de 44px, entra con `scale(.96)` y opacidad en 160ms desde su disparador; flechas y Escape; sobrevive a los repintados.
 - Interruptor Luz/Sombra (`.theme-switch`): grupo de dos botones en pastilla con filete `--line`; el activo (`aria-pressed="true"`) rellena con `--gold-bright` y texto `--on-gold`. El cambio es instantaneo.
-- Insignia (`.badge`): circulo/pastilla `--urgent` con texto blanco tabular; en la barra de pestanas (no leidos, solicitudes) y en las conversaciones.
+- Insignia (`.badge`): circulo/pastilla `--urgent` con texto blanco tabular; en el rail y la barra inferior (no leidos, solicitudes) y en las conversaciones.
 - Fila de persona (`.person`): avatar de 40px (inicial en Cinzel, punto verde `--ok` si esta en linea), nombre, linea meta en `--muted`, orbe pequeno a la derecha y acciones.
 - Subpestanas (`.subtabs`): linea inferior `--line`; la activa subraya con `--gold`.
 - Ficha (`dialog.sheet`): dialogo nativo de ancho maximo 520px, borde `--line`, radio 16px, fondo `--glass-strong`, telon `--scrim`; contiene bio, lista de energia por personaje (`.energy-list`, `.num`, rojo si lleno), acciones y formulario de reporte.
@@ -71,14 +82,14 @@ Roles: `--gold` y `--gold-bright` son el acento de marca (oro en Elyos, violeta 
 - Aviso "Reconectando..." (`.live-status`): pastilla fija abajo en el centro, `role="status"`, visible solo mientras el stream en vivo esta caido.
 - Chat: dos columnas en escritorio (lista 220-300px y hilo); por debajo de 720px una sola, con boton volver.
 
-## 6. Movimiento
+## 7. Movimiento
 
 - Curva: `--ease-out` (`cubic-bezier(0.23, 1, 0.32, 1)`) en botones; `cubic-bezier(.2, .7, .2, 1)` en entradas, cajones y modales.
 - Pulsar un boton: `transition: transform 160ms var(--ease-out)` y `button:active { transform: scale(0.97) }`.
 - Duraciones: .22s a .28s en modales, telon, cajon y avisos; .35s en el cambio de panel; .6s en la entrada de tarjetas (escalonada 90ms por tarjeta); el anillo del reloj avanza 1s lineal.
 - Con `prefers-reduced-motion: reduce`: sin transiciones, sin `scale` al pulsar, orbe plano sin animacion ni particulas.
 
-## 7. Reglas
+## 8. Reglas
 
 - Sitio de fans, no oficial: ningun logo, arte ni icono de NCSOFT; runas e iconos son dibujos originales; aviso de "no oficial" visible.
 - Todo texto que escribe un usuario (apodos, mensajes, bios) lleva `translate="no"` para que la traduccion en vivo del navegador no lo reescriba.
