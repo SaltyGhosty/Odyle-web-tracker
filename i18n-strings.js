@@ -924,3 +924,11 @@ const FRAME = {
   pt: { Resumen: 'Resumo', 'Ver todos': 'Ver todos', 'En curso': 'Em andamento', 'En línea': 'Online', 'Más': 'Mais', 'Más secciones': 'Mais seções', Perfil: 'Perfil', Secciones: 'Seções', 'Odyle Tracker': 'Odyle Tracker', 'Gastar': 'Gastar', 'Más acciones: {0}': 'Mais ações: {0}', 'Acciones de {0}': 'Ações de {0}', 'Lleno · perdiendo energía': 'Cheio · perdendo energia', '{0} está al tope · pierde 15 OD cada 3 h': '{0} está no limite · perde 15 OD a cada 3 h', '{0} personajes al tope · pierden 15 OD cada 3 h': '{0} personagens no limite · perdem 15 OD a cada 3 h', '{0} se llena en {1} · perderías {2} OD si no juegas antes': '{0} enche em {1} · você perderia {2} OD se não jogar antes', 'Nadie al tope': 'Ninguém no limite', 'Nadie al tope · el próximo, {0} en {1}': 'Ninguém no limite · o próximo, {0} em {1}', 'Tareas {0}/{1}': 'Tarefas {0}/{1}', 'Ocultar tareas': 'Ocultar tarefas' },
 };
 for (const l of Object.keys(FRAME)) for (const [k, v] of Object.entries(FRAME[l])) if (!(k in STRINGS[l])) STRINGS[l][k] = v;
+
+// Page head, fan notice and spend button (2026-10-14).
+const HEAD = {
+  en: { '+15 OD en': '+15 OD in', '1 personaje': '1 character', '{0} personajes': '{0} characters', 'tope 840': 'cap 840', 'Gastos': 'Spending', 'Sitio de fans no oficial · no afiliado a NCSOFT': 'Unofficial fan site · not affiliated with NCSOFT' },
+  it: { '+15 OD en': '+15 OD tra', '1 personaje': '1 personaggio', '{0} personajes': '{0} personaggi', 'tope 840': 'massimo 840', 'Gastos': 'Spese', 'Sitio de fans no oficial · no afiliado a NCSOFT': 'Sito di fan non ufficiale · non affiliato a NCSOFT' },
+  pt: { '+15 OD en': '+15 OD em', '1 personaje': '1 personagem', '{0} personajes': '{0} personagens', 'tope 840': 'limite 840', 'Gastos': 'Gastos', 'Sitio de fans no oficial · no afiliado a NCSOFT': 'Site de fãs não oficial · não afiliado à NCSOFT' },
+};
+for (const l of Object.keys(HEAD)) for (const [k, v] of Object.entries(HEAD[l])) if (!(k in STRINGS[l])) STRINGS[l][k] = v;

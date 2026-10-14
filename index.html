@@ -62,24 +62,33 @@
   /* ---- Header: tick ruler + meridian (position = progress to the next recharge, set by paintClock via --mer) ---- */
   header { position: relative; display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 16px 24px; padding-bottom: 22px; border-bottom: 1px solid var(--gold); }
   .subtitle { margin: 4px 0 0; color: var(--muted); font-size: .875rem; letter-spacing: .08em; text-transform: uppercase; }
+  /* Page head: «Energía», the live recharge line and the two page actions. Desktop: inside the header; phone: top of the Energía section. */
+  .page-head { display: flex; flex-wrap: wrap; align-items: flex-end; justify-content: space-between; gap: 12px 24px; flex: 1 1 auto; min-width: 0; }
+  .page-title { margin: 0; font: 800 1.625rem/1.1 var(--font-body); letter-spacing: 0; }
+  .page-sub { margin: 6px 0 0; color: var(--muted); font-size: 1rem; }
+  .page-sub b { color: var(--gold); font-size: 1.0625rem; font-weight: 700; font-variant-numeric: tabular-nums; }
+  .head-actions { display: flex; flex-wrap: wrap; gap: 10px; }
+  .head-actions button { display: inline-flex; align-items: center; justify-content: center; gap: 8px; }
+  .head-actions .i { width: 18px; height: 18px; }
+  .page-head.plain .page-sub, .page-head.plain .head-actions { display: none; }
   .clock { display: flex; align-items: center; gap: 12px; }
-  .clock-label { margin: 0; color: var(--muted); font-size: .75rem; letter-spacing: .08em; text-transform: uppercase; }
   .clock-time { margin: 0; font-size: 1.5rem; font-weight: 700; color: var(--gold); font-variant-numeric: tabular-nums; letter-spacing: .03em; }
-  .clock.missing .clock-time { font-size: 1rem; font-weight: 500; color: var(--muted); }
+  .clock.missing .clock-time { font-size: .8125rem; font-weight: 500; color: var(--muted); letter-spacing: 0; }
   .ruler { position: absolute; left: 0; right: 0; bottom: 0; height: 22px; pointer-events: none;
     background: repeating-linear-gradient(90deg, var(--line) 0 1px, transparent 1px 48px) bottom / 100% 8px no-repeat,
       repeating-linear-gradient(90deg, var(--line) 0 1px, transparent 1px 12px) bottom / 100% 4px no-repeat; }
   .ruler.missing .meridian { display: none; }
   .meridian { position: absolute; top: 0; bottom: 0; left: calc(var(--mer, 0) * 100%); width: 1px; background: var(--gold); }
   .meridian::before { content: ""; position: absolute; left: -3px; top: -1px; width: 7px; height: 7px; background: var(--gold); transform: rotate(45deg); }
-  .clock-fix { display: none; }
+  /* The countdown rides on the meridian (decorative copy; the accessible one is #next-tick). Past ~60 % it flips to the left of the line. */
+  .mer-label { display: none; position: absolute; top: 1px; left: 10px; white-space: nowrap; color: var(--gold); font-size: .6875rem; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; font-variant-numeric: tabular-nums; }
+  .ruler.late .mer-label { left: auto; right: 10px; }
   @media (min-width: 900px) {
-    header { padding-bottom: 30px; min-height: 84px; }
+    header { align-items: flex-end; padding: 0 0 36px; min-height: 104px; }
     .ruler { height: 30px; }
-    .clock { flex-direction: column; align-items: flex-start; gap: 0; }
-    .clock-time { font-size: 2rem; line-height: 1.1; }
-    .clock.missing .clock-time { font-size: 1rem; }
-    .clock.missing .clock-fix { display: inline-flex; margin-top: 6px; }
+    .mer-label { display: block; }
+    .clock { display: none; }
+    .page-title { font-size: 1.875rem; }
   }
   @media (max-width: 899.98px) { .ruler { height: 12px; } header { padding-bottom: 12px; } }
 
@@ -112,6 +121,9 @@
     padding: 9px 12px; min-height: 44px; min-width: 0; width: 100%;
   }
   select option { background: var(--glass-strong); color: var(--fg); }
+  input, select, textarea, dialog { color: var(--fg); }
+  input::placeholder, textarea::placeholder { color: var(--muted); opacity: 1; }
+  input::file-selector-button { font: inherit; color: var(--fg); background: transparent; border: 1px solid var(--gold); padding: 6px 12px; margin-right: 10px; }
   input[aria-invalid="true"], select[aria-invalid="true"] { border-color: var(--danger); }
   label { font-size: .8125rem; font-weight: 500; color: var(--muted); }
   .error { margin: 0; color: var(--danger); font-size: .8125rem; font-weight: 500; }
@@ -129,7 +141,7 @@
   .grid { display: flex; flex-direction: column; gap: 0; }
   /* orb | name + class + status | number | actions. --orb sets the column; every row uses the same one, so the orb and the name
      always sit at the same x. The constellation is one dotted line from each orb's centre down to the next orb's centre. */
-  .card.row { --orb: 104px; --pady: 8px; position: relative; display: grid; grid-template-columns: var(--orb) minmax(0, 1fr) 132px 232px; grid-template-areas: "orb text num act" "below below below below";
+  .card.row { --orb: 104px; --pady: 8px; position: relative; display: grid; grid-template-columns: var(--orb) minmax(0, 1fr) 132px 264px; grid-template-areas: "orb text num act" "below below below below";
     align-items: center; gap: 4px 20px; padding: var(--pady) 0; border-bottom: 1px solid var(--line); }
   .card.row:not(:last-child)::before { content: ""; position: absolute; z-index: 1; left: calc(var(--orb) / 2); width: 1px; pointer-events: none; opacity: .75;
     top: calc(var(--pady) + var(--orb) / 2); bottom: calc(-1px - var(--pady) - var(--orb) / 2);
@@ -151,7 +163,8 @@
   .r-below:empty { display: none; }
   .r-below > form, .r-below > .row { padding-top: 6px; }
   .menu-wrap { position: relative; }
-  button.more-actions { min-width: 44px; min-height: 44px; padding: 0 12px; font-size: 1.25rem; line-height: 1; }
+  button.more-actions { min-width: 44px; min-height: 44px; padding: 0 12px; line-height: 1; }
+  button.more-actions .i { stroke-width: 3; }
   .menu { position: absolute; right: 0; top: calc(100% + 4px); z-index: 15; list-style: none; margin: 0; padding: 4px; min-width: 190px;
     background: var(--glass-strong); border: 1px solid var(--gold); transform-origin: top right; }
   .menu.up { top: auto; bottom: calc(100% + 4px); transform-origin: bottom right; }
@@ -182,7 +195,7 @@
   .badge { margin-left: auto; align-self: center; font-size: .7rem; font-weight: 600; letter-spacing: .12em; text-transform: uppercase;
     color: var(--on-gold); background: var(--gold); padding: 3px 10px; }
   .full-in { margin: 0; font-weight: 500; color: var(--muted); font-variant-numeric: tabular-nums; }
-  .full-in::before { content: ""; display: inline-block; width: 6px; height: 6px; border-radius: 50%; background: var(--gold); margin-right: 8px; vertical-align: middle; }
+  .full-in::before { content: ""; display: inline-block; width: 6px; height: 6px; transform: rotate(45deg); background: var(--gold); margin-right: 8px; vertical-align: middle; }
   .card.near .full-in { color: var(--fg); }
   .card.near .full-in::before { background: var(--gold-bright); box-shadow: 0 0 0 3px color-mix(in srgb, var(--gold) 35%, transparent); }
   .full-in.lost { font-weight: 700; }
@@ -220,6 +233,18 @@
   .plan-table td.hot { color: var(--danger); font-weight: 700; }
   .plan-table td.dim { color: var(--muted); }
   .plan-empty { margin: 0; color: var(--muted); }
+  /* Phone: one block per character, name + next goal on top, «N×» per spend in a compact line below. */
+  @media (max-width: 719.98px) {
+    .plan-table { min-width: 0; display: block; }
+    .plan-table thead { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
+    .plan-table tbody { display: block; }
+    .plan-table tr { display: flex; flex-wrap: wrap; align-items: baseline; padding: 10px 0; border-bottom: 1px solid var(--line); }
+    .plan-table th, .plan-table td { height: auto; padding: 0; border: 0; }
+    .plan-table tbody th { order: 0; flex: 0 1 38%; min-width: 0; max-width: none; }
+    .plan-table td:last-child { order: 1; flex: 0 1 62%; text-align: right; font-size: .9375rem; }
+    .plan-table td[data-label] { order: 2; flex: 0 0 auto; margin: 6px 16px 0 0; font-weight: 700; }
+    .plan-table td[data-label]::after { content: " " attr(data-label); color: var(--muted); font-weight: 400; font-size: .8125rem; }
+  }
 
   /* ---- News, feedback, data ---- */
   .news { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px; font-size: .875rem; }
@@ -370,7 +395,9 @@
   .topnav button { border: none; background: none; color: var(--muted); font-weight: 500; min-height: 44px; display: flex; align-items: center; gap: 10px; position: relative; }
   @media (hover: hover) and (pointer: fine) { .topnav button:hover { color: var(--fg); background: var(--hover); } }
   .topnav button[aria-current="page"] { color: var(--gold); font-weight: 700; background: color-mix(in srgb, var(--gold) 10%, transparent); }
-  .topnav .badge, .more-grid .badge { min-width: 18px; height: 18px; padding: 0 5px; border-radius: 9px; display: inline-grid; place-items: center; font-size: .7rem; font-weight: 700; background: var(--gold); color: var(--on-gold); font-variant-numeric: tabular-nums; letter-spacing: 0; }
+  .topnav .badge, .more-grid .badge { min-width: 18px; height: 18px; padding: 0 5px; display: inline-grid; place-items: center; font-size: .7rem; font-weight: 700; background: var(--gold); color: var(--on-gold); font-variant-numeric: tabular-nums; letter-spacing: 0; }
+  .fan-note { margin: 0; font-size: .75rem; line-height: 1.4; color: var(--muted); }
+  .more-sheet .fan-note { margin-top: 12px; text-align: center; }
   .rail-brand, .rail-foot { display: none; }
   @media (min-width: 900px) {
     .topnav { top: 0; bottom: 0; left: 0; width: 232px; flex-direction: column; gap: 2px; padding: 24px 16px 16px; border-right: 1px solid var(--gold); overflow-y: auto; }
@@ -392,8 +419,9 @@
   }
   .side { display: none; }
   @media (min-width: 1200px) {
-    .side { display: flex; flex-direction: column; gap: 20px; position: fixed; top: 0; right: 0; bottom: 0; width: 280px; padding: 20px 16px 84px; overflow-y: auto;
-      border-left: 1px solid var(--line); background: var(--glass); z-index: 10; }
+    /* The events column is a square panel, top-aligned with the first row (page padding 28 + header 104 + gap 24). */
+    .side { display: flex; flex-direction: column; gap: 20px; position: fixed; top: 156px; right: 16px; width: 248px; max-height: calc(100vh - 156px - 84px); padding: 16px; overflow-y: auto;
+      border: 1px solid var(--line); border-top-color: var(--gold); background: var(--glass); z-index: 10; }
     .page { margin-right: 280px; }
   }
   .side-h { font-size: .75rem; letter-spacing: .08em; text-transform: uppercase; color: var(--gold); font-family: var(--font-body); font-weight: 700; margin: 0 0 8px; }
@@ -401,7 +429,7 @@
   .side-list li { display: flex; justify-content: space-between; gap: 8px; align-items: center; min-width: 0; font-size: .875rem; }
   .side-list li > span:not(.dot) { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .side-list li b { flex: none; color: var(--sky); font-weight: 700; }
-  .side-list .dot { flex: none; width: 8px; height: 8px; border-radius: 50%; background: var(--ok); }
+  .side-list .dot { flex: none; width: 8px; height: 8px; background: var(--ok); }
   .side-list li:has(.dot) { justify-content: flex-start; }
   .side-link { margin-top: 8px; min-height: 44px; padding: 4px 12px; font-size: .8125rem; border: 1px solid var(--line-strong); background: none; color: var(--fg);
     transition: transform .16s var(--ease-out), background-color .16s var(--ease-out); }
@@ -425,7 +453,7 @@
   .preset-list li { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
   .preset-list li span { overflow-wrap: anywhere; }
   .preset-list .muted { color: var(--muted); font-size: .875rem; }
-  button.spend { border-color: var(--sky); color: var(--sky); padding: 6px 12px; min-height: 34px; font-size: .8125rem; }
+  button.spend { border-color: var(--sky); color: var(--sky); }
   button.extra { padding: 6px 12px; min-height: 34px; font-size: .8125rem; }
   .toast {
     position: fixed; z-index: 38; left: 50%; bottom: 20px; transform: translateX(-50%);
@@ -448,7 +476,7 @@
   .online-pill { padding: 6px 12px; min-height: 44px; font-size: .8125rem; color: var(--ok); border-color: color-mix(in srgb, var(--ok) 45%, transparent); }
   .online-list { list-style: none; margin: 0; padding: 0; display: flex; flex-wrap: wrap; gap: 6px; }
   .online-list li { display: flex; align-items: center; gap: 6px; padding: 4px 10px; background: var(--hover); border: 1px solid var(--line); font-size: .8125rem; }
-  .online-list li::before { content: ""; width: 8px; height: 8px; border-radius: 50%; background: var(--ok); }
+  .online-list li::before { content: ""; width: 8px; height: 8px; background: var(--ok); }
   .online-list li.me { border-color: var(--gold); }
   .online-list small { color: var(--muted); }
   .lfg-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
@@ -503,7 +531,8 @@
   .ai-quick button { padding: 4px 10px; min-height: 30px; font-size: .75rem; }
   .ai-form { display: flex; gap: 6px; align-items: flex-end; }
   .ai-form textarea { min-height: 44px; max-height: 120px; flex: 1; }
-  .ai-fab .ai-lbl::before { content: " "; }
+  .ai-fab { display: inline-flex; align-items: center; gap: 8px; }
+  .ai-fab .ai-ico { display: inline-flex; }
   body.toast-up .ai-fab { bottom: calc(var(--toast-h, 50px) + 32px); }
   body.toast-up .ai-panel { bottom: calc(var(--toast-h, 50px) + 86px); height: min(560px, calc(100vh - var(--toast-h, 50px) - 116px)); }
   @media (max-width: 899.98px) { /* por encima de la barra inferior */
@@ -513,6 +542,7 @@
     body.toast-up .page { padding-bottom: calc(80px + var(--toast-h, 50px) + 12px + env(safe-area-inset-bottom)); }
     /* on phones the assistant is an icon button in the header, so it never covers a row */
     .ai-fab { position: static; width: 44px; height: 44px; padding: 0; display: grid; place-items: center; flex: none; }
+    .ai-fab .ai-ico { display: grid; }
     .ai-fab .ai-lbl { display: none; }
     .ai-panel { bottom: calc(126px + env(safe-area-inset-bottom)); height: min(560px, calc(100vh - 160px)); }
     body.toast-up .ai-panel { bottom: calc(126px + env(safe-area-inset-bottom)); height: min(560px, calc(100vh - 160px)); }
@@ -521,9 +551,6 @@
   /* ---- Personajes: "+" button and the add-character modal ---- */
   .chars-bar { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: -8px; }
   .chars-bar h2 { font-size: 1.25rem; }
-  .add-btn { width: 44px; height: 44px; min-height: 0; padding: 0; font-size: 1.6rem; line-height: 1; font-weight: 500;
-    background: var(--gold); color: var(--on-gold); border-color: var(--gold); display: grid; place-items: center; }
-  @media (hover: hover) and (pointer: fine) { .add-btn:hover { background: var(--gold-bright); } }
   .modal { position: fixed; inset: 0; z-index: 40; display: grid; place-items: center; padding: 16px; background: var(--scrim);
     opacity: 0; transition: opacity .22s ease; }
   .modal.open { opacity: 1; }
@@ -549,7 +576,10 @@
   .lg-members small { color: var(--muted); margin-left: 6px; }
 
   .chars-actions { display: flex; align-items: center; gap: 10px; }
-  .presets-btn { padding: 8px 14px; min-height: 44px; border-color: var(--sky); color: var(--sky); }
+  .presets-btn { display: inline-flex; align-items: center; gap: 8px; padding: 8px 14px; min-height: 44px; border-color: var(--sky); color: var(--sky); }
+  .presets-btn .i, .ai-fab .i { width: 18px; height: 18px; }
+  button .i { pointer-events: none; }
+  button.icon-only { display: inline-grid; place-items: center; min-width: 44px; padding: 0 10px; }
   @media (hover: hover) and (pointer: fine) { .presets-btn:hover { border-color: var(--sky); } }
 
   /* ---- Profile chip in the header ---- */
@@ -565,10 +595,12 @@
 
   @media (max-width: 899.98px) {
     header { flex-wrap: nowrap; gap: 8px 10px; }
-    header > div:first-child { min-width: 0; flex: 1 1 auto; }
+    header > .brand { min-width: 0; flex: 1 1 auto; }
     .clock { gap: 8px; flex: none; }
-    .clock-label { display: none; }
     .clock-time { font-size: 1.15rem; }
+    .page-title { font-size: 1.625rem; }
+    .head-actions { width: 100%; }
+    .head-actions button { flex: 1 1 auto; }
     .profile-chip { padding: 4px; margin-left: 0; flex: none; }
     .profile-chip .pc-text { display: none; }
     .profile-chip .pc-icon { width: 36px; height: 36px; }
@@ -611,7 +643,6 @@
     @keyframes so-ripple { 0% { transform: translate(0, 0); } 35% { transform: translate(-14px, -2.5px); } 100% { transform: translate(-36px, 0); } }
     @keyframes so-star-in { from { transform: scale(.6); opacity: .4; } to { transform: scale(1); opacity: 1; } }
     @keyframes so-beat { 0%, 100% { opacity: 1; } 50% { opacity: .5; } }
-    .card.enter { animation: rise .6s cubic-bezier(.2, .7, .2, 1) both; animation-delay: calc(var(--i) * 90ms); }
     @keyframes rise { from { opacity: 0; transform: translateY(14px); } to { opacity: 1; transform: none; } }
     .gain { animation: float 1.6s ease-out forwards; }
     @keyframes float {
@@ -624,20 +655,24 @@
 
 <div class="page">
   <header>
-    <div class="brand"><h1 class="brand-name">Odyle</h1><span class="subtitle" id="subtitle">Daevas de Elyos</span></div>
-    <div class="clock" id="clock">
-      <div>
-        <p class="clock-label">Próxima recarga</p>
-        <p class="clock-time" id="next-tick"></p>
-        <button type="button" class="clock-fix" id="clock-fix">Ajustar recarga</button>
+    <div class="page-head" id="page-head">
+      <div class="head-text">
+        <h1 class="page-title" id="page-title">Energía</h1>
+        <p class="page-sub" id="page-sub"><span id="sub-time">+15 OD en <b id="next-tick"></b></span><span id="sub-missing" hidden>Falta la hora de recarga</span> · <span id="sub-count"></span> · <span>tope 840</span></p>
+      </div>
+      <div class="head-actions">
+        <button type="button" id="clock-fix">Ajustar recarga</button>
+        <button type="button" id="add-btn" class="add-btn primary" title="Añadir personaje" aria-haspopup="dialog" data-icon="anadir" hidden>Añadir personaje</button>
       </div>
     </div>
+    <div class="brand"><p class="brand-name">Odyle</p><span class="subtitle" id="subtitle">Daevas de Elyos</span></div>
+    <div class="clock" id="clock" aria-hidden="true"><p class="clock-time" id="clock-time"></p></div>
     <button type="button" id="profile-chip" class="profile-chip" aria-haspopup="dialog" hidden>
       <span class="pc-icon" id="pc-icon" aria-hidden="true"></span>
       <span class="pc-text"><b id="pc-name"></b><small id="pc-title"></small></span>
     </button>
     <button type="button" id="online-pill" class="online-pill" hidden></button>
-    <div class="ruler" id="ruler" aria-hidden="true"><div class="meridian"></div></div>
+    <div class="ruler" id="ruler" aria-hidden="true"><div class="meridian"><span class="mer-label">Próxima recarga <span id="mer-time"></span></span></div></div>
   </header>
 
   <section class="band" id="summary" hidden>
@@ -670,8 +705,7 @@
   <div class="chars-bar" id="chars-bar">
     <h2>Tus personajes</h2>
     <div class="chars-actions">
-      <button type="button" id="presets-btn" class="presets-btn" aria-label="Botones de gasto" title="Botones de gasto" aria-haspopup="dialog" hidden>⚡ Gastos</button>
-      <button type="button" id="add-btn" class="add-btn" aria-label="Añadir personaje" title="Añadir personaje" aria-haspopup="dialog" hidden>+</button>
+      <button type="button" id="presets-btn" class="presets-btn" aria-label="Botones de gasto" title="Botones de gasto" aria-haspopup="dialog" data-icon="rayo" hidden>Gastos</button>
     </div>
   </div>
   <section class="grid" id="cards" aria-label="Personajes"></section>
@@ -818,7 +852,7 @@
 <aside id="drawer" class="drawer" hidden>
 
   <form class="panel" id="add-form" novalidate>
-    <div class="drawer-head"><h2 id="add-title">Añadir personaje</h2><button type="button" id="add-close" aria-label="Cerrar">✕</button></div>
+    <div class="drawer-head"><h2 id="add-title">Añadir personaje</h2><button type="button" id="add-close" class="icon-only" aria-label="Cerrar" data-icon="cerrar"></button></div>
     <div class="field">
       <label for="add-name">Nombre</label>
       <input id="add-name" maxlength="60" autocomplete="off" placeholder="Máximo 24 caracteres">
@@ -845,7 +879,7 @@
   </section>
 
   <section class="panel" id="presets-panel" aria-labelledby="presets-title">
-    <div class="drawer-head"><h2 id="presets-title">Botones de gasto</h2><button type="button" class="modal-close" aria-label="Cerrar">✕</button></div>
+    <div class="drawer-head"><h2 id="presets-title">Botones de gasto</h2><button type="button" class="modal-close icon-only" aria-label="Cerrar" data-icon="cerrar"></button></div>
     <p class="hint">Cada botón aparece en tus tarjetas y resta su coste de un toque. El primero también se usa para calcular las mazmorras de hoy.</p>
     <ul class="preset-list" id="preset-list"></ul>
     <form id="preset-form" class="row" novalidate>
@@ -924,15 +958,15 @@
 <div id="alert" class="alert" role="alert" hidden>
   <span id="alert-text"></span>
   <button type="button" id="alert-action" class="primary" hidden></button>
-  <button type="button" id="alert-close" aria-label="Cerrar aviso">✕</button>
+  <button type="button" id="alert-close" class="icon-only" aria-label="Cerrar aviso" data-icon="cerrar"></button>
 </div>
 
-<button type="button" id="ai-fab" class="ai-fab" aria-expanded="false" aria-controls="ai-panel" hidden><span aria-hidden="true">✦</span><span class="ai-lbl">Asistente</span></button>
+<button type="button" id="ai-fab" class="ai-fab" aria-expanded="false" aria-controls="ai-panel" hidden><span class="ai-ico" data-icon="asistente" aria-hidden="true"></span><span class="ai-lbl">Asistente</span></button>
 <section id="ai-panel" class="ai-panel" role="dialog" aria-labelledby="ai-title" hidden>
   <div class="ai-head">
     <h2 id="ai-title">Asistente</h2>
     <button type="button" id="ai-clear" aria-label="Nueva conversación" title="Nueva conversación">↺</button>
-    <button type="button" id="ai-close" aria-label="Cerrar asistente">✕</button>
+    <button type="button" id="ai-close" class="icon-only" aria-label="Cerrar asistente" data-icon="cerrar"></button>
   </div>
   <div class="ai-log" id="ai-log" aria-live="polite">
     <p class="ai-msg bot intro">Hola, soy tu asistente. Conozco tus personajes, su energía, tus tareas, los eventos y el calendario de la legión. Pregúntame lo que quieras.</p>
@@ -952,7 +986,7 @@
 
 <div id="profile-modal" class="modal" role="dialog" aria-modal="true" aria-labelledby="profile-title" hidden><div class="modal-box">
   <form class="panel" id="profile-form" novalidate>
-    <div class="drawer-head"><h2 id="profile-title">Tu perfil</h2><button type="button" class="modal-close" aria-label="Cerrar">✕</button></div>
+    <div class="drawer-head"><h2 id="profile-title">Tu perfil</h2><button type="button" class="modal-close icon-only" aria-label="Cerrar" data-icon="cerrar"></button></div>
     <p class="hint">Así te verán los demás: tu nombre, tu personaje principal y, si eres de una legión, su nombre debajo.</p>
     <div class="field"><label for="profile-nick">Nombre en el juego</label><input id="profile-nick" maxlength="20" autocomplete="off" placeholder="SaltyGhosty"></div>
     <div class="field"><label for="profile-main">Personaje principal</label><select id="profile-main"></select></div>
@@ -982,7 +1016,7 @@
 
 <div id="keys-help" class="keys-help" role="dialog" aria-modal="true" aria-labelledby="keys-title" hidden>
   <div class="panel">
-    <div class="drawer-head"><h2 id="keys-title">Atajos de teclado</h2><button type="button" id="keys-close" aria-label="Cerrar">✕</button></div>
+    <div class="drawer-head"><h2 id="keys-title">Atajos de teclado</h2><button type="button" id="keys-close" class="icon-only" aria-label="Cerrar" data-icon="cerrar"></button></div>
     <dl class="keys">
       <dt><kbd>1</kbd>–<kbd>9</kbd></dt><dd>Gastar con el botón 1–9 en el personaje seleccionado</dd>
       <dt><kbd>Z</kbd></dt><dd>Deshacer el último cambio</dd>
@@ -1469,7 +1503,7 @@
     const open = ui.menuFor === row.id;
     const btn = el('button', { type: 'button', class: 'more-actions', 'aria-haspopup': 'menu', 'aria-expanded': String(open),
       'aria-label': `Más acciones: ${row.name}`, 'data-menu-for': row.id,
-      onclick: () => { ui.menuFor = open ? null : row.id; render(); if (!open) focusMenu(row.id, 0); } }, '⋯');
+      onclick: () => { ui.menuFor = open ? null : row.id; render(); if (!open) focusMenu(row.id, 0); } }, iconSvg(document, 'mas'));
     const wrap = el('div', { class: 'menu-wrap' }, btn);
     if (open) {
       const list = el('ul', { class: 'menu', role: 'menu', 'aria-label': `Acciones de ${row.name}` },
@@ -1724,7 +1758,9 @@
     buscar: el('div', { class: 'social', id: 'social-buscar' }),
   } : {};
   let social = null;
+  for (const n of document.querySelectorAll('[data-icon]')) n.prepend(iconSvg(document, n.dataset.icon));
   const pageEl = document.querySelector('.page');
+  const pageHead = $('page-head');
   const drawerOrder = [...$('drawer').children];
   const drawerPanels = drawerOrder.filter(n => !n.classList.contains('drawer-head'));
   const isNews = n => n.querySelector && (n.querySelector('#news') || n.querySelector('#feedback-form'));
@@ -1740,7 +1776,7 @@
   const navButton = id => el('button', { type: 'button', 'data-tab': id, onclick: () => setTab(id) },
     iconSvg(document, SECTION[id].icon), el('span', { class: 'lbl' }, SECTION[id].label));
   const nav = el('nav', { class: 'topnav', id: 'topnav', 'aria-label': 'Secciones' },
-    el('div', { class: 'rail-brand' }, el('h1', { class: 'brand-name' }, 'Odyle')));
+    el('div', { class: 'rail-brand' }, el('p', { class: 'brand-name' }, 'Odyle')));
   const tabWrap = el('div', { class: 'tabs' });
   const tabPanels = {};
   for (const [id, label] of TABS) {
@@ -1753,13 +1789,15 @@
   const moreBtn = el('button', { type: 'button', class: 'more-btn', 'data-more': '', 'aria-haspopup': 'dialog', onclick: () => openMore() },
     iconSvg(document, 'mas'), el('span', { class: 'lbl' }, 'Más'));
   nav.append(moreBtn);
-  const railFoot = el('div', { class: 'rail-foot' }, themeSwitch());
+  const FAN = 'Sitio de fans no oficial · no afiliado a NCSOFT';
+  const fanNote = el('p', { class: 'fan-note' }, FAN);
+  const railFoot = el('div', { class: 'rail-foot' }, themeSwitch(), fanNote);
   nav.append(railFoot);
   const moreSheet = el('dialog', { class: 'more-sheet', id: 'more-sheet', 'aria-label': 'Más secciones' });
   const moreInner = el('div', { class: 'more-inner' }, el('div', { class: 'more-grid' }, ...NAV.more.map(id => navButton(id)),
     el('button', { type: 'button', 'data-profile': '', onclick: () => { closeMore(); $('profile-chip').click(); } },
       iconSvg(document, 'perfil'), el('span', { class: 'lbl' }, 'Perfil'))),
-    themeSwitch());
+    themeSwitch(), el('p', { class: 'fan-note' }, FAN));
   moreSheet.append(moreInner);
   // Only a tap on the backdrop (outside the dialog's box) closes it; a tap on its own padding does not.
   moreSheet.addEventListener('click', e => {
@@ -1800,6 +1838,8 @@
     }
     if (NAV.more.includes(id)) moreBtn.setAttribute('aria-current', 'page'); else moreBtn.removeAttribute('aria-current');
     closeMore();
+    $('page-title').textContent = SECTION[id].label;
+    pageHead.classList.toggle('plain', id !== 'personajes');
     if (id === 'eventos') $('events').open = true;
     if (id === 'novedades') loadInbox(); // the owner's feedback inbox
     window.scrollTo({ top: 0 });
@@ -1808,8 +1848,9 @@
   }
   // The profile chip lives at the foot of the rail on desktop and in the header on mobile.
   function placeChrome() {
-    if (WIDE.matches) { railFoot.append($('profile-chip')); closeMore(); }
-    else pageEl.querySelector('header').append($('profile-chip'));
+    const header = pageEl.querySelector('header');
+    if (WIDE.matches) { fanNote.before($('profile-chip')); closeMore(); header.prepend(pageHead); }
+    else { header.append($('profile-chip')); tabPanels.personajes.prepend(pageHead); }
     if (WIDE.matches) document.body.append($('ai-fab')); else pageEl.querySelector('header').append($('ai-fab'));
   }
   function applyLayout() {
@@ -1902,7 +1943,7 @@
       ...state.presets.map(p => el('th', { scope: 'col' }, p.name, ' ', el('small', {}, `(${p.cost})`))),
       el('th', { scope: 'col' }, 'Próxima meta'));
     const body = plan.map(r => el('tr', { 'data-plan': r.id }, el('th', { scope: 'row', title: r.name }, r.name),
-      ...state.presets.map(p => el('td', {}, `${r.runs[p.id]}×`)),
+      ...state.presets.map(p => el('td', { 'data-label': p.name }, `${r.runs[p.id]}×`)),
       el('td', { class: r.next.tone === 'urgent' ? 'hot' : r.next.tone === 'empty' ? 'dim' : '' }, r.next.text)));
     $('plan-body').replaceChildren(el('div', { class: 'plan-scroll' }, el('table', { class: 'plan-table' }, el('thead', {}, head), el('tbody', {}, ...body))));
   }
@@ -1985,7 +2026,7 @@
       $('timer-list').replaceChildren(...[...state.timers].sort((a, b) => a.endsAt - b.endsAt).map(t => el('li', { 'data-timer': t.id },
         el('span', { class: 't-name' }, t.name),
         el('span', { class: 't-left', 'data-ends': String(t.endsAt) }),
-        ui.readOnly ? null : el('button', { type: 'button', id: `timer-del-${t.id}`, 'aria-label': `Quitar ${t.name}`, onclick: () => saveTimers(state.timers.filter(x => x.id !== t.id)) }, '✕'))));
+        ui.readOnly ? null : el('button', { type: 'button', id: `timer-del-${t.id}`, 'aria-label': `Quitar ${t.name}`, class: 'icon-only', onclick: () => saveTimers(state.timers.filter(x => x.id !== t.id)) }, iconSvg(document, 'cerrar')))));
     }
     for (const li of $('timer-list').children) {
       const left = Number(li.querySelector('.t-left').dataset.ends) - now;
@@ -2027,11 +2068,21 @@
     const left = anchor === null ? null : nextTickAt(anchor, Date.now()) - Date.now();
     $('clock').classList.toggle('missing', anchor === null);
     $('ruler').classList.toggle('missing', anchor === null);
-    if (anchor === null) { $('next-tick').textContent = 'Falta la hora de recarga'; return; }
-    $('next-tick').textContent = formatClock(left);
+    $('sub-time').hidden = anchor === null;
+    $('sub-missing').hidden = anchor !== null;
+    const count = state.characters.length;
+    const countText = count === 1 ? '1 personaje' : `${count} personajes`;
+    if ($('sub-count').textContent !== countText) $('sub-count').textContent = countText;
+    if (anchor === null) { $('clock-time').textContent = 'Sin hora de recarga'; $('mer-time').textContent = ''; return; }
+    const clock = formatClock(left);
+    $('next-tick').textContent = clock;
+    $('clock-time').textContent = clock;
+    $('mer-time').textContent = clock;
     $('next-tick').setAttribute('aria-label', `en ${formatDuration(left)}`);
     // The meridian: 0 just recharged, 1 when the next recharge arrives. Same tick as the clock; only a CSS variable changes.
-    $('ruler').style.setProperty('--mer', String(Math.min(1, Math.max(0, 1 - left / TICK_MS))));
+    const mer = Math.min(1, Math.max(0, 1 - left / TICK_MS));
+    $('ruler').style.setProperty('--mer', String(mer));
+    $('ruler').classList.toggle('late', mer > 0.6);
   }
 
   let lastEnergy = new Map();
@@ -2050,6 +2101,7 @@
     paintPresets();
     paintTaskList();
     $('clock').hidden = ui.noDb;
+    $('page-sub').hidden = ui.noDb;
 
     // Keep focus and caret across repaints (timers repaint too).
     const active = document.activeElement;
@@ -2283,7 +2335,7 @@
     const list = $('preset-list');
     list.replaceChildren(...(state.presets.length ? state.presets.map(p => el('li', {},
       el('span', {}, `${p.name} · ${p.cost}`),
-      el('button', { type: 'button', id: `preset-del-${p.id}`, 'aria-label': `Quitar ${p.name}`, onclick: () => savePresets(state.presets.filter(x => x.id !== p.id)) }, '✕')))
+      el('button', { type: 'button', id: `preset-del-${p.id}`, 'aria-label': `Quitar ${p.name}`, class: 'icon-only', onclick: () => savePresets(state.presets.filter(x => x.id !== p.id)) }, iconSvg(document, 'cerrar'))))
       : [el('li', { class: 'muted' }, 'Aún no hay botones. Crea uno, p. ej. "Mazmorra" con coste 40.')]));
   }
   let paintedTasks = '';
@@ -2293,7 +2345,7 @@
     paintedTasks = key;
     $('task-list').replaceChildren(...state.tasks.map(t => el('li', {},
       el('span', {}, `${t.name} · ${t.kind === 'daily' ? 'diaria' : 'semanal'}${t.max > 1 ? ` ×${t.max}` : ''}`),
-      el('button', { type: 'button', id: `task-del-${t.id}`, 'aria-label': `Quitar ${t.name}`, onclick: () => saveTasks(state.tasks.filter(x => x.id !== t.id)) }, '✕'))));
+      el('button', { type: 'button', id: `task-del-${t.id}`, 'aria-label': `Quitar ${t.name}`, class: 'icon-only', onclick: () => saveTasks(state.tasks.filter(x => x.id !== t.id)) }, iconSvg(document, 'cerrar')))));
   }
   $('task-form').addEventListener('submit', async e => {
     e.preventDefault();
@@ -2550,7 +2602,7 @@
     const main = state.characters.find(c => c.id === prof?.mainCharId) || [...state.characters].sort((a, b) => (a.order || 0) - (b.order || 0))[0];
     const cls = classById(main?.classId);
     $('profile-chip').style.setProperty('--c', cls ? cls.color : 'var(--gold)');
-    $('pc-icon').replaceChildren(cls ? classIcon(cls) : '✦');
+    $('pc-icon').replaceChildren(cls ? classIcon(cls) : iconSvg(document, 'perfil'));
     $('pc-name').textContent = prof?.nick || state.names[myUid] || (ui.readOnly ? 'Invitado' : 'Crea tu perfil');
     $('pc-title').textContent = myLegionTitle();
     $('profile-chip').setAttribute('aria-label', `Tu perfil: ${$('pc-name').textContent} ${$('pc-title').textContent}`.trim());
@@ -2650,7 +2702,7 @@
           el('small', {}, `${dateFmt.format(new Date(c.at))} · ${c.durationMin} min · ${live ? 'en curso' : 'en ' + formatDuration(c.at - now)} · por ${c.uid === myUid ? 'ti' : nameOf(c.uid)}`),
           el('small', {}, ` · Voy ${n('yes')} · Quizá ${n('maybe')} · No ${n('no')}`)),
         el('div', { class: 'rsvp' }, voteBtn(c, 'yes', 'Voy'), voteBtn(c, 'maybe', 'Quizá'), voteBtn(c, 'no', 'No'),
-          c.uid === myUid && !ui.readOnly ? el('button', { type: 'button', 'aria-label': `Borrar ${c.title}`, onclick: () => saveShared(() => db.doc(legionBase() + '/calendar/' + c.id).delete()) }, '✕') : null));
+          c.uid === myUid && !ui.readOnly ? el('button', { type: 'button', class: 'icon-only', 'aria-label': `Borrar ${c.title}`, onclick: () => saveShared(() => db.doc(legionBase() + '/calendar/' + c.id).delete()) }, iconSvg(document, 'cerrar')) : null));
     }) : [el('li', { class: 'muted hint' }, 'No hay citas próximas. Crea la primera.')]));
   }
   $('cal-form').addEventListener('submit', async e => {
