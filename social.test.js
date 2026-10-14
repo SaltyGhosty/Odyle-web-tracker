@@ -124,8 +124,9 @@ test('friendEnergy: proyecta con la hora de recarga de quien mira y ordena por e
     { name: 'Ana', classId: 'nope', energy: 830, recordedAt: 1 },
     { name: 'Rota', energy: 'x', recordedAt: 1 },
   ], anchor, now);
-  assert.deepEqual(out.map((r) => [r.name, r.energy, r.isFull, r.classId]), [['Ana', 840, true, null], ['Bea', 130, false, 'cantor']]);
-  assert.equal(out[1].percent, 15);
+  assert.deepEqual(out.map((r) => [r.name, r.energy, r.isFull, r.classId]), [['Ana', 840, true, null], ['Bea', 160, false, 'cantor']]);
+  // friends carry no account yet = premium: 100 + 2 ticks * 30 = 160; floor(160/840*100) = 19
+  assert.equal(out[1].percent, 19);
 });
 test('friendEnergy: sin hora de recarga muestra lo guardado; sin personajes, lista vacía', () => {
   assert.equal(friendEnergy([{ name: 'A', energy: 300, recordedAt: 0 }], null, 10)[0].energy, 300);

@@ -28,11 +28,11 @@ test('wasteWarning: respeta la zona horaria (UTC+2)', () => {
 });
 test('projectEnergy: cada recarga hasta 24 h', () => {
   const R = Z(10, 12), A = R + 37 * 60_000;
-  const pts = projectEnergy({ energy: 225, recordedAt: R }, A, R, 1);
+  const pts = projectEnergy({ energy: 225, recordedAt: R, account: 'normal' }, A, R, 1);
   assert.equal(pts.length, 9);
   assert.deepEqual(pts[0], { t: R, energy: 225 });
   assert.deepEqual(pts[1], { t: A, energy: 240 });
-  assert.equal(pts.at(-1).energy, 345);
+  assert.equal(pts.at(-1).energy, 345); // 225 + 8 ticks * 15
   const capped = projectEnergy({ energy: 830, recordedAt: R }, A, R, 1);
   assert.ok(capped.every(p => p.energy <= 840) && capped.at(-1).energy === 840);
 });

@@ -1,6 +1,13 @@
-export const REGEN = 15;
+export const REGEN = 15;          // removed in Task 2 once nothing imports it
 export const TICK_MS = 10_800_000;
-export const MAX = 840;
+export const MAX = 840;           // highest cap of any account
+// Odyle energy per account (Aion 2): same shared recharge moment, different amount and cap.
+export const ACCOUNTS = { normal: { regen: 15, max: 560 }, premium: { regen: 30, max: 840 } };
+// Characters saved before accounts existed were tracked with the 840 cap: no account = premium.
+export function rulesOf(char) {
+  const account = char && char.account === 'normal' ? 'normal' : 'premium';
+  return { account, ...ACCOUNTS[account] };
+}
 
 const MIN_MS = 60_000;
 const HOUR_MS = 3_600_000;
@@ -17,15 +24,17 @@ export function nextTickAt(anchorMs, nowMs) {
 }
 
 export function currentEnergy(char, anchorMs, nowMs) {
-  if (char.energy >= MAX) return char.energy;
-  return Math.min(MAX, char.energy + REGEN * Math.max(0, ticksBetween(anchorMs, char.recordedAt, nowMs)));
+  const { regen, max } = rulesOf(char);
+  if (char.energy >= max) return char.energy;
+  return Math.min(max, char.energy + regen * Math.max(0, ticksBetween(anchorMs, char.recordedAt, nowMs)));
 }
 
-// Epoch ms when energy reaches MAX, or null if already full.
+// Epoch ms when energy reaches the account cap, or null if already full.
 export function fullAt(char, anchorMs, nowMs) {
+  const { regen, max } = rulesOf(char);
   const c = currentEnergy(char, anchorMs, nowMs);
-  if (c >= MAX) return null;
-  return nextTickAt(anchorMs, nowMs) + (Math.ceil((MAX - c) / REGEN) - 1) * TICK_MS;
+  if (c >= max) return null;
+  return nextTickAt(anchorMs, nowMs) + (Math.ceil((max - c) / regen) - 1) * TICK_MS;
 }
 
 export function anchorFromCountdown(nowMs, minutesLeft) {

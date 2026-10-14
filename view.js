@@ -1,8 +1,5 @@
-import { MAX, currentEnergy, fullAt, nextTickAt, formatDuration } from './energy.js';
+import { rulesOf, currentEnergy, fullAt, nextTickAt, formatDuration } from './energy.js';
 import { NEUTRAL_COLOR, classById } from './classes.js';
-
-// Within two recharges (2 x 15) of the cap.
-export const NEAR_FULL = 810;
 
 const NOT_SCHEDULED_TEXT = 'Falta la hora de recarga';
 const FULL_TEXT = 'Lleno';
@@ -16,8 +13,9 @@ export function buildView(characters, schedule, nowMs) {
   const sorted = [...characters].sort((a, b) =>
     a.order - b.order || a.name.localeCompare(b.name, 'es'));
   const rows = sorted.map(c => {
+    const { account, regen, max } = rulesOf(c);
     const energy = anchorMs === null ? c.energy : currentEnergy(c, anchorMs, nowMs);
-    const isFull = energy >= MAX;
+    const isFull = energy >= max;
     const fullAtMs = anchorMs === null ? null : fullAt(c, anchorMs, nowMs);
     let fullInText;
     if (isFull) fullInText = FULL_TEXT;
@@ -29,10 +27,10 @@ export function buildView(characters, schedule, nowMs) {
       name: c.name,
       classId: cls ? cls.id : null,
       color: cls ? cls.color : NEUTRAL_COLOR,
-      nearFull: !isFull && energy >= NEAR_FULL,
+      account, regen, max,
+      nearFull: !isFull && energy >= max - 2 * regen, // within two recharges of the cap
       energy,
-      max: MAX,
-      percent: Math.min(100, Math.floor(energy / MAX * 100)),
+      percent: Math.min(100, Math.floor(energy / max * 100)),
       isFull,
       fullInText,
       fullAtMs,
