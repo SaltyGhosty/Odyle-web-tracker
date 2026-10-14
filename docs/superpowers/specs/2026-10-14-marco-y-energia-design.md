@@ -64,8 +64,8 @@ Iconos SVG propios, de trazo, dibujados para Odyle (sin arte de NCSOFT), en un �
 
 Sustituye al panel `#summary`. Su texto y su tono salen de `layout.js` (`decisionBand(rows, now)`):
 
-- **Urgente (carmesí):** hay personajes al tope. Texto: «{nombre} está al tope · pierde 15 OD cada 3 h» (o «{n} personajes al tope»). Botón **Gastar**, que abre los gastos de ese personaje (o del primero al tope).
-- **Aviso (oro):** nadie al tope, pero alguien se llena antes de la próxima ventana de silencio (`wasteWarning`). Texto: «{nombre} se llena {cuándo}».
+- **Urgente (carmesí):** hay personajes al tope. Texto: «{nombre} está al tope · pierde 15 OD cada 3 h» (o «{n} personajes al tope»). Botón **Gastar** (también en el tono Aviso), que abre los gastos de ese personaje (o del primero al tope).
+- **Aviso (oro):** nadie al tope, pero alguien se llena antes de la próxima ventana de silencio (`wasteWarning`). Texto: «{nombre} se llena {cuándo}». También muestra el botón **Gastar** (lleva al personaje que va a desperdiciar energía).
 - **Tranquilo (neutro):** «Nadie se llena hoy · el próximo, {nombre} en {tiempo}».
 - **Sin personajes:** no se muestra (sigue la guía de primeros pasos).
 
