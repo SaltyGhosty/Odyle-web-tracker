@@ -59,6 +59,6 @@ function nextGoal(r, first, now) {
   if (r.isFull) return { tone: 'urgent', text: 'Gastar ya: está al tope' };
   if (r.fullAtMs === null || r.fullAtMs === undefined) return { tone: 'empty', text: 'Sin hora de recarga' };
   const left = formatDuration(r.fullAtMs - now);
-  const n = first ? runsToday(r.energy, first.cost, null, now, now).now : 0;
+  const n = first && first.cost > 0 ? Math.floor(r.energy / first.cost) : 0;
   return { tone: 'normal', text: n > 0 ? `${first.name} ×${n} en ${left}` : `Lleno en ${left}` };
 }

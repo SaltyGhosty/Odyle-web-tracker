@@ -183,6 +183,8 @@
     color: var(--on-gold); background: var(--gold); padding: 3px 10px; }
   .full-in { margin: 0; font-weight: 500; color: var(--muted); font-variant-numeric: tabular-nums; }
   .full-in::before { content: ""; display: inline-block; width: 6px; height: 6px; border-radius: 50%; background: var(--gold); margin-right: 8px; vertical-align: middle; }
+  .card.near .full-in { color: var(--fg); }
+  .card.near .full-in::before { background: var(--gold-bright); box-shadow: 0 0 0 3px color-mix(in srgb, var(--gold) 35%, transparent); }
   .full-in.lost { font-weight: 700; }
   .full-in.lost::before { background: var(--urgent); }
   .confirm-text { margin: 0; color: var(--danger); font-size: .875rem; font-weight: 500; }
@@ -505,8 +507,10 @@
   body.toast-up .ai-fab { bottom: calc(var(--toast-h, 50px) + 32px); }
   body.toast-up .ai-panel { bottom: calc(var(--toast-h, 50px) + 86px); height: min(560px, calc(100vh - var(--toast-h, 50px) - 116px)); }
   @media (max-width: 899.98px) { /* por encima de la barra inferior */
-    /* the undo toast sits at the top, under the header, so it never covers the last row's actions or the bottom bar */
-    .toast { bottom: auto; top: calc(68px + env(safe-area-inset-top)); transform: translate(-50%, -16px); }
+    /* the undo toast is a bar docked just above the bottom nav; the page reserves its height while it shows, so it never covers a row */
+    .toast { left: 0; right: 0; max-width: none; justify-content: space-between; bottom: calc(64px + env(safe-area-inset-bottom)); transform: translateY(16px); border-width: 1px 0; }
+    .toast.show { transform: none; }
+    body.toast-up .page { padding-bottom: calc(80px + var(--toast-h, 50px) + 12px + env(safe-area-inset-bottom)); }
     /* on phones the assistant is an icon button in the header, so it never covers a row */
     .ai-fab { position: static; width: 44px; height: 44px; padding: 0; display: grid; place-items: center; flex: none; }
     .ai-fab .ai-lbl { display: none; }
@@ -1088,7 +1092,7 @@
     const plan = compute(row);
     if (!plan) return false;
     const { energy, event, label } = plan;
-    const prev = { energy: before.energy, recordedAt: before.recordedAt, classId: before.classId ?? null };
+    const prev = { energy: before.energy, recordedAt: before.recordedAt, classId: before.classId ?? '' };
     const at = Date.now();
     busy.set(id, at);
     setTimeout(() => { if (busy.get(id) === at) { busy.delete(id); render(); } }, 4000);
@@ -1121,7 +1125,7 @@
   async function updateCharacter(row, value, classId, cp, goal = null) {
     const before = state.characters.find(c => c.id === row.id);
     const cpChanged = cp !== null && cp !== before?.cp;
-    const extra = { classId };
+    const extra = { classId: classId ?? '' }; // '' = no class: the server rejects null and a PATCH cannot delete a key
     if (cp !== null) extra.cp = cp;
     if (goal !== null) extra.cpGoal = goal || null; // 0 clears the goal
     const ok = await changeEnergy(row.id, r => ({
@@ -1447,7 +1451,7 @@
       if (tasksOpen) below.append(tasksList(row));
       const ti = tasksInfo(row);
       act.append(
-        ...(state.presets[0] ? [el('button', { type: 'button', class: 'spend', title: `${state.presets[0].name} −${state.presets[0].cost}`, disabled: busy.has(row.id), onclick: () => spend(row, state.presets[0]) }, 'Gastar')] : []),
+        ...(state.presets[0] ? [el('button', { type: 'button', class: 'spend', title: `${state.presets[0].name} −${state.presets[0].cost}`, 'aria-label': `Gastar ${state.presets[0].name} −${state.presets[0].cost} en ${row.name}`, disabled: busy.has(row.id), onclick: () => spend(row, state.presets[0]) }, 'Gastar')] : []),
         el('button', { type: 'button', class: 'primary', onclick: () => { ui.pop = row.id; ui.editingId = row.id; ui.confirmId = ui.extraId = ui.notesId = null; delete ui.errors[row.id]; render(); $('energy-' + row.id)?.select(); } }, 'Actualizar'),
         moreActions(row, [
           ['+ Extra', 'extra', () => { ui.pop = row.id; ui.extraId = row.id; ui.editingId = ui.confirmId = ui.notesId = null; delete ui.errors[row.id]; render(); $('extra-' + row.id)?.focus(); }, busy.has(row.id)],

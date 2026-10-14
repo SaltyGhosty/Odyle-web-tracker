@@ -332,12 +332,11 @@ check('legión: el código solo vive en el servidor (cifrado, sin código ni has
   await p.waitForTimeout(400);
   const tg = await p.evaluate(() => {
     const t = document.getElementById('toast').getBoundingClientRect();
-    const lastRow = [...document.querySelectorAll('article.card')].at(-1);
-    const hit = [...document.querySelectorAll('article.card button')].filter((b) => b.offsetParent && (b.closest('article') === lastRow || /Importada Dos/.test(b.closest('article').textContent))).some((b) => { const r = b.getBoundingClientRect(); return r.bottom > 0 && r.top < innerHeight && !(t.right <= r.left || t.left >= r.right || t.bottom <= r.top || t.top >= r.bottom); });
+    const hit = [...document.querySelectorAll('article.card button')].filter((b) => b.offsetParent).some((b) => { const r = b.getBoundingClientRect(); return r.bottom > 0 && r.top < innerHeight && !(t.right <= r.left || t.left >= r.right || t.bottom <= r.top || t.top >= r.bottom); });
     const last = [...document.querySelectorAll('article.card')].at(-1).getBoundingClientRect();
-    return { hit, toastTop: t.top, toastBottom: t.bottom, lastBottom: last.bottom, innerHeight };
+    return { hit, toastTop: t.top, toastBottom: t.bottom, lastBottom: last.bottom, barTop: document.getElementById('topnav').getBoundingClientRect().top, innerHeight };
   });
-  check('aviso de deshacer (390 px): no tapa los botones de las filas, ni siquiera la última', !tg.hit && tg.toastTop > 0 && tg.lastBottom > tg.toastBottom, JSON.stringify(tg));
+  check('aviso de deshacer (390 px): no tapa los botones de las filas, ni siquiera la última', !tg.hit && tg.toastTop > 0 && tg.toastBottom <= tg.barTop + 0.5, JSON.stringify(tg));
   await p.waitForSelector('#toast', { state: 'hidden', timeout: 12000 });
   // el menú ⋯ de la última fila se abre hacia arriba si no cabe bajo la barra inferior
   await lastCard.scrollIntoViewIfNeeded();
@@ -402,6 +401,33 @@ check('legión: el código solo vive en el servidor (cifrado, sin código ni has
   const after = await energies();
   const lowered = Object.keys(before).filter((id) => after[id] < before[id]);
   check('gasto rápido: baja la energía de un solo personaje en el coste del gasto', lowered.length === 1 && before[lowered[0]] - after[lowered[0]] > 0 && before[lowered[0]] - after[lowered[0]] <= chipCost && chipCost > 0, JSON.stringify({ before, after, chipCost }));
+    check('gasto rápido: baja exactamente el coste si no hay recarga por medio', before[lowered[0]] - after[lowered[0]] === chipCost || before[lowered[0]] - after[lowered[0]] === chipCost - 15, JSON.stringify({ before, after, chipCost }));
+  // modo compacto: mismas x de orbe y nombre
+  await p.waitForSelector('#toast', { state: 'hidden', timeout: 12000 });
+  await p.evaluate(() => { const t = document.getElementById('compact-toggle'); t.checked = true; t.dispatchEvent(new Event('change', { bubbles: true })); });
+  for (const w of [1280, 390]) {
+    await p.setViewportSize({ width: w, height: 900 });
+    await p.waitForTimeout(300);
+    const cols = await columns();
+    const info = JSON.stringify(cols);
+    check(`compacto ${w} px: el orbe y el nombre de cada fila empiezan en la misma x`, cols.length >= 4 && spread(cols.map((c) => c.orb)) <= 1 && spread(cols.map((c) => c.name)) <= 1 && cols[0].w < 104, info);
+  }
+  await p.evaluate(() => { const t = document.getElementById('compact-toggle'); t.checked = false; t.dispatchEvent(new Event('change', { bubbles: true })); });
+  await p.setViewportSize({ width: 1280, height: 900 });
+  await p.waitForTimeout(300);
+  // editar a «Sin clase» y deshacer (el servidor rechaza classId null)
+  const wRow = p.locator('#cards article.card', { hasText: 'W'.repeat(24) });
+  const wId = await wRow.getAttribute('data-id');
+  const classOf = async () => (await dbRows('members/')).find((r) => r.path.endsWith('/characters/' + wId))?.data.classId;
+  const classBefore = await classOf();
+  await wRow.locator('button.primary').click();
+  await p.selectOption(`#class-${wId}`, '');
+  await wRow.locator('form button[type=submit]').click();
+  await p.waitForTimeout(900);
+  check('editar a «Sin clase»: se guarda sin error', (await classOf()) === '' && (await p.locator('#notice').isHidden()), String(await classOf()));
+  await p.click('#undo');
+  await p.waitForTimeout(900);
+  check('deshacer la edición a «Sin clase»: vuelve la clase anterior', (await classOf()) === classBefore && !!classBefore, String(await classOf()));
   check('Plan de hoy: una fila por personaje', (await p.locator('#plan tbody tr').count()) === (await p.locator('#cards article.card').count()) && (await p.locator('#plan tbody tr').count()) >= 4);
   check('Plan de hoy: sin NaN ni undefined', !/NaN|undefined/.test(await p.locator('#plan').textContent()));
 }

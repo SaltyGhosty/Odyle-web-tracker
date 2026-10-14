@@ -107,3 +107,8 @@ test('planRows: sin gastos no hay columnas y nada es NaN; sin personajes no hay 
   assert.ok(!/NaN/.test(r.next.text));
   assert.deepEqual(planRows([], presets, { anchorMs: 0, now: 0, endOfDayMs: eod }), []);
 });
+test('planRows: un gasto con coste 0 no produce NaN ni Infinity', () => {
+  const [r] = planRows([prow('a', 'Ana', 300, 20 * H)], [{ id: 'z', name: 'Cero', cost: 0 }], { anchorMs: 0, now: 0, endOfDayMs: eod });
+  assert.equal(r.runs.z, 0);
+  assert.equal(r.next.text, 'Lleno en 20h 0m');
+});
