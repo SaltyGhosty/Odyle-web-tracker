@@ -84,7 +84,7 @@ test('parseMessageText: 1 a 1000 caracteres, sin controles ni bidi, saltos de l�
   assert.equal(parseMessageText('   ').ok, false);
   assert.equal(parseMessageText('a'.repeat(1001)).ok, false);
   assert.equal(parseMessageText('a'.repeat(1000)).ok, true);
-  assert.equal(parseMessageText('x‮y\u0007').value, 'xy');
+  assert.equal(parseMessageText('x\u202Ey\u0007').value, 'xy');
 });
 
 test('parseInvite: título 1–60, fecha en el próximo año, plazas 1–12, coste 0–840', () => {
