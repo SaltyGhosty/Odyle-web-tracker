@@ -131,6 +131,35 @@ await pa.waitForTimeout(800);
 const energyOf = async () => (await dbRows('members/')).find((r) => r.path.endsWith('/characters/' + charId))?.data.energy;
 check('gasto: resta 40 de 300 en el servidor', (await energyOf()) === 260, String(await energyOf()));
 
+// filas: menú ⋯ con teclado y sobreviviendo a un repintado
+const rowSel = `article[data-id="${charId}"]`;
+await pa.click(`${rowSel} button.more-actions`);
+await pa.waitForSelector(`${rowSel} .menu [role="menuitem"]`);
+check('⋯: se abre con sus opciones', (await pa.locator(`${rowSel} .menu [role="menuitem"]`).count()) === 4);
+check('⋯: el foco pasa a la primera opción', await pa.evaluate(() => document.activeElement?.getAttribute('role') === 'menuitem'));
+await pa.keyboard.press('ArrowDown');
+check('⋯: la flecha abajo mueve el foco a la segunda opción', await pa.evaluate(() => document.activeElement?.classList.contains('tasks')));
+// Repintado seguro: el cambio del modo compacto llama a render() (un evento «focus» no repinta; un clic fuera cerraría el menú a propósito). La marca en el nodo
+// del botón demuestra que la fila se reconstruyó de verdad; el menú debe seguir abierto y con el foco dentro.
+await pa.evaluate((sel) => { document.querySelector(sel + ' button.more-actions').dataset.old = '1'; (() => { const c = document.getElementById('compact-toggle'); c.checked = !c.checked; c.dispatchEvent(new Event('change')); })(); }, rowSel);
+await pa.waitForTimeout(300);
+check('⋯: la fila se reconstruyó en el repintado', await pa.evaluate((sel) => !document.querySelector(sel + ' button.more-actions').dataset.old, rowSel));
+check('⋯: sigue abierto tras repintar', await pa.locator(`${rowSel} .menu`).isVisible());
+check('⋯: tras repintar el foco sigue dentro del menú', await pa.evaluate(() => !!document.activeElement?.closest('.menu')));
+await pa.evaluate(() => (() => { const c = document.getElementById('compact-toggle'); c.checked = !c.checked; c.dispatchEvent(new Event('change')); })()); // restaura el modo normal
+await pa.waitForTimeout(300);
+await pa.keyboard.press('Escape');
+check('⋯: Escape lo cierra y devuelve el foco al botón',
+  !(await pa.locator(`${rowSel} .menu`).count()) && (await pa.evaluate(() => document.activeElement?.classList.contains('more-actions'))));
+// Notas, +Extra y Quitar viven en el menú: abrirlo y elegir «Notas» abre el formulario de la fila.
+await pa.click(`${rowSel} button.more-actions`);
+await pa.click(`${rowSel} .menu button.notes`);
+await pa.waitForSelector(`#notes-${charId}`);
+check('⋯: «Notas» abre su formulario y cierra el menú', !(await pa.locator(`${rowSel} .menu`).count()));
+await pa.click(`${rowSel} form button[type=button]`); // Cancelar
+// Banda: con un solo personaje a medias no hay alarma
+check('banda: visible y sin tono de alarma con energía a medias', (await visible(pa, '#summary')) && !(await pa.locator('#summary.band-urgent').count()));
+
 // recargar y seguir ahí
 await pa.reload();
 await pa.waitForSelector('article.card');

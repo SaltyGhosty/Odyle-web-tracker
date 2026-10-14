@@ -116,18 +116,38 @@
   .row .offset { margin-top: 22px; }
 
   /* ---- Character cards: orb (canvas-drawn) + glass panel ---- */
-  .grid { display: grid; gap: 20px; grid-template-columns: minmax(0, 1fr); }
-  /* one character per row; on wide screens the panel splits into details (left) and actions (right) */
-  .c-main, .c-side { display: flex; flex-direction: column; gap: 12px; min-width: 0; }
-  .c-side:empty { display: none; }
-  @media (min-width: 760px) {
-    .card .panel { flex-direction: row; align-items: flex-start; gap: 28px; }
-    .c-main { flex: 1 1 0; }
-    .c-side { flex: 1.15 1 0; }
+  .grid { display: flex; flex-direction: column; gap: 10px; }
+  /* One character per row: orb | name + timers | number | actions; forms and the task list open below. */
+  .card.row { position: relative; display: grid; grid-template-columns: 88px minmax(0, 1fr) auto auto; grid-template-areas: "orb text num act" "below below below below";
+    align-items: center; gap: 4px 16px; padding: 10px 14px; border: 1px solid var(--line); border-radius: 14px; background: var(--glass); box-shadow: var(--shadow); }
+  .card.row.full { border-color: var(--urgent); }
+  .card.row.near { border-color: var(--gold); }
+  .orb-col { display: flex; flex-direction: column; align-items: center; gap: 2px; z-index: 2; }
+  .r-orb { grid-area: orb; margin: 0; }
+  .orb-slot { width: 72px; height: 72px; position: relative; }
+  .r-text { grid-area: text; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+  .r-name { min-width: 0; }
+  .r-orb .tick-left { white-space: normal; text-align: center; font-size: .7rem; letter-spacing: 0; line-height: 1.2; max-width: 100%; }
+  .r-text .name { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .r-num { grid-area: num; text-align: right; justify-content: flex-end; }
+  .r-num .num { font-size: 2rem; font-weight: 700; color: var(--gold-bright); font-variant-numeric: tabular-nums; }
+  .card.full .r-num .num, .r-text .lost { color: var(--urgent); }
+  .r-act { grid-area: act; display: flex; flex-wrap: wrap; align-items: center; gap: 6px; justify-content: flex-end; max-width: 360px; }
+  .r-below { grid-area: below; min-width: 0; display: flex; flex-direction: column; gap: 10px; }
+  .r-below:empty { display: none; }
+  .r-below > form, .r-below > .row { padding-top: 6px; }
+  .menu-wrap { position: relative; }
+  @media (pointer: coarse) { .r-act button.spend, .r-act button.primary { min-height: 44px; } }
+  button.more-actions { min-width: 44px; min-height: 44px; padding: 0 12px; font-size: 1.25rem; line-height: 1; }
+  .menu { position: absolute; right: 0; top: calc(100% + 4px); z-index: 15; list-style: none; margin: 0; padding: 4px; min-width: 190px;
+    background: var(--glass-strong); border: 1px solid var(--line); border-radius: 12px; box-shadow: var(--shadow); transform-origin: top right; }
+  .menu li > button { width: 100%; padding: 8px 12px; font-size: .9375rem; min-height: 44px; text-align: left; border: none; background: none; border-radius: 8px; }
+  .menu li > button.remove { color: var(--danger); }
+  @media (hover: hover) and (pointer: fine) { .menu li > button:hover { background: var(--hover); } }
+  @media (prefers-reduced-motion: no-preference) {
+    .menu { animation: menu-in 160ms var(--ease-out); }
+    @keyframes menu-in { from { opacity: 0; transform: scale(0.96); } to { opacity: 1; transform: scale(1); } }
   }
-  .card { display: grid; grid-template-columns: 1fr; justify-items: center; gap: 0; position: relative; }
-  .orb-col { display: flex; flex-direction: column; align-items: center; gap: 2px; margin-bottom: 8px; z-index: 2; }
-  .orb-slot { width: 150px; height: 150px; position: relative; }
   /* Rune ring of the flat orb: 56 runes, lit ones in the faction accent, crimson at cap. No animation. */
   .rune-ring { position: absolute; inset: 0; width: 100%; height: 100%; display: none; pointer-events: none; }
   body.flat .rune-ring { display: block; }
@@ -141,12 +161,6 @@
     letter-spacing: .03em; text-shadow: 0 0 8px var(--glow); white-space: nowrap; }
   .tick-left.full { color: var(--gold-bright); text-shadow: 0 0 8px var(--glow); }
   .tick-left.missing { color: var(--muted); text-shadow: none; font-weight: 500; }
-  .card .panel { width: 100%; }
-  @media (min-width: 520px) {
-    .card { grid-template-columns: 150px minmax(0, 1fr); align-items: center; justify-items: stretch; }
-    .orb-col { margin: 0 -26px 0 0; }
-    .card .panel { padding: 16px 16px 16px 40px; }
-  }
   .card-head { display: flex; align-items: center; gap: 10px; min-width: 0; }
   .cls-icon { width: 26px; height: 26px; flex: none; fill: none; stroke: color-mix(in srgb, var(--c) 55%, var(--fg)); stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round;
     }
@@ -162,9 +176,6 @@
   .full-at { margin: 0; color: var(--muted); font-size: .8125rem; }
   .info { display: flex; flex-direction: column; gap: 2px; }
   .confirm-text { margin: 0; color: var(--danger); font-size: .875rem; font-weight: 500; }
-  .card.full .panel { border-color: var(--urgent); box-shadow: 0 0 24px color-mix(in srgb, var(--urgent) 28%, transparent), inset 0 0 18px color-mix(in srgb, var(--urgent) 8%, transparent); }
-  .card.near .panel { border-color: var(--gold); }
-
   /* Flat orb: used when there is no WebGL or the system asks for reduced motion. */
   .orb-flat { display: none; position: absolute; inset: 14px; border-radius: 50%;
     border: 2px solid var(--gold);
@@ -176,11 +187,14 @@
   body.flat #scene { display: none; }
 
   .gain {
-    position: absolute; z-index: 3; left: 75px; top: 20px; transform: translateX(-50%);
-    font-weight: 700; font-size: 1.4rem; color: var(--gold-bright); pointer-events: none;
+    position: absolute; z-index: 3; left: 58px; top: 8px; transform: translateX(-50%);
+    font-weight: 700; font-size: 1.1rem; color: var(--gold-bright); pointer-events: none;
     text-shadow: 0 0 10px var(--glow);
   }
-  @media (max-width: 519px) { .gain { left: 50%; } }
+  @media (max-width: 719.98px) { .card.row { grid-template-columns: 64px minmax(0, 1fr) auto; grid-template-areas: "orb text num" "act act act" "below below below"; }
+    .orb-slot { width: 56px; height: 56px; } .r-act { justify-content: flex-start; max-width: none; } .r-num .num { font-size: 1.5rem; } .gain { left: 46px; }
+    /* the menu spans the whole action row so it never leaves the screen */
+    .r-act { position: relative; } .menu-wrap { position: static; } .menu { left: 0; right: 0; min-width: 0; transform-origin: top left; } }
 
   .empty {
     border: 1px dashed var(--line); border-radius: 16px; padding: 24px 16px; text-align: center; margin: 0;
@@ -297,9 +311,15 @@
   .legend { list-style: none; margin: 0; padding: 0; display: flex; flex-wrap: wrap; gap: 4px 16px; font-size: .8125rem; color: var(--fg); }
 
   /* ---- Summary and waste warning ---- */
-  .summary { gap: 4px; }
   .sum-label, .sum-next, .hint { color: var(--muted); font-size: .875rem; margin: 0; }
-  .sum-tip { margin: 0; font-weight: 600; }
+  .band { border-radius: 14px; padding: 12px 14px; display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; border: 1px solid var(--line); background: var(--glass); }
+  .band[hidden] { display: none; }
+  .band-text { margin: 0; flex: 1 1 240px; font-weight: 600; }
+  .band-urgent { background: var(--urgent); border-color: var(--urgent); color: #fff; }
+  .band-urgent #band-go { background: #fff; color: var(--urgent); border-color: #fff; }
+  .band-warn { border-color: var(--gold); background: color-mix(in srgb, var(--gold) 12%, var(--glass)); }
+  .band .sum-next { flex-basis: 100%; }
+  .band-urgent .sum-next { color: #fff; opacity: .85; }
   .switch { display: flex; gap: 10px; align-items: flex-start; color: var(--fg); font-size: .875rem; cursor: pointer; }
   .switch input { width: 18px; height: 18px; min-height: 0; margin-top: 2px; accent-color: var(--gold); flex: none; }
   .waste { margin: 0; color: var(--warn); font-size: .8125rem; font-weight: 600; }
@@ -522,7 +542,7 @@
   .row .field.narrow { flex: 0 1 90px; }
 
   /* ---- Keyboard shortcuts ---- */
-  .card.selected .panel { outline: 1px solid var(--sky); outline-offset: 2px; }
+  .card.selected { outline: 1px solid var(--sky); outline-offset: 2px; }
   kbd { font: 600 .8em var(--font-body); border: 1px solid var(--line); border-bottom-width: 2px; border-radius: 5px; padding: 1px 6px; background: var(--hover); }
   .keys-help { position: fixed; inset: 0; z-index: 39; display: grid; place-items: center; padding: 16px; background: var(--scrim); }
   .keys-help .panel { width: min(440px, 100%); background: var(--glass-strong); }
@@ -533,13 +553,11 @@
 
   /* ---- Compact mode: small orb beside a short panel, no charts or extra panels ---- */
   body.compact .grid { gap: 10px; }
-  body.compact .card { grid-template-columns: 76px minmax(0, 1fr); align-items: center; justify-items: stretch; }
-  body.compact .orb-col { margin: 0 -14px 0 0; }
-  body.compact .orb-slot { width: 76px; height: 76px; }
+  body.compact .orb-slot { width: 48px; height: 48px; }
+  body.compact .card.row { padding: 6px 12px; grid-template-columns: 56px minmax(0, 1fr) auto auto; }
   body.compact .tick-left { font-size: .7rem; }
-  body.compact .card .panel { padding: 10px 12px 10px 24px; gap: 6px; }
-  body.compact .card .energy .num { font-size: 1.6rem; }
-  body.compact .info .full-at, body.compact .info .runs, body.compact .note-preview, body.compact .tasks-wrap,
+  body.compact .r-num .num { font-size: 1.6rem; }
+  body.compact .r-text .full-at, body.compact .r-text .runs, body.compact .note-preview, body.compact .tasks-wrap,
   body.compact .goal-text, body.compact .cls-name, body.compact .guide { display: none; }
   body.compact .chart-panel, body.compact #week-panel, body.compact #sim-panel, body.compact #summary { display: none !important; }
 
@@ -547,8 +565,7 @@
   @media (prefers-reduced-motion: no-preference) {
     .card.enter { animation: rise .6s cubic-bezier(.2, .7, .2, 1) both; animation-delay: calc(var(--i) * 90ms); }
     @keyframes rise { from { opacity: 0; transform: translateY(14px); } to { opacity: 1; transform: none; } }
-    .card .panel { transition: transform .25s ease, box-shadow .25s ease, border-color .25s; transform: perspective(900px) rotateX(var(--rx, 0deg)) rotateY(var(--ry, 0deg)); }
-    .card.near .panel { animation: pulse 1.6s ease-in-out infinite; }
+    .card.row.near { animation: pulse 1.6s ease-in-out infinite; }
     @keyframes pulse {
       0%, 100% { box-shadow: 0 0 0 color-mix(in srgb, var(--gold) 0%, transparent); }
       50% { box-shadow: 0 0 22px color-mix(in srgb, var(--gold) 45%, transparent); border-color: var(--gold-bright); }
@@ -590,9 +607,9 @@
     <button type="button" id="motion-btn" hidden>Activar movimiento</button>
   </header>
 
-  <section class="panel summary" id="summary" aria-label="Resumen" hidden>
-    <p class="sum-tip" id="sum-tip"></p>
-    <p class="sum-next" id="sum-next"></p>
+  <section class="band" id="summary" aria-live="polite" hidden>
+    <p class="band-text" id="sum-tip"></p>
+    <button type="button" id="band-go" hidden>Gastar</button>
     <p class="sum-next" id="sum-legion" hidden></p>
   </section>
 
@@ -936,7 +953,7 @@
 </div>
 
 <script type="module">
-  import { SECTIONS, navModel, resolveTab } from './layout.js';
+  import { SECTIONS, navModel, resolveTab, decisionBand } from './layout.js';
   import { iconSvg } from './icons.js';
   import { startI18n, tr, LOCALE, LANG, LANGS, setLang, onLangChange } from './i18n.js';
   startI18n();
@@ -947,7 +964,7 @@
   import { paths, planMigration } from './store.js';
   import { applyDelta, parsePreset, parseExtraInput } from './spend.js';
   import { EVENTS, nextOccurrence } from './events.js';
-  import { summary, wasteWarning, projectEnergy, runsToday, simulate, cpEta } from './planner.js';
+  import { wasteWarning, projectEnergy, runsToday, simulate, cpEta } from './planner.js';
   import { dailySpent, staleEvents } from './spend.js';
   import { renderForecast, renderHistory, renderCp, CHART_COLORS } from './charts.js';
   import { createSound } from './sound.js';
@@ -962,7 +979,7 @@
   const state = { characters: [], memberData: new Map(), stats: null, tasks: DEFAULT_TASKS, progress: new Map(), cpHist: new Map(), hiddenMembers: 0, others: new Map(), names: {}, schedule: null, presets: [], events: [], timers: [], calendar: [], wall: [], legions: new Map(), prefs: { quietStart: '00:00', quietEnd: '08:00', favEvents: [] } };
   // Interface-only state: which card is editing/confirming, validation messages.
   // noDb: no db in this view. readOnly: viewer cannot write (or a write was refused).
-  const ui = { pop: null, notesId: null, tasksOpen: new Set(), editingId: null, extraId: null, confirmId: null, errors: {}, selectedId: null, noDb: false, readOnly: false, loaded: false };
+  const ui = { pop: null, notesId: null, tasksOpen: new Set(), editingId: null, extraId: null, confirmId: null, errors: {}, selectedId: null, menuFor: null, noDb: false, readOnly: false, loaded: false };
 
   let db = null;
   let user = null;
@@ -988,7 +1005,6 @@
     document.body.classList.remove('flat');
     scene.setPalette({ ...themeOf(theme).orb, light: themeOf(theme).light });
     scene.start();
-    enableTilt();
     enableOrientation();
     render();
   }
@@ -1090,35 +1106,34 @@
     return ok;
   }
   // ---- Task list on each own card ----
-  function tasksBlock(row) {
+  // Tasks: the toggle lives in the row's menu, the warning in the text zone, the list below the row.
+  function tasksInfo(row) {
     const now = Date.now();
     const prog = progressFor(state.progress.get(row.id), state.tasks, now);
     const total = state.tasks.reduce((a, t) => a + t.max, 0);
     const done = state.tasks.reduce((a, t) => a + prog[t.id], 0);
     const pendingDaily = state.tasks.filter(t => t.kind === 'daily' && prog[t.id] < t.max).length;
-    const left = nextDailyReset(now) - now;
-    const wrap = el('div', { class: 'tasks-wrap' });
-    const open = ui.tasksOpen.has(row.id);
-    wrap.append(el('button', { type: 'button', class: 'tasks-btn', 'aria-expanded': String(open),
-      onclick: () => { open ? ui.tasksOpen.delete(row.id) : ui.tasksOpen.add(row.id); ui.pop = row.id; render(); } },
-      `Tareas ${done}/${total} ${open ? '▴' : '▾'}`));
-    if (pendingDaily && left < 2 * 3_600_000) wrap.append(el('p', { class: 'task-warn' }, `Quedan ${pendingDaily} diarias · reinicio en ${formatDuration(left)}`));
-    if (open) {
-      const box = el('div', { class: `tasks-box ${ui.pop === row.id ? 'pop' : ''}` });
-      for (const t of state.tasks) {
-        const n = prog[t.id];
-        const name = el('span', { class: 'task-name' }, t.name, el('span', { class: 'kind' }, t.kind === 'daily' ? 'diaria' : 'semanal'));
-        const control = t.max === 1
-          ? el('input', { type: 'checkbox', checked: n >= 1, 'aria-label': t.name, onchange: e => setTask(row.id, t, e.target.checked ? 1 : 0) })
-          : el('span', { class: 'stepper' },
-              el('button', { type: 'button', 'aria-label': `Quitar una: ${t.name}`, disabled: n <= 0, onclick: () => setTask(row.id, t, n - 1) }, '−'),
-              `${n}/${t.max}`,
-              el('button', { type: 'button', 'aria-label': `Añadir una: ${t.name}`, disabled: n >= t.max, onclick: () => setTask(row.id, t, n + 1) }, '+'));
-        box.append(el('div', { class: `task-row ${n >= t.max ? 'done' : ''}` }, name, control));
-      }
-      wrap.append(box);
+    return { prog, total, done, pendingDaily, left: nextDailyReset(now) - now };
+  }
+  function tasksWarn(row) {
+    const { pendingDaily, left } = tasksInfo(row);
+    return pendingDaily && left < 2 * 3_600_000 ? el('p', { class: 'task-warn' }, `Quedan ${pendingDaily} diarias · reinicio en ${formatDuration(left)}`) : null;
+  }
+  function tasksList(row) {
+    const { prog } = tasksInfo(row);
+    const box = el('div', { class: `tasks-box ${ui.pop === row.id ? 'pop' : ''}` });
+    for (const t of state.tasks) {
+      const n = prog[t.id];
+      const name = el('span', { class: 'task-name' }, t.name, el('span', { class: 'kind' }, t.kind === 'daily' ? 'diaria' : 'semanal'));
+      const control = t.max === 1
+        ? el('input', { type: 'checkbox', checked: n >= 1, 'aria-label': t.name, onchange: e => setTask(row.id, t, e.target.checked ? 1 : 0) })
+        : el('span', { class: 'stepper' },
+            el('button', { type: 'button', 'aria-label': `Quitar una: ${t.name}`, disabled: n <= 0, onclick: () => setTask(row.id, t, n - 1) }, '−'),
+            `${n}/${t.max}`,
+            el('button', { type: 'button', 'aria-label': `Añadir una: ${t.name}`, disabled: n >= t.max, onclick: () => setTask(row.id, t, n + 1) }, '+'));
+      box.append(el('div', { class: `task-row ${n >= t.max ? 'done' : ''}` }, name, control));
     }
-    return wrap;
+    return box;
   }
   async function setTask(charId, task, count) {
     const allDaily = p => state.tasks.filter(t => t.kind === 'daily').every(t => p[t.id] >= t.max);
@@ -1287,46 +1302,45 @@
     const mood = row.isFull ? 'full' : row.nearFull ? 'near' : '';
     const fresh = !seen.has(row.id);
     seen.add(row.id);
-    const card = el('article', { class: `card ${mood} ${fresh && animate ? 'enter' : ''} ${!readonly && ui.selectedId === row.id ? 'selected' : ''}`, 'data-id': row.id,
+    const card = el('article', { class: `card row ${mood} ${fresh && animate ? 'enter' : ''} ${!readonly && ui.selectedId === row.id ? 'selected' : ''}`, 'data-id': row.id,
       style: `--c:${row.color};--i:${index}` });
 
-    card.append(el('div', { class: 'orb-col' },
+    const orb = el('div', { class: 'r-orb orb-col' },
       el('div', { class: 'orb-slot', 'data-orb': row.id, role: 'img', 'aria-label': `${row.percent}% de energía` },
         el('div', { class: 'orb-flat', style: `--fill:${row.percent}%` }),
         buildRuneRing(document, litRunes(row.energy), { full: row.isFull })),
-      el('p', { class: 'tick-left', 'data-full': row.isFull ? '1' : null })));
+      el('p', { class: 'tick-left', 'data-full': row.isFull ? '1' : null }));
 
-    const panel = el('div', { class: 'panel' });
+    const text = el('div', { class: 'r-text' });
     const head = el('div', { class: 'card-head' });
     if (cls) head.append(classIcon(cls));
-    head.append(el('div', {}, el('h2', { class: 'name' }, row.name), cls ? el('p', { class: 'cls-name' }, cls.name) : null));
-    panel.append(head);
+    head.append(el('div', { class: 'r-name' }, el('h2', { class: 'name', title: row.name }, row.name), cls ? el('p', { class: 'cls-name' }, cls.name) : null));
+    text.append(head);
 
     const prevShown = shown.get(row.id);
     const rolling = animate && prevShown !== undefined && prevShown !== row.energy;
     const display = rolling ? (rolls.has(row.id) ? shown.get(row.id) : prevShown) : row.energy;
     if (rolling) startRoll(row.id, display, row.energy); else { rolls.delete(row.id); shown.set(row.id, row.energy); }
-    panel.append(el('div', { class: 'energy' },
+    const num = el('div', { class: 'r-num energy' },
       el('span', { class: 'num', 'data-num': row.id }, String(display)),
-      el('small', {}, `/ ${row.max}`),
-      row.isFull ? el('span', { class: 'badge' }, 'Lleno') : null));
+      el('small', {}, `/ ${row.max}`));
 
-    if (Number.isFinite(row.cp)) panel.append(cpLine(row));
-    const info = el('div', { class: 'info' });
-    info.append(el('p', { class: 'full-in' }, row.isFull ? 'Energía al máximo' : (row.fullAtMs === null ? row.fullInText : `Lleno en ${row.fullInText}`)));
-    if (row.fullAtMs !== null) info.append(el('p', { class: 'full-at' }, dateFmt.format(new Date(row.fullAtMs))));
+    if (Number.isFinite(row.cp)) text.append(cpLine(row));
+    text.append(el('p', { class: `full-in ${row.isFull ? 'lost' : ''}` }, row.isFull ? 'Lleno · perdiendo energía' : (row.fullAtMs === null ? row.fullInText : `Lleno en ${row.fullInText}`)));
+    if (row.fullAtMs !== null) text.append(el('p', { class: 'full-at' }, dateFmt.format(new Date(row.fullAtMs))));
     if (!readonly) {
       const cost = state.presets[0]?.cost ?? 40;
       const anchor = state.schedule && Number.isFinite(state.schedule.anchorMs) ? state.schedule.anchorMs : null;
       const eod = new Date(); eod.setHours(23, 59, 59, 999);
       const r = runsToday(row.energy, cost, anchor, Date.now(), eod.getTime());
-      info.append(el('p', { class: 'runs' }, `Mazmorras (${cost}): ${r.now} ahora · ${r.byMidnight} antes de medianoche`));
+      text.append(el('p', { class: 'runs' }, `Mazmorras (${cost}): ${r.now} ahora · ${r.byMidnight} antes de medianoche`));
     }
     const waste = readonly ? '' : row.isFull ? 'Estás perdiendo 15 de OD cada 3 h' : wasteText(row);
-    if (waste) info.append(el('p', { class: 'waste' }, waste));
-    panel.append(info);
-    if (row.notes && ui.notesId !== row.id) panel.append(el('p', { class: 'note-preview', title: row.notes }, '📝 ' + row.notes.split('\n')[0]));
+    if (waste) text.append(el('p', { class: 'waste' }, waste));
+    if (row.notes && ui.notesId !== row.id) text.append(el('p', { class: 'note-preview', title: row.notes }, '📝 ' + row.notes.split('\n')[0]));
 
+    const act = el('div', { class: 'r-act' });
+    const below = el('div', { class: 'r-below' });
     if (readonly || ui.readOnly || ui.noDb) {
       // someone else's character, read-only viewer, or stale: no edit controls
     } else if (editing) {
@@ -1362,7 +1376,7 @@
         el('button', { type: 'submit', class: 'primary' }, 'Guardar'),
         el('button', { type: 'button',
           onclick: () => { ui.editingId = null; delete ui.errors[row.id]; render(); } }, 'Cancelar')));
-      panel.append(form);
+      below.append(form);
     } else if (ui.extraId === row.id) {
       const inputId = `extra-${row.id}`;
       const form = el('form', { class: ui.pop === row.id ? 'pop' : '', novalidate: true, onsubmit: async e => {
@@ -1380,7 +1394,7 @@
       form.append(field, el('div', { class: 'row' },
         el('button', { type: 'submit', class: 'primary' }, 'Añadir'),
         el('button', { type: 'button', onclick: () => { ui.extraId = null; delete ui.errors[row.id]; render(); } }, 'Cancelar')));
-      panel.append(form);
+      below.append(form);
     } else if (ui.notesId === row.id) {
       const noteId = `notes-${row.id}`;
       const count = el('p', { class: 'note-count', id: `notes-count-${row.id}` }, `${(row.notes || '').length}/500`);
@@ -1395,30 +1409,62 @@
         el('div', { class: 'row' },
           el('button', { type: 'submit', class: 'primary' }, 'Guardar'),
           el('button', { type: 'button', onclick: () => { ui.notesId = null; render(); } }, 'Cancelar')));
-      panel.append(form);
+      below.append(form);
     } else if (confirming) {
-      panel.append(el('p', { class: `confirm-text ${ui.pop === row.id ? 'pop' : ''}` }, `¿Quitar a ${row.name}?`));
-      panel.append(el('div', { class: 'row' },
+      below.append(el('p', { class: `confirm-text ${ui.pop === row.id ? 'pop' : ''}` }, `¿Quitar a ${row.name}?`));
+      below.append(el('div', { class: 'row' },
         el('button', { type: 'button', class: 'danger', onclick: async () => { if (!await removeCharacter(row.id)) return; ui.confirmId = null; render(); } }, 'Sí, quitar'),
         el('button', { type: 'button', onclick: () => { ui.confirmId = null; render(); } }, 'Cancelar')));
     } else {
-      if (err) panel.append(errorLine(`err-${row.id}`, err));
-      panel.append(el('div', { class: 'spend-row' },
+      if (err) below.append(errorLine(`err-${row.id}`, err));
+      const warn = tasksWarn(row);
+      if (warn) text.append(warn);
+      const tasksOpen = ui.tasksOpen.has(row.id);
+      if (tasksOpen) below.append(tasksList(row));
+      const ti = tasksInfo(row);
+      act.append(
         ...state.presets.map(p => el('button', { type: 'button', class: 'spend', disabled: busy.has(row.id), onclick: () => spend(row, p) }, `${p.name} −${p.cost}`)),
-        el('button', { type: 'button', class: 'extra', disabled: busy.has(row.id), onclick: () => { ui.pop = row.id; ui.extraId = row.id; ui.editingId = ui.confirmId = ui.notesId = null; delete ui.errors[row.id]; render(); $('extra-' + row.id)?.focus(); } }, '+ Extra')));
-      panel.append(tasksBlock(row));
-      panel.append(el('div', { class: 'row' },
         el('button', { type: 'button', class: 'primary', onclick: () => { ui.pop = row.id; ui.editingId = row.id; ui.confirmId = ui.extraId = ui.notesId = null; delete ui.errors[row.id]; render(); $('energy-' + row.id)?.select(); } }, 'Actualizar'),
-        el('button', { type: 'button', class: 'notes', onclick: () => { ui.pop = row.id; ui.notesId = row.id; ui.editingId = ui.extraId = ui.confirmId = null; render(); $('notes-' + row.id)?.focus(); } }, 'Notas'),
-        el('button', { type: 'button', class: 'remove', onclick: () => { ui.pop = row.id; ui.confirmId = row.id; ui.editingId = ui.extraId = ui.notesId = null; render(); } }, 'Quitar')));
+        moreActions(row, [
+          ['+ Extra', 'extra', () => { ui.pop = row.id; ui.extraId = row.id; ui.editingId = ui.confirmId = ui.notesId = null; delete ui.errors[row.id]; render(); $('extra-' + row.id)?.focus(); }, busy.has(row.id)],
+          [tasksOpen ? 'Ocultar tareas' : `Tareas ${ti.done}/${ti.total}`, 'tasks', () => { tasksOpen ? ui.tasksOpen.delete(row.id) : ui.tasksOpen.add(row.id); ui.pop = row.id; render(); }],
+          ['Notas', 'notes', () => { ui.pop = row.id; ui.notesId = row.id; ui.editingId = ui.extraId = ui.confirmId = null; render(); $('notes-' + row.id)?.focus(); }],
+          ['Quitar', 'remove', () => { ui.pop = row.id; ui.confirmId = row.id; ui.editingId = ui.extraId = ui.notesId = null; render(); }],
+        ]));
     }
-    // split into details and actions (side by side on wide screens)
-    const main = el('div', { class: 'c-main' }), side = el('div', { class: 'c-side' });
-    for (const n of [...panel.children]) (n.matches('.spend-row, .tasks-wrap, form, .row, .confirm-text, .error') ? side : main).append(n);
-    panel.append(main, side);
-    card.append(panel);
+    card.append(orb, text, num, act, below);
     return card;
   }
+
+  // Secondary actions of a row. They survive repaints: ui.menuFor says which row has its menu open.
+  function moreActions(row, items) {
+    const open = ui.menuFor === row.id;
+    const btn = el('button', { type: 'button', class: 'more-actions', 'aria-haspopup': 'menu', 'aria-expanded': String(open),
+      'aria-label': `Más acciones: ${row.name}`, 'data-menu-for': row.id,
+      onclick: () => { ui.menuFor = open ? null : row.id; render(); if (!open) focusMenu(row.id, 0); } }, '⋯');
+    const wrap = el('div', { class: 'menu-wrap' }, btn);
+    if (open) {
+      const list = el('ul', { class: 'menu', role: 'menu', 'aria-label': `Acciones de ${row.name}` },
+        ...items.map(([label, cls, run, off]) => el('li', { role: 'none' },
+          el('button', { type: 'button', role: 'menuitem', class: cls, tabindex: '-1', disabled: !!off, onclick: () => { ui.menuFor = null; run(); } }, label))));
+      list.addEventListener('keydown', e => {
+        const all = [...list.querySelectorAll('[role="menuitem"]:not(:disabled)')];
+        const i = all.indexOf(document.activeElement);
+        if (e.key === 'ArrowDown') { e.preventDefault(); all[(i + 1) % all.length]?.focus(); }
+        else if (e.key === 'ArrowUp') { e.preventDefault(); all[(i - 1 + all.length) % all.length]?.focus(); }
+        else if (e.key === 'Home') { e.preventDefault(); all[0]?.focus(); }
+        else if (e.key === 'End') { e.preventDefault(); all.at(-1)?.focus(); }
+        else if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); ui.menuFor = null; render(); document.querySelector(`[data-menu-for="${CSS.escape(row.id)}"]`)?.focus(); }
+      });
+      wrap.append(list);
+    }
+    return wrap;
+  }
+  function focusMenu(id, i) { document.querySelectorAll(`[data-menu-for="${CSS.escape(id)}"] + .menu [role="menuitem"]:not(:disabled)`)[i]?.focus(); }
+  // A click outside any menu closes it.
+  document.addEventListener('click', e => {
+    if (ui.menuFor && !e.target.closest('.menu-wrap')) { ui.menuFor = null; render(); }
+  });
 
   // Header clock: text + ring every second, no data work.
   function wasteText(row) {
@@ -1727,16 +1773,26 @@
 
   function paintSummary(rows) {
     const box = $('summary');
-    box.hidden = rows.length === 0;
-    if (!rows.length) return;
-    const s = summary(rows, Date.now());
-    $('sum-tip').textContent = s.tip;
-    $('sum-tip').hidden = !s.tip;
+    const b = decisionBand(rows, Date.now(), { quiet: { start: state.prefs.quietStart, end: state.prefs.quietEnd }, tzOffsetMin: new Date().getTimezoneOffset() });
+    box.hidden = !b;
+    if (!b) return;
+    box.className = `band band-${b.tone}`;
+    $('sum-tip').textContent = b.text;
+    const go = $('band-go');
+    go.hidden = !b.targetId || b.tone === 'calm' || ui.readOnly || ui.noDb;
+    go.onclick = () => goSpend(b.targetId);
     const need = state.presets[0]?.cost ?? 40;
     const everyone = [...rows, ...[...state.others.values()].flatMap(m => buildView(m.characters, state.schedule, Date.now()).rows)];
     $('sum-legion').hidden = state.others.size === 0;
     $('sum-legion').textContent = `Listos para mazmorra en la legión: ${everyone.filter(r => r.energy >= need).length} personajes con ${need} o más de OD`;
-    $('sum-next').textContent = s.nextFull ? `Se llena primero: ${s.nextFull.name} · ${dateFmt.format(new Date(s.nextFull.fullAtMs))}` : '';
+  }
+  // «Gastar» de la banda: lleva a la fila y pone el foco en su primer gasto; sin presets abre los gastos.
+  function goSpend(id) {
+    const card = document.querySelector(`#cards article[data-id="${CSS.escape(id)}"]`);
+    if (!card) return;
+    card.scrollIntoView({ block: 'center', behavior: matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth' });
+    const first = card.querySelector('button.spend');
+    if (first) first.focus({ preventScroll: true }); else $('presets-btn').click();
   }
 
   // Event timers: sorted by what happens next; running events first, in gold.
@@ -1881,6 +1937,13 @@
     // Keep focus and caret across repaints (timers repaint too).
     const active = document.activeElement;
     const focusId = active && active.id ? active.id : null;
+    // The row menu is rebuilt with the rows: remember where focus was inside it (item index, or the trigger).
+    let menuFocus = null;
+    if (ui.menuFor && active) {
+      const items = [...document.querySelectorAll('.menu [role="menuitem"]:not(:disabled)')];
+      if (items.includes(active)) menuFocus = items.indexOf(active);
+      else if (active.matches?.('.more-actions')) menuFocus = 'btn';
+    }
     const caret = focusId && 'selectionStart' in active ? [active.selectionStart, active.selectionEnd] : null;
 
     const cards = $('cards');
@@ -1941,6 +2004,10 @@
     if (!keepBaseline) lastEnergy = new Map(now.map(r => [r.id, r]));
     lastAnchor = anchor;
 
+    if (menuFocus !== null && ui.menuFor) {
+      if (menuFocus === 'btn') document.querySelector(`[data-menu-for="${CSS.escape(ui.menuFor)}"]`)?.focus();
+      else focusMenu(ui.menuFor, menuFocus);
+    }
     if (focusId && document.activeElement !== $(focusId)) {
       const again = $(focusId);
       if (again) { again.focus(); if (caret && again.setSelectionRange) again.setSelectionRange(caret[0], caret[1]); }
@@ -2436,22 +2503,6 @@
         $('motion-btn').textContent = 'Movimiento no disponible';
       });
     } else scene.enableOrientation();
-  }
-
-  // Gentle tilt on hover (fine pointers only); delegated because cards are re-created.
-  function enableTilt() {
-    if (!matchMedia('(pointer: fine)').matches) return;
-    $('cards').addEventListener('pointermove', e => {
-      const panel = e.target.closest('.card .panel');
-      if (!panel) return;
-      const r = panel.getBoundingClientRect();
-      panel.style.setProperty('--ry', `${((e.clientX - r.left) / r.width - .5) * 5}deg`);
-      panel.style.setProperty('--rx', `${-((e.clientY - r.top) / r.height - .5) * 5}deg`);
-    });
-    $('cards').addEventListener('pointerout', e => {
-      const panel = e.target.closest('.card .panel');
-      if (panel && !panel.contains(e.relatedTarget)) { panel.style.removeProperty('--rx'); panel.style.removeProperty('--ry'); }
-    });
   }
 
   // Shared legion data (calendar, wall): a refused write only affects that write, never the viewer's own data.
