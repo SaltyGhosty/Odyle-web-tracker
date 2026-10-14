@@ -84,7 +84,7 @@ Aion 2 ni ningún arte de NCSOFT.
   - Encendida: tinta de la facción con brillo suave.
   - La recién encendida destella una vez.
   - Al tope, el anillo late en carmesí, como ahora.
-- **En 3D:** cada runa mira hacia fuera del anillo inclinado. Las de detrás se ven más tenues, como ahora.
+- **En 3D:** cada runa se dibuja de cara a la cámara y derecha, para que siempre se lea. Las de detrás se ven más tenues, como ahora.
 - **Mini orbes de 44 px:** las runas no se leen a ese tamaño, así que llevan trazos cortos. Siguen usando las mismas
   posiciones y el mismo número de runas encendidas.
 - **Aprobación previa:** antes de montarlas en el orbe se genera una hoja de muestra con las 28 runas, grandes y a tamaño
