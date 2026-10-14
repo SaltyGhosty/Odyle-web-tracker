@@ -10,6 +10,8 @@ export function createChat(shared, panel) {
   const { api, me, state } = shared;
   let openUid = null, msgs = [], more = false, ended = false, readAt = 0, draftId = null, sending = false, error = '', active = false;
 
+  const drafts = new Map(); // borrador del redactor por conversación
+  let toBottom = false, prepended = false; // qué hacer con el scroll en el próximo repintado del hilo
   const root = el('div', { class: 'chat' });
   const listBox = el('aside', { class: 'chat-list', 'aria-label': S('Conversaciones') });
   const threadBox = el('section', { class: 'chat-thread', 'aria-label': S('Conversación') });
@@ -59,6 +61,26 @@ export function createChat(shared, panel) {
     li.append(el('time', { class: 'msg-time' }, timeLabel(m.at)));
     return li;
   }
+  // Scroll: abajo al abrir o al enviar; al cargar mensajes anteriores se mantiene lo que se veía; en el resto de
+  // repintados (presencia, mensajes que llegan) solo baja si ya estaba abajo.
+  function scrollState() {
+    const s = threadBox.querySelector('.msgs-scroll');
+    return s ? { top: s.scrollTop, height: s.scrollHeight, atBottom: s.scrollHeight - s.scrollTop - s.clientHeight < 40 } : null;
+  }
+  function placeScroll(scroller, before) {
+    if (toBottom || !before || before.atBottom) scroller.scrollTop = scroller.scrollHeight;
+    else if (prepended) scroller.scrollTop = scroller.scrollHeight - before.height + before.top;
+    else scroller.scrollTop = before.top;
+    toBottom = false; prepended = false;
+  }
+  // El redactor y el formulario de invitación se reinsertan: el campo con foco lo conserva (y su selección).
+  function restoreFocus(node, sel) {
+    if (!node || !node.isConnected || node === document.activeElement || !threadBox.contains(node)) return;
+    if (!/^(INPUT|TEXTAREA)$/.test(node.tagName)) return;
+    node.focus();
+    if (sel) { try { node.setSelectionRange(sel[0], sel[1]); } catch { /* tipo sin selección */ } }
+  }
+  function saveDraft() { if (openUid) drafts.set(openUid, text.value); }
   function paintThread() {
     if (!openUid) {
       threadBox.replaceChildren(note(S('Elige una conversación.')));
@@ -70,7 +92,7 @@ export function createChat(shared, panel) {
     const conv = state.convs.find((c) => c.profile.uid === openUid);
     const canWrite = !ended && (!conv || conv.friend);
     const head = el('div', { class: 'thread-head' },
-      el('button', { type: 'button', class: 'back', 'aria-label': S('Volver a la lista'), onclick: () => { openUid = null; paintAll(); } }, '‹'),
+      el('button', { type: 'button', class: 'back', 'aria-label': S('Volver a la lista'), onclick: () => { saveDraft(); openUid = null; paintAll(); } }, '‹'),
       el('button', { type: 'button', class: 'grow', onclick: () => shared.openProfile(openUid), 'aria-label': S('Ver perfil') }, personHead(p)));
     const list = el('ol', { class: 'msgs' });
     if (more) list.append(el('li', { class: 'more' }, el('button', { type: 'button', onclick: loadOlder }, S('Ver mensajes anteriores'))));
@@ -78,10 +100,12 @@ export function createChat(shared, panel) {
     const lastMine = [...msgs].reverse().find((m) => m.from === me);
     if (lastMine && (lastMine.readAt || readAt >= lastMine.at)) list.append(el('li', { class: 'read' }, S('Leído')));
     const scroller = el('div', { class: 'msgs-scroll' }, list);
-    const hadFocus = document.activeElement === text, selA = text.selectionStart, selB = text.selectionEnd;
+    const before = scrollState();
+    const focused = document.activeElement;
+    const sel = focused && 'selectionStart' in focused ? [focused.selectionStart, focused.selectionEnd] : null;
     threadBox.replaceChildren(...[head, scroller, canWrite ? composer() : note(S('Ya no sois amigos: no podéis escribiros.')), error ? note(error, 'error') : null].filter(Boolean));
-    if (hadFocus && canWrite) { text.focus(); try { text.setSelectionRange(selA, selB); } catch { /* sin selección */ } }
-    scroller.scrollTop = scroller.scrollHeight;
+    restoreFocus(focused, sel);
+    placeScroll(scroller, before);
   }
 
   // ---- redactor ----
@@ -117,7 +141,8 @@ export function createChat(shared, panel) {
   function sendText() {
     const r = parseMessageText(text.value);
     if (!r.ok) { error = r.error; paintThread(); return; }
-    send({ kind: 'text', text: r.value }).then((ok) => { if (ok) { text.value = ''; text.focus(); } });
+    const uid = openUid;
+    send({ kind: 'text', text: r.value }).then((ok) => { if (ok && openUid === uid) { text.value = ''; drafts.delete(uid); text.focus(); } });
   }
   async function send(payload) {
     if (sending || !openUid) return false;
@@ -126,7 +151,7 @@ export function createChat(shared, panel) {
     const uid = openUid;
     try {
       const m = await api.send(uid, { ...payload, clientId: draftId });
-      draftId = null;
+      draftId = null; toBottom = true;
       if (openUid === uid) msgs = mergeMessages(msgs, [m]);
       state.convs = applyIncoming(state.convs, m, me, { profile: profileOf(uid) });
       return true;
@@ -138,7 +163,8 @@ export function createChat(shared, panel) {
 
   // ---- carga ----
   async function open(uid) {
-    openUid = uid; msgs = []; more = false; ended = false; readAt = 0; error = ''; draftId = null;
+    if (uid !== openUid) { saveDraft(); text.value = drafts.get(uid) || ''; inviteForm.hidden = true; }
+    openUid = uid; msgs = []; more = false; ended = false; readAt = 0; error = ''; draftId = null; toBottom = true;
     paintAll();
     try {
       const page = await api.messages(uid);
@@ -149,6 +175,7 @@ export function createChat(shared, panel) {
       if (e.status === 404) ended = true; else error = e.message;
     }
     markSeen(uid);
+    toBottom = true;
     paintAll();
   }
   async function loadOlder() {
@@ -159,6 +186,7 @@ export function createChat(shared, panel) {
       if (openUid !== uid) return;
       msgs = mergeMessages(msgs, page); more = page.length === PAGE;
     } catch (e) { error = e.message; }
+    prepended = true;
     paintThread();
   }
   function markSeen(uid) {
