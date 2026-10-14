@@ -157,6 +157,30 @@ await pa.click(`${rowSel} .menu button.notes`);
 await pa.waitForSelector(`#notes-${charId}`);
 check('⋯: «Notas» abre su formulario y cierra el menú', !(await pa.locator(`${rowSel} .menu`).count()));
 await pa.click(`${rowSel} form button[type=button]`); // Cancelar
+// teclado en el disparador: flecha abajo abre el menú y Escape lo cierra con el foco en el botón
+await pa.focus(`${rowSel} button.more-actions`);
+await pa.keyboard.press('ArrowDown');
+check('⋯: flecha abajo en el botón abre el menú y enfoca la primera opción', (await pa.locator(`${rowSel} .menu`).count()) === 1 && await pa.evaluate(() => document.activeElement?.getAttribute('role') === 'menuitem'));
+await pa.keyboard.press('Escape');
+check('⋯: Escape (tras flecha abajo) cierra y devuelve el foco', !(await pa.locator(`${rowSel} .menu`).count()) && await pa.evaluate(() => document.activeElement?.classList.contains('more-actions')));
+// móvil 390: el botón del asistente (se fuerza visible; en la web real solo existe en el artifact) no tapa ninguna fila,
+// los botones de fila miden 44 px y la cabecera cabe en una línea
+await pa.setViewportSize({ width: 390, height: 844 });
+await pa.waitForTimeout(300);
+const geo = await pa.evaluate(() => {
+  const fab = document.getElementById('ai-fab'); const was = fab.hidden; fab.hidden = false;
+  const f = fab.getBoundingClientRect();
+  const hit = [...document.querySelectorAll('article.card')].some((c) => { const r = c.getBoundingClientRect(); return !(f.right <= r.left || f.left >= r.right || f.bottom <= r.top || f.top >= r.bottom); });
+  const smallB = [...document.querySelectorAll('article.card .r-act button')].filter((b) => b.getBoundingClientRect().height < 43.5); const small = smallB.length;
+  const h = document.querySelector('header').getBoundingClientRect();
+  fab.hidden = was;
+  return { hit, small, headerH: h.height, which: smallB.map((b) => b.className + ':' + b.getBoundingClientRect().height) };
+});
+check('móvil 390: el botón del asistente no se solapa con ninguna fila', !geo.hit, JSON.stringify(geo));
+check('móvil 390: botones de la fila de al menos 44 px', geo.small === 0, JSON.stringify(geo));
+check('móvil 390: la cabecera ocupa una sola línea', geo.headerH < 70, JSON.stringify(geo));
+await pa.setViewportSize({ width: 1280, height: 900 });
+
 // Banda: con un solo personaje a medias no hay alarma
 check('banda: visible y sin tono de alarma con energía a medias', (await visible(pa, '#summary')) && !(await pa.locator('#summary.band-urgent').count()));
 
