@@ -47,7 +47,8 @@ const STUB = () => {
   } };
 };
 const BASE = process.env.BASE || 'http://localhost:8123/index.html';
-const browser = await chromium.launch({ args: ['--use-angle=swiftshader', '--enable-unsafe-swiftshader'] });
+// SHOT_NOGL=1 launches without WebGL, so the screenshots show the SVG fallback orb.
+const browser = await chromium.launch({ args: process.env.SHOT_NOGL ? ['--disable-webgl'] : ['--use-angle=swiftshader', '--enable-unsafe-swiftshader'] });
 const checks = [];
 const check = (name, ok) => { checks.push([name, ok]); if (!ok) console.log('CHECK FAILED:', name); };
 const errors = [];
@@ -63,8 +64,8 @@ if (process.env.THEME_SHOTS) {
       await page.addInitScript(() => {
         const now = Date.now();
         window.__SEED = { characters: {
-          s1: { name: 'Semilla', classId: 'gladiador', energy: 380, recordedAt: now - 1000, order: 1 },
-          s2: { name: 'Casi', classId: 'clerigo', energy: 825, recordedAt: now - 1000, order: 2 },
+          s1: { name: 'Semilla', classId: 'gladiador', account: 'normal', energy: 380, recordedAt: now - 1000, order: 1 },
+          s2: { name: 'Casi', classId: 'clerigo', account: 'premium', energy: 825, recordedAt: now - 1000, order: 2 },
           s3: { name: 'Lleno', classId: 'asesino', energy: 840, recordedAt: now - 1000, order: 3 } },
           schedule: { anchorMs: now + 9000 } };
       });
@@ -149,14 +150,14 @@ for (const [label, width, height] of [['mobile', 390, 844], ['desktop', 1280, 80
     }
     check(`${label}/${scheme} full card marked`, await page.locator('article[data-id=c3].full').count() === 1);
     if (scheme === 'dark') {
-      // after scrolling, the SVG orb is still inside its slot and has the 56 stars
+      // after scrolling, the SVG orb is still inside its slot and has the 56 runes
       await page.evaluate(() => { document.querySelector('article[data-id=c3] .orb-slot').scrollIntoView({ block: 'center' }); window.scrollBy(0, 60); });
       await page.waitForTimeout(400);
       const slot = await page.locator('article[data-id=c3] .orb-slot').boundingBox();
       const svg = await page.evaluate(() => document.querySelector('article[data-id=c3] .orb-slot .star-orb').getBoundingClientRect().toJSON());
       const c3d = await page.locator('article[data-id=c3] .orb-slot canvas.orb3d').boundingBox();
       const inSlot = (b) => b && Math.abs(b.x - slot.x) < 1 && Math.abs(b.y - slot.y) < 1 && Math.abs(b.width - slot.width) < 1;
-      check(`${label} orb stays inside its slot after scroll`, inSlot(svg) && (!orbs.gl || inSlot(c3d)) && await page.locator('article[data-id=c3] .so-star').count() === 56);
+      check(`${label} orb stays inside its slot after scroll`, inSlot(svg) && (!orbs.gl || inSlot(c3d)) && await page.locator('article[data-id=c3] .so-rune').count() === 56);
       await page.evaluate(() => window.scrollTo(0, 0));
     }
     if (label === 'desktop' && scheme === 'dark') {
@@ -213,7 +214,7 @@ for (const [label, width, height] of [['mobile', 390, 844], ['desktop', 1280, 80
     const now = Date.now();
     window.__SEED = { characters: {
         s1: { name: 'Semilla', classId: 'gladiador', energy: 100, recordedAt: now - 7 * 3600_000, order: 1 },
-        s2: { name: 'Casi', classId: 'clerigo', energy: 825, recordedAt: now - 1000, order: 2 },
+        s2: { name: 'Casi', classId: 'clerigo', account: 'premium', energy: 825, recordedAt: now - 1000, order: 2 },
         s3: { name: 'Lleno', classId: 'asesino', energy: 840, recordedAt: now - 1000, order: 3 } },
       schedule: { anchorMs: now + 9000 },
       // rest window around "now" (local clock) so the waste warning is deterministic

@@ -1,17 +1,20 @@
-// The orb in real 3D: a glass sphere with moving liquid inside a tilted, slowly turning ring of 56 four-point stars.
+// The orb in real 3D: a glass sphere with moving liquid inside a tilted, slowly turning ring of 56 Atreia runes.
 // ONE WebGL renderer on an offscreen canvas draws each character's scene, then copies it into that orb's own 2D
 // <canvas class="orb3d"> in its .orb-slot, so the page keeps its DOM layering and uses a single GL context.
 // The SVG orb (starorb.js) stays in the slot: it is the fallback when WebGL is missing or the context is lost.
 // Colours are the same CSS tokens the SVG uses. Strict CSP: shaders are plain strings, no HTML sinks.
 import * as THREE from 'https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js';
-import { RUNE_COUNT, litRunes } from './runes.js';
+import { RUNE_COUNT, RUNE_GLYPHS, litRunes } from './runes.js';
 import { MAX } from './energy.js';
 
 export const RIPPLE_MS = 900, BEAT_MS = 2400, TURN_MS = 48000;
 export const RING_R = 1.3;          // ring radius (glass radius 1)
 export const RING_TILT = 1.15;      // ~66° between the ring's axis and the view axis: an ellipse in front of and behind the glass
 export const RING_ROLL = -0.18;     // a slight slant so the ellipse is not perfectly flat
-const VIEW_HALF = 1.5;              // world half-height seen at z = 0: the ring and its stars fit inside the slot
+const VIEW_HALF = 1.5;              // world half-height seen at z = 0: the ring and its runes fit inside the slot
+export const ATLAS_COLS = 7, ATLAS_ROWS = 4, ATLAS_CELL = 64;
+const ATLAS_SCALE = 3.5;            // rune grid unit → atlas px: the 10 × 14 glyph is 49 px tall in its 64 px cell
+const RUNE_SIZE = 0.11;             // quad half-size in world units: a front rune (nearest the camera) is ~7 px tall on a 104 px orb
 
 // ---- Pure helpers (tested in orb3d.test.js) ----
 export function levelOf(energy, max = MAX) {
@@ -38,6 +41,29 @@ export function runePositions(spin = 0, r = RING_R, tilt = RING_TILT, roll = RIN
     out.push({ x: x0 * cr - y1 * sr, y: x0 * sr + y1 * cr, z });
   }
   return out;
+}
+// Atlas cell of rune i: the 28 glyphs in a 7 × 4 grid, read left to right, top to bottom.
+export function atlasCell(i) {
+  const k = ((i % RUNE_GLYPHS.length) + RUNE_GLYPHS.length) % RUNE_GLYPHS.length;
+  return { col: k % ATLAS_COLS, row: Math.floor(k / ATLAS_COLS) };
+}
+// White glyphs on a transparent 448 × 256 canvas; the shader tints them. Path2D(d) needs no HTML sink.
+export function buildRuneAtlas(doc = document) {
+  const c = doc.createElement('canvas');
+  c.width = ATLAS_COLS * ATLAS_CELL; c.height = ATLAS_ROWS * ATLAS_CELL;
+  const g = c.getContext('2d');
+  g.strokeStyle = '#fff'; g.lineCap = 'square'; g.lineJoin = 'miter';
+  RUNE_GLYPHS.forEach((glyph, i) => {
+    const { col, row } = atlasCell(i);
+    g.save();
+    g.translate((col + 0.5) * ATLAS_CELL, (row + 0.5) * ATLAS_CELL);
+    g.scale(ATLAS_SCALE, ATLAS_SCALE);
+    g.translate(-5, -7);
+    g.lineWidth = 1.6;
+    g.stroke(new Path2D(glyph.d));
+    g.restore();
+  });
+  return c;
 }
 // CSS colour token → [r, g, b, a] in 0..1 (#rgb, #rrggbb, rgb()/rgba() with commas or spaces); null if unreadable.
 export function parseColor(str) {
@@ -100,23 +126,24 @@ const RUNE_VS = `
   void main() {
     vUv = uv; vIndex = aIndex; vDepth = aPos.z;
     vec4 c = modelViewMatrix * vec4(aPos, 1.0);
-    gl_Position = projectionMatrix * (c + vec4(position.xy * uSize, 0.0, 0.0)); // billboard: the star faces the camera
+    gl_Position = projectionMatrix * (c + vec4(position.xy * uSize, 0.0, 0.0)); // billboard: the rune faces the camera, upright
     if (aPos.z * uSide < 0.0) gl_Position = vec4(2.0, 2.0, 2.0, 1.0);        // drawn in the other pass (behind / in front)
   }`;
 const RUNE_FS = `
+  uniform sampler2D uAtlas;
   uniform float uLit, uNew, uFlash, uBeat, uFull; uniform vec3 uOn, uOff, uUrgent; uniform float uOffA;
   varying vec2 vUv; varying float vIndex; varying float vDepth;
   void main() {
-    vec2 p = abs(vUv - 0.5) * 2.0;
-    float flash = uFlash * step(abs(vIndex - uNew), 0.5);
-    float k = 1.0 + flash * 0.6;                                 // the newest star swells once
-    float star = smoothstep(1.02, 0.94, sqrt(p.x * k) + sqrt(p.y * k)); // four-point star (astroid)
+    float k = mod(vIndex, 28.0);
+    vec2 cell = vec2(mod(k, 7.0), floor(k / 7.0));                  // atlasCell(i): column, row from the top
+    float ink = texture2D(uAtlas, vec2((cell.x + vUv.x) / 7.0, 1.0 - (cell.y + 1.0 - vUv.y) / 4.0), -0.75).a; // bias: crisper strokes at ~7 px
+    float flash = uFlash * step(abs(vIndex - uNew), 0.5);           // the newest rune flares once
     float on = step(vIndex + 0.5, uLit);
-    float glow = on * smoothstep(0.75, 0.0, length(p)) * (0.35 + flash);
-    float back = smoothstep(0.2, -0.6, vDepth);                  // stars behind the glass are dimmer
+    float glow = on * smoothstep(0.8, 0.0, length(vUv - 0.5) * 2.0) * flash;
+    float back = smoothstep(0.2, -0.6, vDepth);                     // runes behind the glass are dimmer
     vec3 tone = mix(uOn, uUrgent, uFull);
     vec3 col = mix(uOff, tone, on) + flash * 0.5;
-    float a = (star * mix(uOffA, 1.0, on) + glow * 0.5) * mix(1.0, 0.45, back) * mix(1.0, uBeat, on * uFull);
+    float a = (ink * mix(uOffA, 1.0, on) + glow * 0.5) * mix(1.0, 0.45, back) * mix(1.0, uBeat, on * uFull);
     if (a < 0.01) discard;
     gl_FragColor = vec4(col, a);
   }`;
@@ -144,7 +171,9 @@ export function createOrbs3D(doc = document) {
   const colors = { top: v3(), deep: v3(), glass: v3(), rim: v3(), shine: v3(), on: v3(), off: v3(), urgent: v3(), offA: 0.26 };
   const liquidU = { uFill: { value: 0 }, uTime: { value: 0 }, uRipple: { value: 0 }, uTop: { value: colors.top }, uDeep: { value: colors.deep } };
   const shellU = { uRim: { value: v3() }, uShine: { value: colors.shine }, uRimA: { value: 0.75 } };
-  const runeU = { uSize: { value: 0.11 }, uLit: { value: 0 }, uNew: { value: -1 }, uFlash: { value: 0 }, uBeat: { value: 1 }, uFull: { value: 0 },
+  const atlas = new THREE.CanvasTexture(buildRuneAtlas(doc));
+  atlas.colorSpace = THREE.NoColorSpace; atlas.anisotropy = 4;
+  const runeU = { uAtlas: { value: atlas }, uSize: { value: RUNE_SIZE }, uLit: { value: 0 }, uNew: { value: -1 }, uFlash: { value: 0 }, uBeat: { value: 1 }, uFull: { value: 0 },
     uOn: { value: colors.on }, uOff: { value: colors.off }, uUrgent: { value: colors.urgent }, uOffA: { value: 0.26 } };
 
   const sphere = (r, mat, order) => { const m = new THREE.Mesh(new THREE.SphereGeometry(r, 48, 32), mat); m.renderOrder = order; return m; };
@@ -153,7 +182,7 @@ export function createOrbs3D(doc = document) {
   const wall = sphere(1, shader(WALL_FS, { uGlass: { value: colors.glass } }, { side: THREE.BackSide, transparent: true, depthWrite: false }), 2);
   const shell = sphere(1, shader(SHELL_FS, shellU, { transparent: true, depthWrite: false }), 3);
 
-  // Two passes of the same 56 stars: the far half before the glass, the near half after it.
+  // Two passes of the same 56 runes: the far half before the glass, the near half after it.
   const runeGeo = new THREE.InstancedBufferGeometry().copy(new THREE.PlaneGeometry(2, 2));
   runeGeo.instanceCount = RUNE_COUNT;
   const runePos = new THREE.InstancedBufferAttribute(new Float32Array(RUNE_COUNT * 3), 3);
@@ -216,7 +245,6 @@ export function createOrbs3D(doc = document) {
     shellU.uRim.value.copy(full ? colors.urgent : colors.rim);
     runeU.uLit.value = o.lit; runeU.uFull.value = full ? 1 : 0; runeU.uBeat.value = beat;
     runeU.uNew.value = o.newIdx; runeU.uFlash.value = ripple;
-    runeU.uSize.value = px < 90 ? 0.14 : 0.11; // small orbs (compact, phone) get bigger stars, as in the SVG
 
     renderer.render(scene, cam);
     const g = o.canvas.getContext('2d');

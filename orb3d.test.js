@@ -6,7 +6,7 @@ import { register } from 'node:module';
 // orb3d.js imports Three.js from the CDN (the build rewrites it); in Node, resolve that URL to the installed package.
 register('data:text/javascript,' + encodeURIComponent(
   "export const resolve = (s, c, next) => next(s.startsWith('https://cdn.jsdelivr.net/npm/three@') ? 'three' : s, c);"));
-const { levelOf, ripplePower, beatOpacity, spinAngle, runePositions, parseColor, RIPPLE_MS, BEAT_MS, TURN_MS, RING_R, RING_TILT, createOrbs3D } = await import('./orb3d.js');
+const { levelOf, ripplePower, beatOpacity, spinAngle, runePositions, parseColor, atlasCell, RIPPLE_MS, BEAT_MS, TURN_MS, RING_R, RING_TILT, createOrbs3D } = await import('./orb3d.js');
 
 const near = (a, b, eps = 1e-9) => Math.abs(a - b) < eps;
 
@@ -82,4 +82,11 @@ test('parseColor: the token formats the page uses', () => {
 test('createOrbs3D: no WebGL → null (the SVG orb stays)', () => {
   const doc = { defaultView: {}, createElement: () => ({ getContext: () => null }) };
   assert.equal(createOrbs3D(doc), null);
+});
+
+test('atlasCell: rune i samples cell i % 28 of the 7 × 4 atlas', () => {
+  assert.deepEqual(atlasCell(0), { col: 0, row: 0 });
+  assert.deepEqual(atlasCell(7), { col: 0, row: 1 });
+  assert.deepEqual(atlasCell(27), { col: 6, row: 3 });
+  assert.deepEqual(atlasCell(28), { col: 0, row: 0 });
 });

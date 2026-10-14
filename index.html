@@ -186,9 +186,12 @@
   .so-glass { fill: var(--orb-glass); }
   .so-rim { fill: none; stroke: var(--sky); stroke-width: 1; opacity: .75; }
   .so-shine { fill: var(--fg); opacity: .3; }
-  .so-star { fill: var(--orb-ring-off); transform-box: fill-box; transform-origin: center; }
-  .so-star.lit { fill: var(--orb-ring); }
-  .star-orb.full .so-star.lit { fill: var(--urgent); }
+  /* Atreia runes: one stroke width (in rune-grid units, the path is scaled into the ring) and square ends. No CSS transform
+     here: it would replace the transform attribute that places each rune on the ring. */
+  .so-rune { fill: none; stroke: var(--orb-ring-off); stroke-width: 1.3; stroke-linecap: square; stroke-linejoin: miter; }
+  .so-rune.tick { stroke-width: 2.4; stroke-linecap: butt; }
+  .so-rune.lit { stroke: var(--orb-ring); }
+  .star-orb.full .so-rune.lit { stroke: var(--urgent); }
   .star-orb.full .so-rim { stroke: var(--urgent); }
   .orb-slot .star-orb { position: absolute; inset: 0; }
   /* 3D orb (orb3d.js): drawn into a canvas in the same box; the SVG stays in the DOM, hidden, as the fallback. */
@@ -640,13 +643,13 @@
 
   /* ---- Motion (only when allowed) ---- */
   @media (prefers-reduced-motion: no-preference) {
-    /* The one authored moment: recharge ripple (once, ~900 ms), the new star scales in, the ring beats at the cap.
+    /* The one authored moment: recharge ripple (once, ~900 ms), the new rune flares in, the ring beats at the cap.
        Off with «Reducir animaciones» (body.calm). Only markGain / the cap state start them, never a repaint. */
     body:not(.calm) .star-orb.ripple .so-surface { animation: so-ripple 900ms var(--ease-out) var(--so-ripple-delay, 0ms) 1; }
-    body:not(.calm) .star-orb.ripple .so-star.new { animation: so-star-in 500ms var(--ease-out) var(--so-ripple-delay, 0ms) 1; }
+    body:not(.calm) .star-orb.ripple .so-rune.new { animation: so-rune-in 500ms var(--ease-out) var(--so-ripple-delay, 0ms) 1; }
     body:not(.calm) .orb-slot .star-orb.full .so-ring { animation: so-beat 2.4s ease-in-out var(--so-beat-delay, 0ms) infinite; }
     @keyframes so-ripple { 0% { transform: translate(0, 0); } 35% { transform: translate(-14px, -2.5px); } 100% { transform: translate(-36px, 0); } }
-    @keyframes so-star-in { from { transform: scale(.6); opacity: .4; } to { transform: scale(1); opacity: 1; } }
+    @keyframes so-rune-in { from { stroke-width: 2.6; opacity: .4; } } /* to: the rune's own width */
     @keyframes so-beat { 0%, 100% { opacity: 1; } 50% { opacity: .5; } }
     @keyframes rise { from { opacity: 0; transform: translateY(14px); } to { opacity: 1; transform: none; } }
     .gain { animation: float 1.6s ease-out forwards; }

@@ -2,6 +2,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { buildStarOrb, updateStarOrb, markGain, litStars, syncOrbMotion } from './starorb.js';
+import { RUNE_GLYPHS } from './runes.js';
 
 function fakeDoc() {
   const make = (tag) => ({
@@ -15,7 +16,7 @@ function fakeDoc() {
   return { createElementNS: (_ns, tag) => make(tag) };
 }
 const all = (n, pred, out = []) => { if (pred(n)) out.push(n); for (const c of n.children || []) all(c, pred, out); return out; };
-const stars = (svg) => all(svg, (n) => /(^| )so-star( |$)/.test(n.attrs.class || ''));
+const stars = (svg) => all(svg, (n) => /(^| )so-rune( |$)/.test(n.attrs.class || ''));
 const lit = (svg) => stars(svg).filter((n) => / lit( |$)/.test(' ' + n.attrs.class));
 const level = (svg) => all(svg, (n) => /so-level/.test(n.attrs.class || ''))[0];
 const hasCls = (n, c) => (n.attrs.class || '').split(/\s+/).includes(c);
@@ -29,7 +30,7 @@ test('litStars reutiliza litRunes: floor(energia / 15) entre 0 y 56', () => {
   assert.equal(litStars(NaN), 0);
 });
 
-test('buildStarOrb: svg star-orb con 56 estrellas y encendidas = floor(energia/15)', () => {
+test('buildStarOrb: svg star-orb con 56 runas y encendidas = floor(energia/15)', () => {
   const svg = buildStarOrb(fakeDoc(), { energy: 300, id: 'a' });
   assert.equal(svg.tag, 'svg');
   assert.ok(hasCls(svg, 'star-orb'));
@@ -39,7 +40,7 @@ test('buildStarOrb: svg star-orb con 56 estrellas y encendidas = floor(energia/1
   assert.equal(lit(svg).length, 20);
   // las encendidas son las primeras (sentido horario desde arriba)
   assert.ok(stars(svg).slice(0, 20).every((s) => hasCls(s, 'lit')));
-  assert.ok(stars(svg).every((s) => s.tag === 'path' && /^M[\d.-]+ [\d.-]+L/.test(s.attrs.d)));
+  assert.ok(stars(svg).every((s) => s.tag === 'path'));
 });
 
 test('buildStarOrb: tamano pedido, sin role ni aria-label (los pone quien llama)', () => {
@@ -119,7 +120,7 @@ test('markGain no se acumula y se quita en animationend de la ondulacion', () =>
   markGain(svg);
   assert.equal(svg.attrs.class.split(/\s+/).filter((c) => c === 'ripple').length, 1);
   assert.equal((svg.listeners.animationend || []).length, 1);
-  svg.fire('animationend', { animationName: 'so-star-in' }); // otra animacion: sigue
+  svg.fire('animationend', { animationName: 'so-rune-in' }); // otra animacion: sigue
   assert.ok(hasCls(svg, 'ripple'));
   svg.fire('animationend', { animationName: 'so-ripple' });
   assert.ok(!hasCls(svg, 'ripple'));
@@ -154,4 +155,26 @@ test('buildStarOrb con tope 560: 280 de energía enciende 28 estrellas', () => {
   const svg = buildStarOrb(fakeDoc(), { energy: 280, max: 560, id: 'n' });
   assert.equal(svg.attrs['data-lit'], '28');
   assert.equal(litStars(280, 560), 28);
+});
+
+test('el anillo tiene 56 runas de Atreia con su trazo', () => {
+  const svg = buildStarOrb(fakeDoc(), { energy: 420, max: 840 });
+  const runes = stars(svg);
+  assert.equal(runes.length, 56);
+  assert.equal(runes[0].getAttribute('d'), RUNE_GLYPHS[0].d);
+  assert.equal(runes[29].getAttribute('d'), RUNE_GLYPHS[1].d);
+  assert.equal(svg.getAttribute('data-lit'), '28');
+  // centrada en su punto del anillo, con la parte de arriba hacia fuera
+  assert.match(runes[0].getAttribute('transform'), /^translate\(52 6\) rotate\(0\) scale\([\d.]+\) translate\(-5 -7\)$/);
+  assert.match(runes[14].getAttribute('transform'), /^translate\(98 52\) rotate\(90\) /);
+});
+test('mini orbe (44 px): marcas cortas en vez de runas', () => {
+  const svg = buildStarOrb(fakeDoc(), { energy: 0, size: 44 });
+  const ticks = all(svg, (n) => hasCls(n, 'so-rune') && hasCls(n, 'tick'));
+  assert.equal(ticks.length, 56);
+  assert.equal(stars(svg).length, 56);
+  // un trazo radial de 3 px en pantalla (3 px a 44 px = 3 * 104 / 44 unidades del viewBox)
+  const [, x1, y1, x2, y2] = /^M([\d.-]+) ([\d.-]+)L([\d.-]+) ([\d.-]+)$/.exec(ticks[0].getAttribute('d')).map(Number);
+  assert.ok(Math.abs(x1 - 52) < 0.01 && Math.abs(x2 - 52) < 0.01);
+  assert.ok(Math.abs(Math.abs(y2 - y1) - 3 * 104 / 44) < 0.02);
 });

@@ -1,17 +1,20 @@
-// The drawn orb: a glass sphere of liquid light inside a ring of 56 four-point stars (one per 1/56 of the cap).
+// The drawn orb: a glass sphere of liquid light inside a ring of 56 Atreia runes (one per 1/56 of the cap).
 // Pure SVG built with createElementNS and fixed attribute names (strict CSP / Trusted Types: no innerHTML).
 // Colours come from CSS variables and every animation is CSS (see index.html); this module only sets classes
 // and attributes. updateStarOrb never recreates nodes and never touches the `ripple` class, so a repaint
 // (the page repaints every second for its clocks) cannot restart an animation: only markGain starts the ripple.
-import { RUNE_COUNT, litRunes, runePoint } from './runes.js';
+import { RUNE_COUNT, litRunes, runePoint, runeGlyph } from './runes.js';
 
 const SVG_NS = 'http://www.w3.org/2000/svg';
 const VIEW = 104, C = VIEW / 2;
 const GLASS_R = 36;                 // glass sphere radius
-const RING_R = 46;                  // radius of the star ring
+const RING_R = 46;                  // radius of the rune ring
+const RUNE_SCALE = 0.5;             // 10 × 14 grid → 7 units tall on the 104 ring (pitch ~5.2): neighbours do not touch
+const TICK_PX = 3;                  // mini orbs: a short radial mark of 3 screen px instead of a rune
 const Y_EMPTY = 91, Y_FULL = 13;    // liquid surface origin: just below the glass / above it with the crests covered
 const WAVE_LEN = 36, WAVE_AMP = 2.2;
 const n2 = (v) => v.toFixed(2);
+const num = (v) => String(Number(v.toFixed(2)));
 
 export const litStars = (energy, max) => litRunes(energy, max);
 
@@ -41,12 +44,6 @@ function surfacePath() {
   return `${d}V90H${-WAVE_LEN}Z`;
 }
 
-// Four-point star centred on (x, y): outer radius R, inner radius r.
-function starPath(x, y, R, r) {
-  const pts = [[0, -R], [r, -r], [R, 0], [r, r], [0, R], [-r, r], [-R, 0], [-r, -r]];
-  return pts.map(([dx, dy], i) => `${i ? 'L' : 'M'}${n2(x + dx)} ${n2(y + dy)}`).join('') + 'Z';
-}
-
 export function buildStarOrb(doc, { energy = 0, max = 840, state = 'normal', size = 104, id = 'orb' } = {}) {
   const uid = String(id).replace(/[^A-Za-z0-9_-]/g, '_');
   const svg = mk(doc, 'svg', { viewBox: `0 0 ${VIEW} ${VIEW}`, width: size, height: size, focusable: 'false' });
@@ -65,13 +62,17 @@ export function buildStarOrb(doc, { energy = 0, max = 840, state = 'normal', siz
   const rim = mk(doc, 'circle', { class: 'so-rim', cx: C, cy: C, r: GLASS_R });
   const shine = mk(doc, 'path', { class: 'so-shine', d: 'M33 40Q36 30 46 27Q39 31 37 42Z' });
 
-  // Small orbs (friends list) get bigger stars so the ring still reads at 44 px.
-  const R = size <= 60 ? 4 : 3.3, r = R * 0.34;
+  // Each rune is centred on its ring point with its top pointing outward. Mini orbs (friends list, 44 px) get a short
+  // radial tick instead: a rune would be 3 px tall there.
   const ring = mk(doc, 'g', { class: 'so-ring' });
   const stars = [];
+  const tick = size <= 60, half = TICK_PX * VIEW / size / 2;
   for (let i = 0; i < RUNE_COUNT; i++) {
     const p = runePoint(i, RING_R, C);
-    const s = mk(doc, 'path', { class: 'so-star', d: starPath(p.x, p.y, R, r) });
+    const deg = num(p.angle * 180 / Math.PI + 90);
+    const s = tick
+      ? mk(doc, 'path', { class: 'so-rune tick', d: `M${n2(C)} ${n2(C - RING_R - half)}L${n2(C)} ${n2(C - RING_R + half)}`, transform: `rotate(${deg} ${C} ${C})` })
+      : mk(doc, 'path', { class: 'so-rune', d: runeGlyph(i).d, transform: `translate(${num(p.x)} ${num(p.y)}) rotate(${deg}) scale(${RUNE_SCALE}) translate(-5 -7)` });
     stars.push(s); ring.append(s);
   }
   svg.append(defs, glass, liquid, rim, shine, ring);
@@ -81,7 +82,9 @@ export function buildStarOrb(doc, { energy = 0, max = 840, state = 'normal', siz
   return svg;
 }
 
-// Level and stars follow the energy; state sets full/near. Same nodes, only attributes change.
+const base = (n) => classes(n).filter((c) => c === 'so-rune' || c === 'tick');
+
+// Level and runes follow the energy; state sets full/near. Same nodes, only attributes change.
 export function updateStarOrb(svg, { energy = 0, state = 'normal', max } = {}, initial = false) {
   const ref = refs.get(svg);
   if (!ref) return svg;
@@ -94,7 +97,7 @@ export function updateStarOrb(svg, { energy = 0, state = 'normal', max } = {}, i
   const lit = litStars(energy, ref.max);
   if (lit !== ref.lit || initial) {
     const rose = !initial && lit > ref.lit;
-    ref.stars.forEach((s, i) => setClass(s, ['so-star', ...(i < lit ? ['lit'] : []), ...(rose && i === lit - 1 ? ['new'] : [])]));
+    ref.stars.forEach((s, i) => setClass(s, [...base(s), ...(i < lit ? ['lit'] : []), ...(rose && i === lit - 1 ? ['new'] : [])]));
     ref.lit = lit;
     svg.setAttribute('data-lit', String(lit));
   }
