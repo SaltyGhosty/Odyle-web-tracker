@@ -82,9 +82,9 @@ const schemas = {
     },
   },
   characters: {
-    allowed: ['name', 'classId', 'energy', 'recordedAt', 'order', 'cp', 'cpGoal', 'notes'],
+    allowed: ['name', 'classId', 'energy', 'recordedAt', 'order', 'cp', 'cpGoal', 'notes', 'account'],
     required: ['name'],
-    fields: { name: (v) => str(v) && v.trim().length > 0, classId: str, energy: numOrNull, recordedAt: numOrNull, order: numOrNull, cp: numOrNull, cpGoal: numOrNull, notes: str },
+    fields: { name: (v) => str(v) && v.trim().length > 0, classId: str, energy: numOrNull, recordedAt: numOrNull, order: numOrNull, cp: numOrNull, cpGoal: numOrNull, notes: str, account: (v) => v === 'normal' || v === 'premium' },
   },
   'settings:presets': { allowed: ['items'], fields: { items: itemsOf } },
   'settings:tasks': { allowed: ['items'], fields: { items: itemsOf } },

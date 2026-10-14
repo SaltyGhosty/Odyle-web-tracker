@@ -55,6 +55,7 @@ export default async function profilesRoutes(app) {
         classId: typeof d.classId === 'string' ? d.classId : null,
         energy: typeof d.energy === 'number' ? d.energy : null,
         recordedAt: typeof d.recordedAt === 'number' ? d.recordedAt : null,
+        ...(d.account === 'normal' || d.account === 'premium' ? { account: d.account } : {}),
       }));
     }
     return { profile: toPublic(p), relation: rel, characters };
