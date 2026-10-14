@@ -476,6 +476,7 @@ check('cerrar todas: la cookie de renovación vieja de B no renueva', (await rep
   // texto de usuario igual a un texto de la interfaz: no se traduce.
   // __keeplang evita que el script de arranque vuelva a forzar 'es' (sessionStorage sobrevive a recargar en la pestaña).
   await pd.evaluate(() => { sessionStorage.setItem('__keeplang', '1'); localStorage.setItem('odyle-lang', 'en'); });
+  await collectCsp(pd, 'D');
   await pd.reload(); await pd.waitForSelector('#profile-chip:not([hidden])');
   await pd.click('[data-tab="chat"]'); await pd.click('#social-chat .conv'); await pd.waitForSelector('#social-chat .msg-text');
   check('i18n: la pestaña se traduce (Friends) pero el mensaje «Amigos» queda literal',
@@ -484,6 +485,7 @@ check('cerrar todas: la cookie de renovación vieja de B no renueva', (await rep
 
   // móvil: el mensaje largo no crea scroll horizontal
   await pd.setViewportSize({ width: 375, height: 812 });
+  await collectCsp(pd, 'D');
   await pd.reload(); await pd.waitForSelector('#profile-chip:not([hidden])');
   await pd.click('[data-tab="chat"]'); await pd.click('#social-chat .conv'); await pd.waitForSelector('#social-chat .msg-text');
   check('móvil: sin scroll horizontal con un mensaje de 600 caracteres', await pd.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth));
@@ -492,8 +494,14 @@ check('cerrar todas: la cookie de renovación vieja de B no renueva', (await rep
 
   // tema: Sombra se guarda en prefs.theme, sobrevive a recargar y guardar el perfil no lo cambia
   await pc.click('#theme-slot-header [data-theme-choice="asmodian"]');
-  await pc.waitForTimeout(600);
-  check('tema: Sombra se guarda en el servidor', (await dbRows('members/')).some((r) => r.path.endsWith('/settings/prefs') && r.data.theme === 'asmodian'));
+  const cUid = (await dbRows('members/')).find((r) => r.data.profile?.nick === 'CarlaLuz')?.path.split('/')[1];
+  let themeSaved = false;
+  for (let i = 0; i < 50 && !themeSaved; i++) {
+    themeSaved = (await dbRows('members/' + cUid + '/settings/prefs')).some((r) => r.path === 'members/' + cUid + '/settings/prefs' && r.data.theme === 'asmodian');
+    if (!themeSaved) await new Promise((r) => setTimeout(r, 100));
+  }
+  check('tema: Sombra se guarda en el servidor (prefs de C)', !!cUid && themeSaved);
+  await collectCsp(pc, 'C');
   await pc.reload(); await pc.waitForSelector('#profile-chip:not([hidden])');
   check('tema: sigue en Sombra tras recargar', (await pc.evaluate(() => document.documentElement.dataset.faction)) === 'asmodian');
   await pc.click('#profile-chip');
@@ -508,8 +516,9 @@ check('cerrar todas: la cookie de renovación vieja de B no renueva', (await rep
   await pd.click('#profile-form button[type=submit]');
   await pd.waitForSelector('#profile-modal', { state: 'hidden' });
   await pc.click('[data-tab="buscar"]');
+  await pc.fill('#search-q', '');
   await pc.fill('#search-q', 'Dani');
-  await pc.waitForSelector('#social-buscar .social-note');
+  await pc.waitForSelector('#social-buscar >> text=Nadie se llama así');
   check('privacidad: quien se oculta no aparece en Buscar', !/DaniSombra/.test(await text(pc, '#social-buscar')));
 
   // bloqueo: D bloquea a C desde la ficha; C ya no puede escribir
@@ -519,12 +528,15 @@ check('cerrar todas: la cookie de renovación vieja de B no renueva', (await rep
   await pd.click('.sheet[open] button.danger');
   await pd.click('.sheet[open] button.danger');
   await pd.waitForSelector('.sheet[open]', { state: 'detached' }).catch(() => {});
-  await pc.click('[data-tab="chat"]'); await pc.click('#social-chat .conv');
-  await pc.waitForTimeout(500);
-  const blockedNow = await pc.locator('#chat-text').count() === 0 || await (async () => {
-    await pc.fill('#chat-text', 'hola'); await pc.press('#chat-text', 'Enter'); await pc.waitForTimeout(600);
-    return /Ya no sois amigos/.test(await text(pc, '#social-chat'));
-  })();
+  await pc.click('[data-tab="chat"]');
+  await pc.waitForSelector('#social-chat .conv');
+  await pc.click('#social-chat .conv');
+  const endedNote = pc.locator('#social-chat .social-note', { hasText: 'Ya no sois amigos' });
+  let blockedNow = await endedNote.waitFor({ timeout: 3000 }).then(() => true, () => false);
+  if (!blockedNow && (await pc.locator('#chat-text').count()) === 1) {
+    await pc.fill('#chat-text', 'hola'); await pc.press('#chat-text', 'Enter');
+    blockedNow = await endedNote.waitFor({ timeout: 5000 }).then(() => true, () => false);
+  }
   check('bloqueo: C ya no puede escribir a D', blockedNow);
 
   await collectCsp(pc, 'C'); await collectCsp(pd, 'D');
