@@ -636,7 +636,7 @@ for (const l of Object.keys(THEME)) for (const [k, v] of Object.entries(THEME[l]
 // Social screens, web only (2026-10-14). Every S('...') in web/social-*.js must be here (i18n-social.test.js).
 const SOCIAL = {
   en: { Amigos: 'Friends', Chat: 'Chat', Buscar: 'Search', 'Reconectando…': 'Reconnecting…', 'En línea': 'Online', Elyos: 'Elyos',
-    Asmodiano: 'Asmodian', '{0} de 840 de energía': '{0} of 840 energy', 'Energía no compartida': 'Energy not shared',
+    Asmodiano: 'Asmodian', '{0} de {1} de energía': '{0} of {1} energy', 'Energía no compartida': 'Energy not shared',
     Privacidad: 'Privacy', 'Aparecer en Buscar': 'Appear in Search', 'Compartir mi energía con amigos': 'Share my energy with friends',
     'Spam': 'Spam',
     'Insultos o acoso': 'Insults or harassment',
@@ -719,7 +719,7 @@ const SOCIAL = {
     'El coste va de 0 a 840 OD': 'Cost ranges from 0 to 840 OD',
   },
   it: { Amigos: 'Amici', Chat: 'Chat', Buscar: 'Cerca', 'Reconectando…': 'Riconnessione…', 'En línea': 'Online', Elyos: 'Elyos',
-    Asmodiano: 'Asmodiano', '{0} de 840 de energía': '{0} su 840 di energia', 'Energía no compartida': 'Energia non condivisa',
+    Asmodiano: 'Asmodiano', '{0} de {1} de energía': '{0} su {1} di energia', 'Energía no compartida': 'Energia non condivisa',
     Privacidad: 'Privacy', 'Aparecer en Buscar': 'Mostrami in Cerca', 'Compartir mi energía con amigos': 'Condividi la mia energia con gli amici',
     'Spam': 'Spam',
     'Insultos o acoso': 'Insulti o molestie',
@@ -802,7 +802,7 @@ const SOCIAL = {
     'El coste va de 0 a 840 OD': 'Il costo va da 0 a 840 OD',
   },
   pt: { Amigos: 'Amigos', Chat: 'Chat', Buscar: 'Buscar', 'Reconectando…': 'Reconectando…', 'En línea': 'Online', Elyos: 'Elyos',
-    Asmodiano: 'Asmodiano', '{0} de 840 de energía': '{0} de 840 de energia', 'Energía no compartida': 'Energia não compartilhada',
+    Asmodiano: 'Asmodiano', '{0} de {1} de energía': '{0} de {1} de energia', 'Energía no compartida': 'Energia não compartilhada',
     Privacidad: 'Privacidade', 'Aparecer en Buscar': 'Aparecer na Busca', 'Compartir mi energía con amigos': 'Compartilhar minha energia com amigos',
     'Spam': 'Spam',
     'Insultos o acoso': 'Insultos ou assédio',
@@ -919,16 +919,24 @@ for (const l of Object.keys(SOCIAL_ERRORS)) for (const [k, v] of Object.entries(
 
 // Frame: rail, bottom bar and "more" sheet (2026-10-14).
 const FRAME = {
-  en: { Resumen: 'Summary', 'Ver todos': 'See all', 'En curso': 'In progress', 'En línea': 'Online', 'Más': 'More', 'Más secciones': 'More sections', Perfil: 'Profile', Secciones: 'Sections', 'Odyle Tracker': 'Odyle Tracker', 'Gastar': 'Spend', 'Más acciones: {0}': 'More actions: {0}', 'Acciones de {0}': 'Actions for {0}', 'Lleno · perdiendo energía': 'Full · losing energy', '{0} está al tope · pierde 15 OD cada 3 h': '{0} is at cap · loses 15 OD every 3 h', '{0} personajes al tope · pierden 15 OD cada 3 h': '{0} characters at cap · losing 15 OD every 3 h', '{0} se llena en {1} · perderías {2} OD si no juegas antes': '{0} fills up in {1} · you would lose {2} OD if you do not play before', 'Nadie al tope': 'Nobody at cap', 'Nadie al tope · el próximo, {0} en {1}': 'Nobody at cap · next up, {0} in {1}', 'Tareas {0}/{1}': 'Tasks {0}/{1}', 'Ocultar tareas': 'Hide tasks' },
-  it: { Resumen: 'Riepilogo', 'Ver todos': 'Vedi tutti', 'En curso': 'In corso', 'En línea': 'Online', 'Más': 'Altro', 'Más secciones': 'Altre sezioni', Perfil: 'Profilo', Secciones: 'Sezioni', 'Odyle Tracker': 'Odyle Tracker', 'Gastar': 'Spendi', 'Más acciones: {0}': 'Altre azioni: {0}', 'Acciones de {0}': 'Azioni di {0}', 'Lleno · perdiendo energía': 'Pieno · energia in perdita', '{0} está al tope · pierde 15 OD cada 3 h': '{0} è al massimo · perde 15 OD ogni 3 h', '{0} personajes al tope · pierden 15 OD cada 3 h': '{0} personaggi al massimo · perdono 15 OD ogni 3 h', '{0} se llena en {1} · perderías {2} OD si no juegas antes': '{0} si riempie tra {1} · perderesti {2} OD se non giochi prima', 'Nadie al tope': 'Nessuno al massimo', 'Nadie al tope · el próximo, {0} en {1}': 'Nessuno al massimo · il prossimo, {0} tra {1}', 'Tareas {0}/{1}': 'Attività {0}/{1}', 'Ocultar tareas': 'Nascondi attività' },
-  pt: { Resumen: 'Resumo', 'Ver todos': 'Ver todos', 'En curso': 'Em andamento', 'En línea': 'Online', 'Más': 'Mais', 'Más secciones': 'Mais seções', Perfil: 'Perfil', Secciones: 'Seções', 'Odyle Tracker': 'Odyle Tracker', 'Gastar': 'Gastar', 'Más acciones: {0}': 'Mais ações: {0}', 'Acciones de {0}': 'Ações de {0}', 'Lleno · perdiendo energía': 'Cheio · perdendo energia', '{0} está al tope · pierde 15 OD cada 3 h': '{0} está no limite · perde 15 OD a cada 3 h', '{0} personajes al tope · pierden 15 OD cada 3 h': '{0} personagens no limite · perdem 15 OD a cada 3 h', '{0} se llena en {1} · perderías {2} OD si no juegas antes': '{0} enche em {1} · você perderia {2} OD se não jogar antes', 'Nadie al tope': 'Ninguém no limite', 'Nadie al tope · el próximo, {0} en {1}': 'Ninguém no limite · o próximo, {0} em {1}', 'Tareas {0}/{1}': 'Tarefas {0}/{1}', 'Ocultar tareas': 'Ocultar tarefas' },
+  en: { Resumen: 'Summary', 'Ver todos': 'See all', 'En curso': 'In progress', 'En línea': 'Online', 'Más': 'More', 'Más secciones': 'More sections', Perfil: 'Profile', Secciones: 'Sections', 'Odyle Tracker': 'Odyle Tracker', 'Gastar': 'Spend', 'Más acciones: {0}': 'More actions: {0}', 'Acciones de {0}': 'Actions for {0}', 'Lleno · perdiendo energía': 'Full · losing energy', '{0} está al tope · pierde {1} OD cada 3 h': '{0} is at cap · loses {1} OD every 3 h', '{0} personajes al tope · pierden {1} OD cada 3 h': '{0} characters at cap · losing {1} OD every 3 h', '{0} personajes al tope · pierden energía cada 3 h': '{0} characters at cap · losing energy every 3 h', '{0} se llena en {1} · perderías {2} OD si no juegas antes': '{0} fills up in {1} · you would lose {2} OD if you do not play before', 'Nadie al tope': 'Nobody at cap', 'Nadie al tope · el próximo, {0} en {1}': 'Nobody at cap · next up, {0} in {1}', 'Tareas {0}/{1}': 'Tasks {0}/{1}', 'Ocultar tareas': 'Hide tasks' },
+  it: { Resumen: 'Riepilogo', 'Ver todos': 'Vedi tutti', 'En curso': 'In corso', 'En línea': 'Online', 'Más': 'Altro', 'Más secciones': 'Altre sezioni', Perfil: 'Profilo', Secciones: 'Sezioni', 'Odyle Tracker': 'Odyle Tracker', 'Gastar': 'Spendi', 'Más acciones: {0}': 'Altre azioni: {0}', 'Acciones de {0}': 'Azioni di {0}', 'Lleno · perdiendo energía': 'Pieno · energia in perdita', '{0} está al tope · pierde {1} OD cada 3 h': '{0} è al massimo · perde {1} OD ogni 3 h', '{0} personajes al tope · pierden {1} OD cada 3 h': '{0} personaggi al massimo · perdono {1} OD ogni 3 h', '{0} personajes al tope · pierden energía cada 3 h': '{0} personaggi al massimo · perdono energia ogni 3 h', '{0} se llena en {1} · perderías {2} OD si no juegas antes': '{0} si riempie tra {1} · perderesti {2} OD se non giochi prima', 'Nadie al tope': 'Nessuno al massimo', 'Nadie al tope · el próximo, {0} en {1}': 'Nessuno al massimo · il prossimo, {0} tra {1}', 'Tareas {0}/{1}': 'Attività {0}/{1}', 'Ocultar tareas': 'Nascondi attività' },
+  pt: { Resumen: 'Resumo', 'Ver todos': 'Ver todos', 'En curso': 'Em andamento', 'En línea': 'Online', 'Más': 'Mais', 'Más secciones': 'Mais seções', Perfil: 'Perfil', Secciones: 'Seções', 'Odyle Tracker': 'Odyle Tracker', 'Gastar': 'Gastar', 'Más acciones: {0}': 'Mais ações: {0}', 'Acciones de {0}': 'Ações de {0}', 'Lleno · perdiendo energía': 'Cheio · perdendo energia', '{0} está al tope · pierde {1} OD cada 3 h': '{0} está no limite · perde {1} OD a cada 3 h', '{0} personajes al tope · pierden {1} OD cada 3 h': '{0} personagens no limite · perdem {1} OD a cada 3 h', '{0} personajes al tope · pierden energía cada 3 h': '{0} personagens no limite · perdem energia a cada 3 h', '{0} se llena en {1} · perderías {2} OD si no juegas antes': '{0} enche em {1} · você perderia {2} OD se não jogar antes', 'Nadie al tope': 'Ninguém no limite', 'Nadie al tope · el próximo, {0} en {1}': 'Ninguém no limite · o próximo, {0} em {1}', 'Tareas {0}/{1}': 'Tarefas {0}/{1}', 'Ocultar tareas': 'Ocultar tarefas' },
 };
 for (const l of Object.keys(FRAME)) for (const [k, v] of Object.entries(FRAME[l])) if (!(k in STRINGS[l])) STRINGS[l][k] = v;
 
 // Page head, fan notice and spend button (2026-10-14).
 const HEAD = {
-  en: { '+15 OD en': '+15 OD in', '1 personaje': '1 character', '{0} personajes': '{0} characters', 'tope 840': 'cap 840', 'Gastos': 'Spending', 'Sitio de fans no oficial · no afiliado a NCSOFT': 'Unofficial fan site · not affiliated with NCSOFT' },
-  it: { '+15 OD en': '+15 OD tra', '1 personaje': '1 personaggio', '{0} personajes': '{0} personaggi', 'tope 840': 'massimo 840', 'Gastos': 'Spese', 'Sitio de fans no oficial · no afiliado a NCSOFT': 'Sito di fan non ufficiale · non affiliato a NCSOFT' },
-  pt: { '+15 OD en': '+15 OD em', '1 personaje': '1 personagem', '{0} personajes': '{0} personagens', 'tope 840': 'limite 840', 'Gastos': 'Gastos', 'Sitio de fans no oficial · no afiliado a NCSOFT': 'Site de fãs não oficial · não afiliado à NCSOFT' },
+  en: { '+{0} OD en': '+{0} OD in', 'Recarga en': 'Recharge in', '1 personaje': '1 character', '{0} personajes': '{0} characters', 'tope {0}': 'cap {0}', 'Gastos': 'Spending', 'Sitio de fans no oficial · no afiliado a NCSOFT': 'Unofficial fan site · not affiliated with NCSOFT' },
+  it: { '+{0} OD en': '+{0} OD tra', 'Recarga en': 'Ricarica tra', '1 personaje': '1 personaggio', '{0} personajes': '{0} personaggi', 'tope {0}': 'massimo {0}', 'Gastos': 'Spese', 'Sitio de fans no oficial · no afiliado a NCSOFT': 'Sito di fan non ufficiale · non affiliato a NCSOFT' },
+  pt: { '+{0} OD en': '+{0} OD em', 'Recarga en': 'Recarga em', '1 personaje': '1 personagem', '{0} personajes': '{0} personagens', 'tope {0}': 'limite {0}', 'Gastos': 'Gastos', 'Sitio de fans no oficial · no afiliado a NCSOFT': 'Site de fãs não oficial · não afiliado à NCSOFT' },
 };
 for (const l of Object.keys(HEAD)) for (const [k, v] of Object.entries(HEAD[l])) if (!(k in STRINGS[l])) STRINGS[l][k] = v;
+
+// Account per character: normal or premium (2026-10-14).
+const ACCOUNT = {
+  en: { Cuenta: 'Account', Normal: 'Normal', Premium: 'Premium', 'Normal: +15 cada 3 h, tope 560 · Premium: +30 cada 3 h, tope 840': 'Normal: +15 every 3 h, cap 560 · Premium: +30 every 3 h, cap 840' },
+  it: { Cuenta: 'Account', Normal: 'Normale', Premium: 'Premium', 'Normal: +15 cada 3 h, tope 560 · Premium: +30 cada 3 h, tope 840': 'Normale: +15 ogni 3 h, massimo 560 · Premium: +30 ogni 3 h, massimo 840' },
+  pt: { Cuenta: 'Conta', Normal: 'Normal', Premium: 'Premium', 'Normal: +15 cada 3 h, tope 560 · Premium: +30 cada 3 h, tope 840': 'Normal: +15 a cada 3 h, limite 560 · Premium: +30 a cada 3 h, limite 840' },
+};
+for (const l of Object.keys(ACCOUNT)) for (const [k, v] of Object.entries(ACCOUNT[l])) if (!(k in STRINGS[l])) STRINGS[l][k] = v;

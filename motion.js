@@ -31,6 +31,7 @@ export function rollValue(from, to, t) {
 }
 
 // Characters that crossed into full since the previous render (not ones already full or new).
+// Each snapshot carries its account cap (max); `max` is the fallback for entries without one.
 export function becameFull(prev, rows, max) {
-  return rows.filter(r => { const p = prev.get(r.id); return p && p.energy < max && r.energy >= max; }).map(r => r.id);
+  return rows.filter(r => { const p = prev.get(r.id); return p && p.energy < (p.max ?? max) && r.energy >= (r.max ?? max); }).map(r => r.id);
 }

@@ -7,31 +7,31 @@ const T0 = Date.UTC(2026, 9, 11, 0, 0); // recharges at 00:00, 03:00, 06:00…
 
 test('runsToday: mazmorras ahora y antes de medianoche', () => {
   // 10:00 → recargas a las 12, 15, 18, 21 (4 × 15 = 60) hasta las 23:59
-  const r = runsToday(100, 40, T0, T0 + 10 * H, T0 + D - 1);
+  const r = runsToday(100, 40, T0, T0 + 10 * H, T0 + D - 1, 15);
   assert.deepEqual(r, { now: 2, byMidnight: 4 });
 });
 test('runsToday: sin hora de recarga solo cuenta lo que hay', () => {
-  assert.deepEqual(runsToday(95, 40, null, T0, T0 + D), { now: 2, byMidnight: 2 });
+  assert.deepEqual(runsToday(95, 40, null, T0, T0 + D, 15), { now: 2, byMidnight: 2 });
 });
 test('runsToday: coste inválido', () => {
-  assert.deepEqual(runsToday(500, 0, T0, T0, T0 + D), { now: 0, byMidnight: 0 });
+  assert.deepEqual(runsToday(500, 0, T0, T0, T0 + D, 15), { now: 0, byMidnight: 0 });
 });
 test('simulate: lleno y sin jugar desperdicia 120 de OD al día', () => {
-  const s = simulate(840, T0, T0 + H, 0, 40, 7);
+  const s = simulate(840, T0, T0 + H, 0, 40, 7, { regen: 15, max: 840 });
   assert.equal(s.wasteOD, 7 * 120);
   assert.equal(s.emptyOn, null);
 });
 test('simulate: 3 mazmorras de 40 al día = 120, igual a lo que recarga, sin desperdicio', () => {
-  const s = simulate(400, T0, T0 + H, 3, 40, 7);
+  const s = simulate(400, T0, T0 + H, 3, 40, 7, { regen: 15, max: 840 });
   assert.equal(s.wasteOD, 0);
   assert.equal(s.emptyOn, null);
 });
 test('simulate: demasiadas mazmorras se queda sin OD', () => {
-  const s = simulate(80, T0, T0 + H, 10, 40, 7);
+  const s = simulate(80, T0, T0 + H, 10, 40, 7, { regen: 15, max: 840 });
   assert.ok(s.emptyOn !== null && s.emptyOn > T0 + H && s.emptyOn < T0 + 2 * D);
 });
 test('simulate: el desperdicio nunca supera lo recargado', () => {
-  const s = simulate(830, T0, T0 + H, 1, 40, 7);
+  const s = simulate(830, T0, T0 + H, 1, 40, 7, { regen: 15, max: 840 });
   assert.ok(s.wasteOD > 0 && s.wasteOD <= 7 * 120);
 });
 test('cpEta: fecha estimada por el ritmo', () => {

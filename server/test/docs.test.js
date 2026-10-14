@@ -285,6 +285,22 @@ test('límites de texto por colección', async () => {
   await s.app.close();
 });
 
+test('account: solo normal|premium', async () => {
+  const s = await setup();
+  const p = `members/${s.ids.A}/characters/c1`;
+  for (const account of ['normal', 'premium']) {
+    assert.equal((await s.call('PUT', p, 'A', { name: 'x', account })).statusCode, 200);
+    assert.equal((await get(s, p, 'A')).json().data.account, account);
+  }
+  const bad = await s.call('PUT', p, 'A', { name: 'x', classId: 'a', energy: 'zz' });
+  for (const account of ['gold', 1, null]) {
+    const r = await s.call('PUT', p, 'A', { name: 'x', account });
+    assert.equal(r.statusCode, bad.statusCode);
+    assert.deepEqual(r.json(), { error: 'Valor no válido en «account»' });
+  }
+  await s.app.close();
+});
+
 test('profundidad > 8, > 500 claves, cuerpo no objeto, claves de control → 400', async () => {
   const s = await setup();
   const p = `members/${s.ids.A}/settings/presets`;

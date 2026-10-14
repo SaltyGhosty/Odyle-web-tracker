@@ -94,6 +94,13 @@
   .more-sheet .theme-switch button, .rail-foot .theme-switch button { min-height: 44px; }
   .theme-switch button[aria-pressed="true"] { background: var(--gold); color: var(--on-gold); font-weight: 700; }
   .label-like { font-size: .8125rem; font-weight: 500; color: var(--muted); }
+  /* Account picker: two radios drawn as the Luz / Sombra switch. */
+  .account-pick { border: none; margin: 0; padding: 0; min-width: 0; display: flex; flex-direction: column; gap: 4px; }
+  .account-pick legend { padding: 0; margin-bottom: 4px; font-size: .8125rem; font-weight: 500; color: var(--muted); }
+  .account-pick label { position: relative; display: flex; align-items: center; justify-content: center; min-height: 44px; padding: 4px 14px; color: var(--muted); font-size: .875rem; cursor: pointer; }
+  .account-pick input { position: absolute; inset: 0; width: 100%; height: 100%; min-height: 0; margin: 0; padding: 0; opacity: 0; cursor: pointer; }
+  .account-pick label:has(input:checked) { background: var(--gold); color: var(--on-gold); font-weight: 700; }
+  .account-pick label:has(input:focus-visible) { outline: 2px solid var(--sky); outline-offset: 2px; }
 
   /* ---- Controls ---- */
   button, input, select, textarea { font: inherit; color: inherit; }
@@ -148,6 +155,7 @@
   .who { display: flex; flex-wrap: wrap; align-items: baseline; gap: 2px 10px; min-width: 0; }
   .r-text .name { font-family: var(--font-display); font-weight: 400; font-size: 1.5rem; line-height: 1.2; letter-spacing: .01em; max-width: 100%; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .cls-name { margin: 0; font-size: .6875rem; font-weight: 700; letter-spacing: .14em; text-transform: uppercase; color: var(--sky); }
+  .acct-mark { display: inline-block; font-size: .6875rem; font-weight: 700; letter-spacing: .14em; text-transform: uppercase; color: var(--gold); border: 1px solid var(--line); border-radius: 0; padding: 2px 6px; }
   .r-num { grid-area: num; justify-content: flex-end; }
   .r-num .num { font-size: 3rem; font-weight: 800; line-height: 1; letter-spacing: -.01em; color: var(--fg); }
   .card.full .r-num .num, .r-text .lost { color: var(--danger); }
@@ -178,9 +186,12 @@
   .so-glass { fill: var(--orb-glass); }
   .so-rim { fill: none; stroke: var(--sky); stroke-width: 1; opacity: .75; }
   .so-shine { fill: var(--fg); opacity: .3; }
-  .so-star { fill: var(--orb-ring-off); transform-box: fill-box; transform-origin: center; }
-  .so-star.lit { fill: var(--orb-ring); }
-  .star-orb.full .so-star.lit { fill: var(--urgent); }
+  /* Atreia runes: one stroke width (in rune-grid units, the path is scaled into the ring) and square ends. No CSS transform
+     here: it would replace the transform attribute that places each rune on the ring. */
+  .so-rune { fill: none; stroke: var(--orb-ring-off); stroke-width: 1.6; stroke-linecap: square; stroke-linejoin: miter; }
+  .so-rune.tick { stroke-width: 2.4; stroke-linecap: butt; }
+  .so-rune.lit { stroke: var(--orb-ring); }
+  .star-orb.full .so-rune.lit { stroke: var(--urgent); }
   .star-orb.full .so-rim { stroke: var(--urgent); }
   .orb-slot .star-orb { position: absolute; inset: 0; }
   /* 3D orb (orb3d.js): drawn into a canvas in the same box; the SVG stays in the DOM, hidden, as the fallback. */
@@ -627,18 +638,18 @@
   /* ---- Compact mode: small orb beside a short panel, no charts or extra panels ---- */
   body.compact .card.row { --orb: 64px; --pady: 6px; }
   body.compact .r-num .num { font-size: 2rem; }
-  body.compact .note-preview, body.compact .goal-text, body.compact .cls-name, body.compact .guide, body.compact #plan { display: none; }
+  body.compact .note-preview, body.compact .goal-text, body.compact .cls-name, body.compact .acct-mark, body.compact .guide, body.compact #plan { display: none; }
   body.compact .chart-panel, body.compact #week-panel, body.compact #sim-panel { display: none !important; }
 
   /* ---- Motion (only when allowed) ---- */
   @media (prefers-reduced-motion: no-preference) {
-    /* The one authored moment: recharge ripple (once, ~900 ms), the new star scales in, the ring beats at the cap.
+    /* The one authored moment: recharge ripple (once, ~900 ms), the new rune flares in, the ring beats at the cap.
        Off with «Reducir animaciones» (body.calm). Only markGain / the cap state start them, never a repaint. */
     body:not(.calm) .star-orb.ripple .so-surface { animation: so-ripple 900ms var(--ease-out) var(--so-ripple-delay, 0ms) 1; }
-    body:not(.calm) .star-orb.ripple .so-star.new { animation: so-star-in 500ms var(--ease-out) var(--so-ripple-delay, 0ms) 1; }
+    body:not(.calm) .star-orb.ripple .so-rune.new { animation: so-rune-in 500ms var(--ease-out) var(--so-ripple-delay, 0ms) 1; }
     body:not(.calm) .orb-slot .star-orb.full .so-ring { animation: so-beat 2.4s ease-in-out var(--so-beat-delay, 0ms) infinite; }
     @keyframes so-ripple { 0% { transform: translate(0, 0); } 35% { transform: translate(-14px, -2.5px); } 100% { transform: translate(-36px, 0); } }
-    @keyframes so-star-in { from { transform: scale(.6); opacity: .4; } to { transform: scale(1); opacity: 1; } }
+    @keyframes so-rune-in { from { stroke-width: 2.8; opacity: .4; } } /* to: the rune's own width */
     @keyframes so-beat { 0%, 100% { opacity: 1; } 50% { opacity: .5; } }
     @keyframes rise { from { opacity: 0; transform: translateY(14px); } to { opacity: 1; transform: none; } }
     .gain { animation: float 1.6s ease-out forwards; }
@@ -655,7 +666,7 @@
     <div class="page-head" id="page-head">
       <div class="head-text">
         <h1 class="page-title" id="page-title">Energía</h1>
-        <p class="page-sub" id="page-sub"><span id="sub-time">+15 OD en <b id="next-tick"></b></span><span id="sub-missing" hidden>Falta la hora de recarga</span> · <span id="sub-count"></span> · <span>tope 840</span></p>
+        <p class="page-sub" id="page-sub"><span id="sub-time"><span id="sub-regen">+30 OD en</span> <b id="next-tick"></b></span><span id="sub-missing" hidden>Falta la hora de recarga</span> · <span id="sub-count"></span><span id="sub-cap-sep"> · </span><span id="sub-cap">tope 840</span></p>
       </div>
       <div class="head-actions">
         <button type="button" id="clock-fix">Ajustar recarga</button>
@@ -858,6 +869,14 @@
       <label for="add-class">Clase</label>
       <select id="add-class"></select>
     </div>
+    <fieldset class="field account-pick">
+      <legend>Cuenta</legend>
+      <div class="theme-switch">
+        <label><input type="radio" name="add-account" value="normal" checked aria-describedby="add-account-hint"> Normal</label>
+        <label><input type="radio" name="add-account" value="premium" aria-describedby="add-account-hint"> Premium</label>
+      </div>
+      <p class="hint" id="add-account-hint">Normal: +15 cada 3 h, tope 560 · Premium: +30 cada 3 h, tope 840</p>
+    </fieldset>
     <button type="submit" class="primary">Añadir</button>
   </form>
 
@@ -1030,12 +1049,12 @@
 </div>
 
 <script type="module">
-  import { SECTIONS, navModel, resolveTab, decisionBand, planRows } from './layout.js';
+  import { SECTIONS, navModel, resolveTab, decisionBand, planRows, headerRule } from './layout.js';
   import { iconSvg } from './icons.js';
   import { startI18n, tr, LOCALE, LANG, LANGS, setLang, onLangChange } from './i18n.js';
   startI18n();
   import { buildView, parseEnergyInput, parseMinutesInput, parseNameInput, parseClassInput } from './view.js';
-  import { anchorFromCountdown, formatDuration, nextTickAt, TICK_MS, MAX } from './energy.js';
+  import { anchorFromCountdown, formatDuration, nextTickAt, TICK_MS, MAX, rulesOf } from './energy.js';
   import { CLASSES, classById } from './classes.js';
   import { THEMES, resolveTheme, otherTheme, themeOf } from './theme.js';
   import { paths, planMigration } from './store.js';
@@ -1101,11 +1120,11 @@
     }
   }
   // The ref is minted once so a retried set cannot create a duplicate.
-  const addCharacter = (name, classId) => {
+  const addCharacter = (name, classId, account) => {
     if (!db || !my) { showNotice('No se pudo guardar'); return Promise.resolve(false); }
     const ref = db.collection(my.characters).doc();
     const data = {
-      name, ...(classId ? { classId } : {}), energy: 0, recordedAt: Date.now(), // the server rejects a null classId
+      name, ...(classId ? { classId } : {}), account, energy: 0, recordedAt: Date.now(), // the server rejects a null classId
       order: Math.max(0, ...state.characters.map(c => Number(c.order) || 0)) + 1,
     };
     return save(() => ref.set(data));
@@ -1125,7 +1144,8 @@
     const plan = compute(row);
     if (!plan) return false;
     const { energy, event, label } = plan;
-    const prev = { energy: before.energy, recordedAt: before.recordedAt, classId: before.classId ?? '' };
+    const prev = { energy: before.energy, recordedAt: before.recordedAt, classId: before.classId ?? '',
+      ...('account' in extra ? { account: rulesOf(before).account } : {}) }; // undoing an account change restores the old rule
     const at = Date.now();
     busy.set(id, at);
     setTimeout(() => { if (busy.get(id) === at) { busy.delete(id); render(); } }, 4000);
@@ -1155,12 +1175,13 @@
     if (u.eventId) await save(() => db.doc(my.events + '/' + u.eventId).delete());
     if (u.spent) await bumpStats({ spent: -u.spent, spends: -1 });
   }
-  async function updateCharacter(row, value, classId, cp, goal = null) {
+  async function updateCharacter(row, value, classId, cp, goal, account) {
     const before = state.characters.find(c => c.id === row.id);
     const cpChanged = cp !== null && cp !== before?.cp;
     const extra = { classId: classId ?? '' }; // '' = no class: the server rejects null and a PATCH cannot delete a key
     if (cp !== null) extra.cp = cp;
     if (goal !== null) extra.cpGoal = goal || null; // 0 clears the goal
+    extra.account = account; // same write as energy + recordedAt: the energy shown is fixed under the old rule
     const ok = await changeEnergy(row.id, r => ({
       energy: value, event: { kind: 'set', amount: value - r.energy }, label: `${r.name}: energía puesta en ${value}` }), extra);
     if (ok && cpChanged) {
@@ -1364,11 +1385,11 @@
   function orbFor(row) {
     const stateOf = row.isFull ? 'full' : row.nearFull ? 'near' : 'normal';
     let svg = orbNodes.get(row.id);
-    if (svg) updateStarOrb(svg, { energy: row.energy, state: stateOf });
-    else { svg = buildStarOrb(document, { energy: row.energy, state: stateOf, id: row.id }); orbNodes.set(row.id, svg); }
+    if (svg) updateStarOrb(svg, { energy: row.energy, state: stateOf, max: row.max });
+    else { svg = buildStarOrb(document, { energy: row.energy, max: row.max, state: stateOf, id: row.id }); orbNodes.set(row.id, svg); }
     if (!orbs3d?.ok) return [svg];
     const canvas = orbs3d.canvas(row.id);
-    orbs3d.update(row.id, { energy: row.energy, state: stateOf });
+    orbs3d.update(row.id, { energy: row.energy, state: stateOf, max: row.max });
     return [svg, canvas];
   }
   function cardNode(row, index, readonly = false) {
@@ -1387,7 +1408,8 @@
         ...orbFor(row)));
 
     const text = el('div', { class: 'r-text' });
-    text.append(el('div', { class: 'who' }, el('h2', { class: 'name', title: row.name }, row.name), cls ? el('p', { class: 'cls-name' }, cls.name) : null));
+    text.append(el('div', { class: 'who' }, el('h2', { class: 'name', title: row.name }, row.name), cls ? el('p', { class: 'cls-name' }, cls.name) : null,
+      row.account === 'premium' ? el('span', { class: 'acct-mark' }, 'Premium') : null));
 
     const prevShown = shown.get(row.id);
     const rolling = animate && prevShown !== undefined && prevShown !== row.energy;
@@ -1421,7 +1443,8 @@
         if (!cp.ok) { ui.errors[row.id] = cp.error; return render(); }
         const goal = parseCp($(`goal-${row.id}`).value);
         if (!goal.ok) { ui.errors[row.id] = goal.error; return render(); }
-        if (!await updateCharacter(row, r.value, c.value, cp.value, goal.value ?? 0)) return; // empty goal field clears it
+        const account = form.querySelector('input[type=radio]:checked')?.value || row.account;
+        if (!await updateCharacter(row, r.value, c.value, cp.value, goal.value ?? 0, account)) return; // empty goal field clears it
         ui.editingId = null; delete ui.errors[row.id]; render();
       } });
       const field = el('div', { class: 'field' },
@@ -1437,6 +1460,10 @@
       form.append(el('div', { class: 'field' }, el('label', { for: `goal-${row.id}` }, 'Objetivo de PC (opcional)'),
         el('input', { id: `goal-${row.id}`, inputmode: 'numeric', autocomplete: 'off', placeholder: 'p. ej. 150000',
           value: Number.isFinite(row.cpGoal) ? String(row.cpGoal) : '' })));
+      form.append(el('fieldset', { class: 'field account-pick' }, el('legend', {}, 'Cuenta'),
+        el('div', { class: 'theme-switch' }, ...['normal', 'premium'].map(a => el('label', {},
+          el('input', { type: 'radio', id: `account-${row.id}-${a}`, name: `account-${row.id}`, value: a, checked: row.account === a, 'aria-describedby': `account-hint-${row.id}` }), a === 'normal' ? ' Normal' : ' Premium'))),
+        el('p', { class: 'hint', id: `account-hint-${row.id}` }, 'Normal: +15 cada 3 h, tope 560 · Premium: +30 cada 3 h, tope 840')));
       form.append(el('div', { class: 'row' },
         el('button', { type: 'submit', class: 'primary' }, 'Guardar'),
         el('button', { type: 'button',
@@ -1565,7 +1592,7 @@
 
   // Header clock: text + ring every second, no data work.
   function wasteText(row) {
-    const w = wasteWarning(row.fullAtMs, Date.now(), { start: state.prefs.quietStart, end: state.prefs.quietEnd }, new Date().getTimezoneOffset());
+    const w = wasteWarning(row.fullAtMs, Date.now(), { start: state.prefs.quietStart, end: state.prefs.quietEnd }, new Date().getTimezoneOffset(), row.regen);
     return w ? `Perderás ${w.lossOD} de OD si no juegas antes de las ${timeFmt.format(new Date(w.deadlineMs))}` : '';
   }
   const MAX_SHOWN_TEXT = (shown, total) => `${shown} de ${total} miembros de la legión`;
@@ -1576,7 +1603,7 @@
     if (!$('forecast-panel').hidden) {
       const byId = new Map(state.characters.map(c => [c.id, c]));
       const series = rows.map((r, i) => ({ name: r.name, color: CHART_COLORS[i % CHART_COLORS.length],
-        points: projectEnergy(byId.get(r.id), anchor, now, 7) }));
+        max: r.max, points: projectEnergy(byId.get(r.id), anchor, now, 7) }));
       renderForecast($('forecast'), series, now, $('forecast-tip'));
       $('forecast-legend').replaceChildren(...series.map(s => {
         const sw = el('span', { class: 'sw' }); sw.style.background = s.color;
@@ -1667,7 +1694,7 @@
     if (!incoming.length && d.characters.length) { $('import-state').textContent = 'Ese archivo no es una copia válida de esta página.'; return; }
     try {
       // write everything first; delete characters missing from the copy only at the end
-      for (const c of incoming) { const { id, ...rest } = c; await write(() => db.doc(my.characters + '/' + id).set(rest)); }
+      for (const c of incoming) { const { id, account, ...rest } = c; await write(() => db.doc(my.characters + '/' + id).set(account === 'normal' || account === 'premium' ? { ...rest, account } : rest)); } // unknown account = absent = Premium (spec §2)
       if (Array.isArray(d.presets)) await write(() => db.doc(my.presets).set({ items: d.presets }));
       if (d.prefs && typeof d.prefs === 'object') await write(() => db.doc(my.prefs).set(d.prefs));
       if (Array.isArray(d.tasks)) await write(() => db.doc(my.tasks).set({ items: d.tasks }));
@@ -1701,7 +1728,7 @@
     $('sim-runs-val').textContent = String(runs);
     const now = Date.now();
     $('sim-list').replaceChildren(...rows.map(r => {
-      const sim = simulate(r.energy, anchor, now, runs, cost, 7);
+      const sim = simulate(r.energy, anchor, now, runs, cost, 7, { regen: r.regen, max: r.max });
       if (sim.emptyOn !== null) return el('li', { class: 'bad' }, `${r.name}: te quedas sin OD el ${dayFmt.format(new Date(sim.emptyOn))}`);
       if (sim.wasteOD > 0) return el('li', { class: 'bad' }, `${r.name}: desperdicias ${sim.wasteOD} de OD esta semana`);
       return el('li', { class: 'ok' }, `${r.name}: ritmo perfecto, sin desperdiciar`);
@@ -2086,6 +2113,14 @@
     $('ruler').classList.toggle('late', mer > 0.6);
   }
 
+  // Header: «+N OD en» and «tope N» only when every character shares the account rule; otherwise just «Recarga en».
+  let headRegen = '+30 OD en', headCap = 'tope 840';
+  function paintHeaderRule(rule) {
+    const regenText = rule ? `+${rule.regen} OD en` : 'Recarga en';
+    if (regenText !== headRegen) { headRegen = regenText; $('sub-regen').textContent = regenText; }
+    if (rule && `tope ${rule.max}` !== headCap) { headCap = `tope ${rule.max}`; $('sub-cap').textContent = headCap; }
+    $('sub-cap').hidden = $('sub-cap-sep').hidden = !rule;
+  }
   let lastEnergy = new Map();
   let lastAnchor;
   function paint(view) {
@@ -2102,6 +2137,7 @@
     paintPresets();
     paintTaskList();
     $('page-sub').hidden = ui.noDb;
+    paintHeaderRule(headerRule(view.rows));
 
     // Keep focus and caret across repaints (timers repaint too).
     const active = document.activeElement;
@@ -2117,11 +2153,12 @@
 
     const cards = $('cards');
     const draft = new Map();
-    for (const input of cards.querySelectorAll('input, select')) draft.set(input.id, input.value);
+    const field = input => input.type === 'radio' ? 'checked' : 'value'; // radios keep their choice, not their value
+    for (const input of cards.querySelectorAll('input, select')) draft.set(input.id, input[field(input)]);
     const extraOf = new Map(state.characters.map(c => [c.id, c]));
     cards.replaceChildren(...view.rows.map((r, i) => cardNode({ ...r, cp: extraOf.get(r.id)?.cp, cpGoal: extraOf.get(r.id)?.cpGoal, notes: typeof extraOf.get(r.id)?.notes === 'string' ? extraOf.get(r.id).notes : '' }, i)));
     ui.pop = null; // pop-in plays once, not on later repaints
-    for (const input of cards.querySelectorAll('input, select')) if (draft.has(input.id)) input.value = draft.get(input.id);
+    for (const input of cards.querySelectorAll('input, select')) if (draft.has(input.id)) input[field(input)] = draft.get(input.id);
     $('empty').hidden = ui.noDb || view.rows.length > 0 || !ui.loaded;
     $('empty').textContent = ui.readOnly ? 'Aún no hay personajes.' : 'Aún no hay personajes. Pulsa + para añadir el primero.';
     cards.hidden = view.rows.length === 0;
@@ -2156,7 +2193,7 @@
 
     // Recharge gains (not manual edits): floating "+N" and an orb ripple.
     const recorded = new Map(state.characters.map(c => [c.id, c.recordedAt]));
-    const now = view.rows.map(r => ({ id: r.id, energy: r.energy, recordedAt: recorded.get(r.id), anchorMs: anchor }));
+    const now = view.rows.map(r => ({ id: r.id, energy: r.energy, max: r.max, recordedAt: recorded.get(r.id), anchorMs: anchor }));
     // While hidden, keep the old baseline so returning shows one "+N" with the total.
     const keepBaseline = document.hidden && anchor === lastAnchor;
     if (animate && !keepBaseline) {
@@ -2392,9 +2429,10 @@
     const c = parseClassInput($('add-class').value);
     if (!c.ok) return showError('add-error', c.error);
     showError('add-error', '');
-    if (!await addCharacter(r.value, c.value)) return;
+    if (!await addCharacter(r.value, c.value, document.querySelector('input[name=add-account]:checked').value)) return;
     $('add-name').value = '';
     $('add-class').value = '';
+    document.querySelector('input[name=add-account][value=normal]').checked = true;
     closeAdd();
     render();
   });
@@ -2951,9 +2989,9 @@
     const characters = rows.map(r => {
       const c = byId.get(r.id) || {};
       const prog = progressFor(state.progress.get(r.id), state.tasks, now);
-      const runs = runsToday(r.energy, cost, anchor, now, eod.getTime());
-      const waste = wasteWarning(r.fullAtMs, now, { start: state.prefs.quietStart, end: state.prefs.quietEnd }, new Date().getTimezoneOffset());
-      return { name: r.name, class: classById(r.classId)?.name || null, energy: r.energy, max: r.max, full: r.isFull, fullAt: iso(r.fullAtMs),
+      const runs = runsToday(r.energy, cost, anchor, now, eod.getTime(), r.regen);
+      const waste = wasteWarning(r.fullAtMs, now, { start: state.prefs.quietStart, end: state.prefs.quietEnd }, new Date().getTimezoneOffset(), r.regen);
+      return { name: r.name, class: classById(r.classId)?.name || null, account: r.account, energy: r.energy, max: r.max, full: r.isFull, fullAt: iso(r.fullAtMs),
         dungeonsNow: runs.now, dungeonsByMidnight: runs.byMidnight, wasteWarning: waste ? { lossOD: waste.lossOD, playBefore: iso(waste.deadlineMs) } : null,
         combatPower: Number.isFinite(c.cp) ? c.cp : null, combatPowerGoal: c.cpGoal || null,
         pendingTasks: state.tasks.filter(t => prog[t.id] < t.max).map(t => `${t.name} (${t.kind}, ${prog[t.id]}/${t.max})`),
@@ -2967,7 +3005,7 @@
     const stats = { ...EMPTY_STATS, ...(state.stats || {}) };
     return {
       now: iso(now), nextRecharge: anchor === null ? null : iso(nextTickAt(anchor, now)),
-      rules: 'Odyle energy (OD): +15 every 3 hours for every character at the same moment, maximum 840; energy above 840 is lost.',
+      rules: 'Odyle energy (OD): every 3 hours, at the same moment for every character, each character recharges by its account: normal +15 up to 560, premium +30 up to 840; energy above the cap is not lost but does not recharge.',
       spendButtons: state.presets.map(p => `${p.name}: ${p.cost} OD`), characters, events, legionCalendar: calendar,
       timers: state.timers.filter(t => t.endsAt > now).map(t => ({ name: t.name, ends: iso(t.endsAt) })),
       week: { odSpent: weekTotals(stats.daysLog, todayKey()).spent, streakDays: streak(stats.daysLog, todayKey()) },

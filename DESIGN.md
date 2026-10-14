@@ -1,6 +1,6 @@
 ---
 name: Odyle Tracker
-description: "Carta celeste de Atreia: each character is an astro of liquid light inside a ring of 56 stars, on a flat slate chart ruled in 1px gold (Luz) or silver (Sombra)."
+description: "Carta celeste de Atreia: each character is an astro of liquid light inside a ring of 56 runes, on a flat slate chart ruled in 1px gold (Luz) or silver (Sombra)."
 colors:
   slate-dusk: "#2F3B55"
   slate-deep: "#1F2840"
@@ -141,7 +141,7 @@ Source of truth is the built CSS: the token block at the top of `index.html` (`:
 
 **Creative North Star: "Carta celeste de Atreia"**
 
-Characters are astros on a star chart. Each one is a glass sphere of liquid light ringed by 56 four-point stars (one per +15 OD, 840 cap), and a gold meridian on a tick ruler measures time to the next recharge. The page is a flat chart: slate ground, 1px rules, square corners, no glass, no card shadows. Luz is a mid-tone golden dusk on slate (nothing white); Sombra is the violet Abyss with silver rules. Both are dark worlds; the same crimson marks "at cap" in both.
+Characters are astros on a star chart. Each one is a glass sphere of liquid light ringed by 56 Atreia runes (one per 1/56 of the cap: +15 OD premium, +10 OD normal), and a gold meridian on a tick ruler measures time to the next recharge. The page is a flat chart: slate ground, 1px rules, square corners, no glass, no card shadows. Luz is a mid-tone golden dusk on slate (nothing white); Sombra is the violet Abyss with silver rules. Both are dark worlds; the same crimson marks "at cap" in both.
 
 Density is calm and ruled: flat rows divided by hairlines rather than boxed cards. Everything that is not the orb is quiet so that the one hot thing (an astro at cap, crimson) reads first.
 
@@ -150,21 +150,21 @@ Density is calm and ruled: flat rows divided by hairlines rather than boxed card
 - Rules, not boxes: 1px gold (Luz) or silver (Sombra) lines, square corners everywhere.
 - Marcellus for brand, character names and section headings; Gothic A1 for UI with tabular numerals.
 - One authored motion moment: the orb recharge ripple and the crimson cap beat.
-- Authored line icons, drawn orbs; no photography, no 3D, no particles behind the page.
+- Authored line icons, drawn orbs; no photography, no particles behind the page; the orb itself is WebGL 3D (glass, liquid, rune ring) and nothing else is 3D.
 
 ## Colors
 
 Strategy: restrained, one faction accent plus one alarm colour. The accent (`--gold`) is gold in Luz and violet in Sombra; crimson is shared and reserved for "at cap".
 
 ### Primary
-- **Astro Gold** (#E3A853, `--gold`): faction accent in Luz. Primary button fill, current rail item, heading marks, header rule, meridian, `Plan` and quick-spend highlights, lit orb stars. Bright variant **Astro Gold Bright** (#F2C77E, `--gold-bright`) for primary hover, numbers inside chips, active event rows, liquid top.
+- **Astro Gold** (#E3A853, `--gold`): faction accent in Luz. Primary button fill, current rail item, heading marks, header rule, meridian, `Plan` and quick-spend highlights, lit orb runes. Bright variant **Astro Gold Bright** (#F2C77E, `--gold-bright`) for primary hover, numbers inside chips, active event rows, liquid top.
 - **Abyss Violet** (#A58CE8, `--gold`) and **Abyss Violet Bright** (#C9B8F5) take the same roles in Sombra.
 
 ### Secondary
 - **Chart Sky** (#9CC3E6, `--sky`): secondary data ink: class names, spend buttons, event times, orb rim, focus outline. Sombra: **Abyss Silver** (#C8CDE4).
 
 ### Tertiary
-- **Crimson** (#D2453A, `--urgent`): the at-cap signal: lit stars and rim of a full orb, band underline. **Crimson Button** (#B9372D, `--urgent-strong`) fills the Gastar button of a full character and the band action; **Crimson Text** (#FF9A8E, `--danger`) is the text/error/destructive colour. Identical in Sombra.
+- **Crimson** (#D2453A, `--urgent`): the at-cap signal: lit runes and rim of a full orb, band underline. **Crimson Button** (#B9372D, `--urgent-strong`) fills the Gastar button of a full character and the band action; **Crimson Text** (#FF9A8E, `--danger`) is the text/error/destructive colour. Identical in Sombra.
 
 ### Neutral
 - **Slate Dusk** (#2F3B55, `--bg`): Luz page ground. **Slate Deep** (#1F2840, `--bg-2`/`--glass`): rail, panels, sheets, toast. **Well Ink** (#18203A, `--field`): inputs and orb glass.
@@ -206,7 +206,7 @@ Two frames. At 900px and up a fixed 232px rail on the left and a centred column 
 
 Character rows are a four-column grid: orb (104px; 72px under 720px; 64px compact) | name + class + status | number (132px) | actions (264px), gap 4px 20px, vertical padding 8px, 1px bottom rule. Every row uses the same orb column, so the orb and the name sit at the same x in every row (no zigzag). A dotted 1px gold constellation (2px dash, 5px gap, 75% opacity) runs straight from each orb centre to the next. On phones the grid becomes orb | text | number with actions on their own row.
 
-Header: h1 title, live subtitle ("+15 OD en hh:mm:ss", character count, cap 840) and two worded actions (Ajustar recarga, Anadir personaje) sit on a tick ruler: long ticks every 48px, short every 12px, with the gold meridian (1px line, 7px rotated-square cap) positioned by `--mer`. On desktop the ruler is 30px tall and carries the countdown label on the meridian, flipping left of the line past about 60%; on phones the ruler is 12px with no label. Spacing rhythm is 4/8/12/16/24; tap targets are at least 44px.
+Header: h1 title, live subtitle and two worded actions (Ajustar recarga, Anadir personaje) sit on a tick ruler. Header rule: when every character shares one account the subtitle reads "+{regen} OD en hh:mm:ss", the count and "tope {max}" (Normal +15 / 560, Premium +30 / 840); when accounts are mixed it reads only "Recarga en hh:mm:ss" and the cap is hidden, because there is no single cap. Ruler: long ticks every 48px, short every 12px, with the gold meridian (1px line, 7px rotated-square cap) positioned by `--mer`. On desktop the ruler is 30px tall and carries the countdown label on the meridian, flipping left of the line past about 60%; on phones the ruler is 12px with no label. Spacing rhythm is 4/8/12/16/24; tap targets are at least 44px.
 
 Next-decision band: a single line with a 1px bottom rule, 8px vertical padding, tone by rule colour (crimson at cap, gold when waste is coming, neutral otherwise) and a Gastar action.
 
@@ -230,11 +230,18 @@ Square. Every button, input, panel, sheet, badge, avatar, chip and bar has a 0 r
 - **Spend:** sky border and text; on a character at cap it becomes solid Crimson Button with parchment text. Danger: crimson text, crimson-button border.
 - **Focus:** 2px sky outline, 2px offset.
 
-### Orb column (signature: the star-orb)
-A drawn SVG, 104 viewBox: a glass sphere (radius 36, Well Ink fill) holding a liquid whose level equals energy/840, with a gently waved surface (36-unit wavelength), a 1px sky rim at 75% and a faint highlight; around it a ring (radius 46) of 56 four-point stars, 3.3 units (4 on orbs under 60px such as the friends list), one per +15 OD. Lit stars are faction accent; unlit stars are parchment at 26%. At cap, lit stars and the rim turn crimson. Motion, only when `prefers-reduced-motion` allows it and "Reducir animaciones" (body.calm) is off: a 900ms recharge ripple that slides the surface one wavelength while the newest star scales in over 500ms (started only by a gain, never by the per-second repaint), and a 2.4s crimson beat of the ring at cap, phased on the wall clock. A floating "+15" gain label rises over the orb.
+### Orb column (signature: the rune orb)
+A drawn SVG, 104 viewBox: a glass sphere (radius 36, Well Ink fill) holding a liquid whose level equals energy/cap (560 Normal, 840 Premium), with a gently waved surface (36-unit wavelength), a 1px sky rim at 75% and a faint highlight; around it a ring (radius 46) of 56 Atreia runes (`path.so-rune`), each about 7 px tall on the 104 px ring, drawn with an SVG stroke of 1.6 and square line ends. Each rune is worth 1/56 of the cap (10 OD Normal, 15 OD Premium).
+
+The alphabet is 28 original glyphs (`RUNE_GLYPHS` in `runes.js`), repeated round the ring. Drawing rules: a 10 x 14 grid, one main stroke (vertical or diagonal) plus at most three more subpaths, path data with only M and L and at most one arc or quadratic, no fills, one stroke width, and the Atreia vocabulary of wings (short diagonals rising out of the stem, sometimes hooked upward), crescent arcs, chevrons and crossbars at 1/3 and 2/3 of the height. States: lit runes take the faction accent; unlit runes are parchment at 26%; the newest lit rune flares (its stroke thickens) on a gain ("new"); at cap, lit runes and the rim turn crimson and beat. Only orbs of 60px or less drawn at their real size (the friends' mini orbs) keep short ticks instead of runes, since the glyphs are unreadable at that size. Compact and phone rows build the orb at 104px and scale it down with CSS, so they draw full runes at about 4-5px. The 3D ring (WebGL orb) sits about 25 degrees off face-on, nearly flat to the viewer, with the same runes drawn from an atlas with a dark edge so they stay legible against the liquid.
+
+Motion, only when `prefers-reduced-motion` allows it and "Reducir animaciones" (body.calm) is off: a 900ms recharge ripple that slides the surface one wavelength while the newest rune flares over 500ms (started only by a gain, never by the per-second repaint), and a 2.4s crimson beat of the ring at cap, phased on the wall clock. A floating gain label rises over the orb.
 
 ### Character row
 Name in Marcellus 1.5rem; class in micro sky caps; status line with a gold diamond (crimson diamond when OD is being lost); big energy number; actions Gastar or Actualizar plus a square 44px overflow button opening a gold-bordered menu (fade/scale 160ms).
+
+### Account selector and Premium mark
+The add form and the edit form carry a "Cuenta" radio group, Normal or Premium, as two square 44px segments: the checked one fills with the faction accent and deep ink text, focus shows the sky outline. New characters default to Normal. A hint line under the group states both rules ("Normal: +15 cada 3 h, tope 560 · Premium: +30 cada 3 h, tope 840"). Rows show the cap as "/ 560" or "/ 840". Premium rows carry the **Premium mark** (`.acct-mark`) next to the name: .6875rem Gothic 700, .14em uppercase tracking, accent text on a 1px hairline border, 2px 6px padding, square; Normal rows carry no mark, and the mark is hidden in compact mode. A missing account counts as Premium.
 
 ### Quick spends and Plan de hoy
 Quick spends: a heading naming the urgent character in gold, then a wrap of 44px chips (card-fill, hairline border, price in bright gold) with a muted underlined Undo chip pushed right. Plan de hoy: a table on desktop (minimum 520px, 44px rows, header with a gold bottom rule, names in Marcellus, hot cells crimson bold, dim cells muted); on phones each character becomes a block with the name and next goal on top and compact "Nx spend" values beneath.
@@ -266,7 +273,8 @@ Fields: Well Ink fill, 1px strong rule, 44px, no radius; invalid state recolours
 - **Don't** use crimson for anything that is not at-cap or destructive.
 - **Don't** add card shadows, backdrop blur or glass, or rounded cards.
 - **Don't** return to a white or light Elyos; Luz stays mid-tone slate dusk.
-- **Don't** put 3D, particles or imagery behind the page; the orbs are drawn.
+- **Don't** put 3D, particles or imagery behind the page; the 3D lives only inside the orb.
+- **Don't** copy the official Aion 2 script, NCSOFT art, Latin letters or Elder Futhark runes into the ring; the 28 Atreia glyphs are original drawings.
 - **Don't** replace the authored line icons with glyph characters or an icon set.
 - **Don't** set a display face other than Marcellus for names or headings.
 

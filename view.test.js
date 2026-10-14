@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { buildView, parseEnergyInput, parseMinutesInput, parseNameInput, parseClassInput, NEAR_FULL } from './view.js';
+import { buildView, parseEnergyInput, parseMinutesInput, parseNameInput, parseClassInput } from './view.js';
 import { NEUTRAL_COLOR } from './classes.js';
 import { formatDuration } from './energy.js';
 
@@ -10,15 +10,15 @@ const H = 3_600_000;
 
 test('filas ordenadas por order y con datos calculados', () => {
   const v = buildView([
-    {id:'b', name:'shutaruku', energy:180, recordedAt:R, order:2},
-    {id:'a', name:'SaltyGhosty', energy:225, recordedAt:R, order:1},
+    {id:'b', name:'shutaruku', energy:180, recordedAt:R, order:2, account:'normal'},
+    {id:'a', name:'SaltyGhosty', energy:225, recordedAt:R, order:1, account:'normal'},
   ], {anchorMs:A}, R);
   assert.deepEqual(v.rows.map(r => r.id), ['a','b']);
   assert.equal(v.nextTickInMs, 37*60_000);
   assert.equal(v.rows[0].energy, 225);
-  assert.equal(v.rows[0].percent, 26);              // floor(225/840*100)
-  assert.equal(v.rows[0].fullAtMs, A + 40*3*H);
-  assert.equal(v.rows[0].fullInText, formatDuration(A + 40*3*H - R));
+  assert.equal(v.rows[0].percent, 40);              // floor(225/560*100)=40
+  assert.equal(v.rows[0].fullAtMs, A + 22*3*H); // (560-225)/15=22.33 → 23 ticks
+  assert.equal(v.rows[0].fullInText, formatDuration(A + 22*3*H - R));
 });
 test('lleno', () => { const r = buildView([{id:'a',name:'x',energy:900,recordedAt:R,order:1}], {anchorMs:A}, R).rows[0];
   assert.equal(r.isFull, true); assert.equal(r.percent, 100); assert.equal(r.fullInText, 'Lleno'); assert.equal(r.fullAtMs, null); });
@@ -56,11 +56,18 @@ test('fila sin clase o desconocida usa color neutro', () => {
   assert.equal(one({}).classId, null); assert.equal(one({}).color, NEUTRAL_COLOR);
   assert.equal(one({classId:'xx'}).classId, null);
 });
-test('nearFull desde 810 hasta antes de lleno', () => {
-  assert.equal(NEAR_FULL, 810);
-  assert.equal(one({energy:810}).nearFull, true);
-  assert.equal(one({energy:809}).nearFull, false);
+test('nearFull a dos recargas del tope (premium: 780..839)', () => {
+  assert.equal(one({energy:780}).nearFull, true);   // 840-2*30
+  assert.equal(one({energy:779}).nearFull, false);
   assert.equal(one({energy:840}).nearFull, false);
+});
+test('filas con la cuenta: tope, recarga, porcentaje y casi lleno', () => {
+  const rows = buildView([
+    { id: 'n', name: 'N', energy: 540, recordedAt: 0, order: 1, account: 'normal' },
+    { id: 'p', name: 'P', energy: 540, recordedAt: 0, order: 2 },
+  ], null, 0).rows;
+  assert.deepEqual(rows.map(r => [r.account, r.regen, r.max, r.percent, r.nearFull, r.isFull]),
+    [['normal', 15, 560, 96, true, false], ['premium', 30, 840, 64, false, false]]);
 });
 test('parseClassInput', () => {
   assert.deepEqual(parseClassInput(''), {ok:true, value:null});

@@ -43,6 +43,10 @@ test('perfil: energía solo para amigos con shareEnergy y sin campos privados', 
   const friend = (await s.call('GET', `/api/profiles/${B}`, 'A')).json();
   assert.equal(friend.relation, 'friends');
   assert.deepEqual(friend.characters, [{ name: 'Nahma', classId: 'clerigo', energy: 840, recordedAt: 5 }]);
+  await s.doc(`members/${B}/characters/n2`, { name: 'Norm', classId: 'clerigo', energy: 10, recordedAt: 6, account: 'normal' });
+  const two = (await s.call('GET', `/api/profiles/${B}`, 'A')).json().characters;
+  assert.equal('account' in two[0], false);
+  assert.equal(two[1].account, 'normal');
   await s.db.query('update docs set data = $1::jsonb where path = $2', [JSON.stringify({ joinedAt: 1, profile: { nick: 'Nahma', mainCharId: 'n1', shareEnergy: false } }), `members/${B}`]);
   assert.equal((await s.call('GET', `/api/profiles/${B}`, 'A')).json().characters, null);
 });

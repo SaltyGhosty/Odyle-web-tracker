@@ -38,7 +38,7 @@ export function createProfileSheet(shared) {
     if (rows.length) {
       const list = el('ul', { class: 'energy-list' });
       for (const r of rows) list.append(el('li', {}, miniOrb(r), userText('span', r.name, { class: 'grow' }),
-        el('b', { class: 'num' + (r.isFull ? ' full' : '') }, `${r.energy}`)));
+        el('b', { class: 'num' + (r.isFull ? ' full' : '') }, `${r.energy} / ${r.max}`)));
       energy.append(list);
     } else {
       energy.append(note(d.relation === 'friends' ? S('No comparte su energía.') : S('La energía solo la ven sus amigos.')));

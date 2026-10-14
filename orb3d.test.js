@@ -6,7 +6,7 @@ import { register } from 'node:module';
 // orb3d.js imports Three.js from the CDN (the build rewrites it); in Node, resolve that URL to the installed package.
 register('data:text/javascript,' + encodeURIComponent(
   "export const resolve = (s, c, next) => next(s.startsWith('https://cdn.jsdelivr.net/npm/three@') ? 'three' : s, c);"));
-const { levelOf, ripplePower, beatOpacity, spinAngle, runePositions, parseColor, RIPPLE_MS, BEAT_MS, TURN_MS, RING_R, RING_TILT, createOrbs3D } = await import('./orb3d.js');
+const { levelOf, ripplePower, beatOpacity, spinAngle, runePositions, parseColor, atlasCell, RUNE_INK, RIPPLE_MS, BEAT_MS, TURN_MS, RING_R, RING_TILT, createOrbs3D, RUNE_FS, ATLAS_COLS, ATLAS_ROWS } = await import('./orb3d.js');
 
 const near = (a, b, eps = 1e-9) => Math.abs(a - b) < eps;
 
@@ -55,7 +55,7 @@ test('runePositions: 56 stars on a tilted circle, half in front of the glass and
   // seen from the front it is an ellipse: about R wide and R·cos(tilt) tall
   const tall = Math.max(...pos.map((p) => Math.abs(p.y))), wide = Math.max(...pos.map((p) => Math.abs(p.x)));
   assert.ok(tall < wide && tall >= RING_R * Math.cos(RING_TILT) - 1e-9);
-  assert.ok(RING_TILT > (60 * Math.PI) / 180 && RING_TILT < (70 * Math.PI) / 180);
+  assert.ok(RING_TILT >= (20 * Math.PI) / 180 && RING_TILT <= (30 * Math.PI) / 180); // nearly face-on, slightly tilted
   // star 0 is at the top of the ring (the far side), star 14 a quarter turn clockwise (to the right)
   assert.ok(pos[0].z < 0 && pos[0].y > 0);
   assert.ok(pos[14].x > 1.2);
@@ -82,4 +82,40 @@ test('parseColor: the token formats the page uses', () => {
 test('createOrbs3D: no WebGL → null (the SVG orb stays)', () => {
   const doc = { defaultView: {}, createElement: () => ({ getContext: () => null }) };
   assert.equal(createOrbs3D(doc), null);
+});
+
+test('atlasCell: rune i samples cell i % 28 of the 7 × 4 atlas', () => {
+  assert.deepEqual(atlasCell(0), { col: 0, row: 0 });
+  assert.deepEqual(atlasCell(7), { col: 0, row: 1 });
+  assert.deepEqual(atlasCell(27), { col: 6, row: 3 });
+  assert.deepEqual(atlasCell(28), { col: 0, row: 0 });
+});
+
+test('runePositions: on the near-circle every rune keeps ~full size, top outward, and neighbours never overlap', () => {
+  const pos = runePositions(0);
+  for (const p of pos) assert.ok(p.scale >= 0.9 && p.scale <= 1, `scale ${p.scale}`);
+  // each rune is turned so its top points away from the centre, as on the SVG orb
+  for (const p of pos) assert.ok(Math.cos(p.angle) * p.x + Math.sin(p.angle) * p.y > 0.95 * Math.hypot(p.x, p.y));
+  // projected on the screen (x, y), the ink boxes of two neighbours (in each rune's own turned frame) do not touch
+  for (const spin of [0, 0.3, 1.1]) {
+    const q = runePositions(spin);
+    q.forEach((a, i) => {
+      const b = q[(i + 1) % q.length];
+      const dx = b.x - a.x, dy = b.y - a.y, d = Math.hypot(dx, dy);
+      const reach = (r) => {
+        const up = Math.abs(Math.cos(r.angle) * dx + Math.sin(r.angle) * dy) / d, side = Math.abs(Math.sin(r.angle) * dx - Math.cos(r.angle) * dy) / d;
+        return r.scale * (RUNE_INK.w * side + RUNE_INK.h * up) / 2;
+      };
+      assert.ok(reach(a) + reach(b) <= d + 1e-9, `runes ${i} and ${i + 1} overlap at spin ${spin}`);
+    });
+  }
+});
+
+test('the shader atlas numbers (28 / 7 / 4) match RUNE_GLYPHS and the atlas grid', async () => {
+  const { RUNE_GLYPHS } = await import('./runes.js');
+  assert.equal(ATLAS_COLS * ATLAS_ROWS, RUNE_GLYPHS.length);
+  assert.ok(RUNE_FS.includes(`mod(vIndex, ${RUNE_GLYPHS.length}.0)`), 'glyph count in the shader');
+  assert.ok(RUNE_FS.includes(`mod(k, ${ATLAS_COLS}.0), floor(k / ${ATLAS_COLS}.0)`), 'columns in the shader');
+  assert.ok(RUNE_FS.includes(`/ ${ATLAS_COLS}.0, 1.0 - (cell.y + 1.0 - vUv.y) / ${ATLAS_ROWS}.0`), 'columns and rows in the sampling');
+  for (const i of [0, 6, 7, RUNE_GLYPHS.length - 1]) assert.deepEqual(atlasCell(i), { col: i % ATLAS_COLS, row: Math.floor(i / ATLAS_COLS) });
 });
