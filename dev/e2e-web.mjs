@@ -864,6 +864,48 @@ check('cerrar todas: la cookie de renovación vieja de B no renueva', (await rep
   await pf.click('#prefs-form button[type=submit]');
   await new Promise((r) => setTimeout(r, 600));
   check('tema primera vez: cambiar las horas de silencio no cambia el tema', (await pf.evaluate(() => document.documentElement.dataset.faction)) === 'asmodian');
+
+  // cuentas Normal y Premium (usuario sin personajes: la cabecera se comprueba contra la mezcla real)
+  const pg = pf; // misma sesión de F: sin personajes, el inicio de sesión también tiene tope
+  await pg.click('#topnav [data-tab="ajustes"]').catch(() => {});
+  await pg.fill('#adjust-minutes', '90'); // sin hora de recarga la cabecera no muestra el contador
+  await pg.click('#adjust-form button[type=submit]');
+  await pg.waitForTimeout(600);
+  await pg.click('#topnav [data-tab="personajes"]').catch(() => {});
+  const addChar = async (name, account) => {
+    await pg.click('#add-btn');
+    await pg.fill('#add-name', name);
+    await pg.selectOption('#add-class', { index: 1 });
+    if (account) await pg.check(`input[name=add-account][value=${account}]`);
+    await pg.click('#add-form button[type=submit]');
+    await pg.waitForSelector(`article.card:has-text("${name}")`);
+  };
+  const rowG = (name) => pg.locator('article.card', { hasText: name });
+  const subG = () => pg.evaluate(() => document.getElementById('page-sub').innerText);
+  check('cuenta: el formulario de alta empieza en Normal', await pg.evaluate(() => { const r = document.querySelector('input[name=add-account]:checked'); return r?.value === 'normal'; }));
+  await addChar('CuentaNormal');
+  check('cuenta normal (por defecto): la fila muestra «/ 560» y no tiene marca Premium', /\/ 560/.test(await rowG('CuentaNormal').textContent()) && (await rowG('CuentaNormal').locator('.acct-mark').count()) === 0);
+  check('cuenta normal: la cabecera muestra «+15 OD» y «tope 560»', /\+15 OD/.test(await subG()) && /tope 560/.test(await subG()), await subG());
+  await addChar('CuentaPremium', 'premium');
+  check('cuenta premium: la fila muestra «/ 840» y la marca Premium', /\/ 840/.test(await rowG('CuentaPremium').textContent()) && (await rowG('CuentaPremium').locator('.acct-mark').textContent()) === 'Premium');
+  check('cabecera con cuentas mezcladas: «Recarga en» y sin «tope»', /Recarga en/.test(await subG()) && !/tope/.test(await subG()) && await pg.locator('#sub-cap').isHidden(), await subG());
+  const gId = await rowG('CuentaPremium').getAttribute('data-id');
+  const gEnergy = async () => (await dbRows('members/')).find((r) => r.path.endsWith('/characters/' + gId))?.data;
+  await rowG('CuentaPremium').locator('button.primary').click();
+  await pg.fill(`#energy-${gId}`, '700');
+  await rowG('CuentaPremium').locator('form button[type=submit]').click();
+  await pg.waitForTimeout(900);
+  await rowG('CuentaPremium').locator('button.primary').click();
+  const shown = await pg.inputValue(`#energy-${gId}`);
+  await pg.check(`input[name="account-${gId}"][value=normal]`);
+  await rowG('CuentaPremium').locator('form button[type=submit]').click();
+  await pg.waitForTimeout(900);
+  const gd = await gEnergy();
+  check('editar Premium a Normal sin tocar la energía: se guarda «normal» y la energía no cambia', gd?.account === 'normal' && gd.energy === 700 && shown === '700', JSON.stringify({ gd, shown }));
+  check('editar a Normal: la fila muestra «/ 560» y pierde la marca', /\/ 560/.test(await rowG('CuentaPremium').textContent()) && (await rowG('CuentaPremium').locator('.acct-mark').count()) === 0);
+  check('ambas Normal: la cabecera vuelve a «tope 560»', /tope 560/.test(await subG()), await subG());
+  const gold = await pg.evaluate(async (p) => (await fetch('/api/docs/' + p, { method: 'PATCH', credentials: 'same-origin', headers: { 'content-type': 'application/json', 'x-odyle-csrf': '1' }, body: JSON.stringify({ account: 'gold' }) })).status, gd && (await dbRows('members/')).find((r) => r.path.endsWith('/characters/' + gId)).path);
+  check('servidor: PATCH con account «gold» da error de validación', gold === 400, String(gold));
   await collectCsp(pf, 'F');
   await F.ctx.close();
 }
