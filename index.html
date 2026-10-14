@@ -1055,7 +1055,7 @@
   startI18n();
   import { buildView, parseEnergyInput, parseMinutesInput, parseNameInput, parseClassInput } from './view.js';
   import { anchorFromCountdown, formatDuration, nextTickAt, TICK_MS, MAX, rulesOf } from './energy.js';
-  import { CLASSES, classById } from './classes.js';
+  import { CLASSES, classById, liquidColors } from './classes.js';
   import { THEMES, resolveTheme, otherTheme, themeOf } from './theme.js';
   import { paths, planMigration } from './store.js';
   import { applyDelta, parsePreset, parseExtraInput } from './spend.js';
@@ -1068,7 +1068,8 @@
   import { EMPTY_STATS, bumped, unlocked, streak, weekTotals } from './achievements.js';
   const sound = createSound();
   import { makeCode, normalizeCode, hashCode, roomName, parseLegionName, parseProfile, legionOf, sameLegion, legionTitle, proofFor, pickLegion, legionKey } from './legion.js';
-  import { formatClock, detectGains, rollValue, becameFull } from './motion.js';
+  import { formatClock, detectGains, becameFull } from './motion.js';
+  import { retarget, valueAt, running } from './tween.js';
   import { buildStarOrb, updateStarOrb, markGain, syncOrbMotion } from './starorb.js';
   // The 3D orb loads on its own: without WebGL, or if Three.js cannot load, every orb stays the SVG one.
   let orbs3d = null;
@@ -1357,24 +1358,31 @@
     return el('p', { class: 'error', id, role: 'alert' }, msg);
   }
 
-  // Number roll: what each card currently shows, and running rolls.
-  const shown = new Map();
-  const rolls = new Map();
-  let rollRaf = 0;
-  function stepRolls(now) {
-    for (const [id, r] of rolls) {
-      const t = (now - r.start) / 600;
-      const v = rollValue(r.from, r.to, t);
-      shown.set(id, v);
+  // Energy glide (tween.js): per character, the energy its number, liquid and runes show, kept across repaints.
+  // A change of the stored value glides from what is shown; the first paint, calm and reduced motion jump.
+  const glides = new Map(); // id -> { tw, orb: { state, max, liquid }, live }
+  let glideRaf = 0;
+  function stepGlides() {
+    const now = performance.now();
+    let more = false;
+    for (const [id, g] of glides) {
+      if (!g.live) continue;
+      const v = valueAt(g.tw, now);
       const node = document.querySelector(`[data-num="${CSS.escape(id)}"]`);
-      if (node) node.textContent = String(v);
-      if (t >= 1) rolls.delete(id);
+      if (node) node.textContent = String(Math.round(v));
+      paintOrb(id, v, g.orb);
+      g.live = running(g.tw, now);
+      more ||= g.live;
     }
-    rollRaf = rolls.size ? requestAnimationFrame(stepRolls) : 0;
+    glideRaf = more ? requestAnimationFrame(stepGlides) : 0;
   }
-  function startRoll(id, from, to) {
-    rolls.set(id, { from, to, start: performance.now() });
-    if (!rollRaf) rollRaf = requestAnimationFrame(stepRolls);
+  function shownEnergy(row, orb) {
+    const now = performance.now(), g = glides.get(row.id);
+    const tw = retarget(g?.tw, row.energy, now, !animate || !g);
+    const live = running(tw, now);
+    glides.set(row.id, { tw, orb, live });
+    if (live && !glideRaf) glideRaf = requestAnimationFrame(stepGlides);
+    return valueAt(tw, now);
   }
 
   const seen = new Set();
@@ -1382,15 +1390,25 @@
   // One SVG orb per character, reused across repaints (updateStarOrb only changes attributes, so nothing restarts).
   // With WebGL, the 3D canvas (also one per character) sits over it in the same slot.
   const orbNodes = new Map();
+  // The liquid takes the class tone (liquidColors); without a class the SVG falls back to the theme tokens.
   function orbFor(row) {
-    const stateOf = row.isFull ? 'full' : row.nearFull ? 'near' : 'normal';
+    const state = row.isFull ? 'full' : row.nearFull ? 'near' : 'normal';
+    const liquid = liquidColors(row.classId, getComputedStyle(document.documentElement).getPropertyValue('--orb-glass'));
+    const orb = { state, max: row.max, liquid };
+    const energy = shownEnergy(row, orb);
     let svg = orbNodes.get(row.id);
-    if (svg) updateStarOrb(svg, { energy: row.energy, state: stateOf, max: row.max });
-    else { svg = buildStarOrb(document, { energy: row.energy, max: row.max, state: stateOf, id: row.id }); orbNodes.set(row.id, svg); }
-    if (!orbs3d?.ok) return [svg];
-    const canvas = orbs3d.canvas(row.id);
-    orbs3d.update(row.id, { energy: row.energy, state: stateOf, max: row.max });
-    return [svg, canvas];
+    if (!svg) { svg = buildStarOrb(document, { energy, max: row.max, state, id: row.id }); orbNodes.set(row.id, svg); }
+    for (const k of ['top', 'deep']) {
+      if (liquid) svg.style.setProperty(`--orb-liquid-${k}`, liquid[k]); else svg.style.removeProperty(`--orb-liquid-${k}`);
+    }
+    const nodes = orbs3d?.ok ? [svg, orbs3d.canvas(row.id)] : [svg];
+    paintOrb(row.id, energy, orb);
+    return { energy, liquid, nodes };
+  }
+  function paintOrb(id, energy, { state, max, liquid }) {
+    const svg = orbNodes.get(id);
+    if (svg) updateStarOrb(svg, { energy, state, max });
+    orbs3d?.update(id, { energy, state, max, liquid });
   }
   function cardNode(row, index, readonly = false) {
     const editing = ui.editingId === row.id;
@@ -1403,20 +1421,18 @@
     const card = el('article', { class: `card row ${mood} ${fresh && animate ? 'enter' : ''} ${!readonly && ui.selectedId === row.id ? 'selected' : ''}`, 'data-id': row.id,
       style: `--c:${row.color};--i:${index}` });
 
+    const shownOrb = orbFor(row);
     const orb = el('div', { class: 'r-orb orb-col' },
-      el('div', { class: orbs3d?.ok ? 'orb-slot has-3d' : 'orb-slot', 'data-orb': row.id, role: 'img', 'aria-label': `${row.percent}% de energía` },
-        ...orbFor(row)));
+      el('div', { class: orbs3d?.ok ? 'orb-slot has-3d' : 'orb-slot', 'data-orb': row.id, role: 'img', 'aria-label': `${row.percent}% de energía`,
+        'data-liquid': shownOrb.liquid ? `${shownOrb.liquid.top} ${shownOrb.liquid.deep}` : null },
+        ...shownOrb.nodes));
 
     const text = el('div', { class: 'r-text' });
     text.append(el('div', { class: 'who' }, el('h2', { class: 'name', title: row.name }, row.name), cls ? el('p', { class: 'cls-name' }, cls.name) : null,
       row.account === 'premium' ? el('span', { class: 'acct-mark' }, 'Premium') : null));
 
-    const prevShown = shown.get(row.id);
-    const rolling = animate && prevShown !== undefined && prevShown !== row.energy;
-    const display = rolling ? (rolls.has(row.id) ? shown.get(row.id) : prevShown) : row.energy;
-    if (rolling) startRoll(row.id, display, row.energy); else { rolls.delete(row.id); shown.set(row.id, row.energy); }
     const num = el('div', { class: 'r-num energy' },
-      el('span', { class: 'num', 'data-num': row.id }, String(display)),
+      el('span', { class: 'num', 'data-num': row.id }, String(Math.round(shownOrb.energy))),
       el('small', {}, `/ ${row.max}`));
 
     if (Number.isFinite(row.cp)) text.append(cpLine(row));
@@ -2126,7 +2142,7 @@
   function paint(view) {
     const anchor = state.schedule && Number.isFinite(state.schedule.anchorMs) ? state.schedule.anchorMs : null;
     // A schedule change (incl. first load) moves computed energy without a recharge: re-baseline, no roll.
-    if (anchor !== lastAnchor) { shown.clear(); rolls.clear(); }
+    if (anchor !== lastAnchor) glides.clear();
     paintClock();
     const locked = ui.noDb || ui.readOnly;
     $('nodata').hidden = !ui.noDb;
@@ -2209,7 +2225,7 @@
     }
     // Drop the orbs of characters that are gone; resume the motion of the rest after their cards were re-inserted.
     const liveIds = new Set([...view.rows, ...otherRows].map(r => r.id));
-    for (const [id, svg] of orbNodes) { if (liveIds.has(id)) syncOrbMotion(svg); else { orbNodes.delete(id); orbs3d?.drop(id); } }
+    for (const [id, svg] of orbNodes) { if (liveIds.has(id)) syncOrbMotion(svg); else { orbNodes.delete(id); glides.delete(id); orbs3d?.drop(id); } }
     if (!keepBaseline) lastEnergy = new Map(now.map(r => [r.id, r]));
     lastAnchor = anchor;
 

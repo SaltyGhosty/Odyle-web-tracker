@@ -237,6 +237,35 @@ check('importar: sustituye los personajes por los de la copia', names.join('|') 
 const cardOf = (n) => pa.locator('article.card', { hasText: n }).first();
 check('importar: un account desconocido cuenta como Premium (/ 840) y normal se respeta (/ 560)', /\/ 840/.test(await cardOf('Importada Uno').textContent()) && /\/ 560/.test(await cardOf('Importada Dos').textContent()));
 
+// Líquido en el tono de la clase (Gladiador #e0924a → superficie #e9b380) y deslizamiento de la energía
+{
+  const liq = await pa.evaluate(() => {
+    const s = document.querySelector('article[data-id="imp2"] .orb-slot'), none = document.querySelector('article[data-id="imp1"] .orb-slot svg');
+    return { data: s.dataset.liquid, svg: getComputedStyle(s.querySelector('svg.star-orb')).getPropertyValue('--orb-liquid-top').trim(),
+      theme: getComputedStyle(document.documentElement).getPropertyValue('--orb-liquid-top').trim(), asesino: getComputedStyle(none).getPropertyValue('--orb-liquid-top').trim() };
+  });
+  check('Gladiador: el líquido 3D (data-liquid) y el degradado SVG usan el tono de la clase',
+    /^#e9b380 #[0-9a-f]{6}$/.test(liq.data || '') && liq.svg === '#e9b380' && liq.asesino !== liq.svg && liq.asesino !== liq.theme, JSON.stringify(liq));
+  // Muestras del número por cuadro mientras se gasta (40 de 120)
+  const sample = () => pa.evaluate(() => new Promise((res) => {
+    const seen = [], t0 = performance.now();
+    const f = () => { const v = document.querySelector('[data-num="imp2"]')?.textContent; if (seen.at(-1) !== v) seen.push(v); if (performance.now() - t0 < 1800) requestAnimationFrame(f); else res(seen); };
+    requestAnimationFrame(f);
+  }));
+  const spendImp2 = async () => (await Promise.all([sample(), pa.click('article[data-id="imp2"] button.spend')]))[0];
+  const undoImp2 = async () => { await pa.click('#undo'); await pa.waitForFunction(() => document.querySelector('[data-num="imp2"]')?.textContent === '120', null, { timeout: 5000 }); };
+  const glide = await spendImp2();
+  const nums = glide.map(Number);
+  check('gasto: el número cuenta hacia el nuevo valor y acaba exacto', nums[0] === 120 && nums.at(-1) === 80 && nums.length > 3 && nums.every((v, i) => !i || v < nums[i - 1]), JSON.stringify(glide));
+  check('gasto: el orbe SVG acaba al nivel exacto', await pa.evaluate(() => document.querySelector('article[data-id="imp2"] .so-level').dataset.level === String(Number((80 / 560).toFixed(4)))), '');
+  await undoImp2();
+  await pa.evaluate(() => { const t = document.getElementById('lite-toggle'); t.checked = true; t.dispatchEvent(new Event('change', { bubbles: true })); });
+  const calm = await spendImp2();
+  check('«Reducir animaciones»: el gasto cambia el número al instante', JSON.stringify(calm) === '["120","80"]', JSON.stringify(calm));
+  await undoImp2();
+  await pa.evaluate(() => { const t = document.getElementById('lite-toggle'); t.checked = false; t.dispatchEvent(new Event('change', { bubbles: true })); });
+}
+
 // legión
 await pa.click('#topnav [data-tab=legion]');
 await pa.fill('#lg-name', 'Guardianes');

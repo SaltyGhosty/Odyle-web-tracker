@@ -25,3 +25,14 @@ const byId = new Map(CLASSES.map(c => [c.id, c]));
 export function classById(id) {
   return byId.get(id) ?? null;
 }
+
+// Orb liquid in the class colour: the surface mixed toward white, the depth toward the theme's glass. Null without a class.
+const rgb = (hex) => [1, 3, 5].map(i => parseInt(hex.slice(i, i + 2), 16));
+const mix = (a, b, k) => '#' + a.map((v, i) => Math.round(v + (b[i] - v) * k).toString(16).padStart(2, '0')).join('');
+export function liquidColors(classId, themeGlass) {
+  const cls = classById(classId);
+  if (!cls) return null;
+  const glass = String(themeGlass || '').trim();
+  const c = rgb(cls.color);
+  return { top: mix(c, [255, 255, 255], 0.3), deep: mix(c, rgb(/^#[0-9a-f]{6}$/i.test(glass) ? glass : '#18203A'), 0.5) };
+}

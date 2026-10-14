@@ -24,12 +24,6 @@ export function detectGains(prev, rows) {
   return gains;
 }
 
-// Ease-out cubic interpolation, rounded; t is clamped to [0, 1].
-export function rollValue(from, to, t) {
-  const k = Math.min(1, Math.max(0, t));
-  return Math.round(from + (to - from) * (1 - (1 - k) ** 3));
-}
-
 // Characters that crossed into full since the previous render (not ones already full or new).
 // Each snapshot carries its account cap (max); `max` is the fallback for entries without one.
 export function becameFull(prev, rows, max) {
