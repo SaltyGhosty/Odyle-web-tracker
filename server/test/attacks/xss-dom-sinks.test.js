@@ -9,11 +9,11 @@ import { stablePublicDir, removeDir } from './_lib.js';
 const pub = stablePublicDir();
 after(() => removeDir(pub));
 const walk = (dir) => readdirSync(dir).flatMap((f) => { const p = path.join(dir, f); return statSync(p).isDirectory() ? walk(p) : [p]; });
-const files = () => walk(pub).filter((f) => /\.(js|html)$/.test(f));
+const files = () => walk(pub).filter((f) => /\.(js|html)$/.test(f) && !f.includes(`${path.sep}vendor${path.sep}`));
 // Quita comentarios para no confundir prosa con código.
 const code = (src) => src.replace(/\/\*[\s\S]*?\*\//g, '').replace(/(^|[^:'"`\\])\/\/[^\n]*/g, '$1');
 
-test('ningún archivo servido contiene sumideros de HTML o de código', () => {
+test('ningún archivo servido (salvo Three.js vendorizado) contiene sumideros de HTML o de código', () => {
   const SINKS = [/\.innerHTML\s*[=+]/, /\.outerHTML\s*[=+]/, /insertAdjacentHTML/, /document\.write/, /\beval\s*\(/, /\bnew\s+Function\s*\(/,
     /\bFunction\s*\(\s*['"`]/, /set(Timeout|Interval)\(\s*['"`]/, /set(Timeout|Interval)\(\s*[a-zA-Z_$][\w$]*\s*[,)]/,
     /createContextualFragment/, /\bsrcdoc\b/, /DOMParser/, /\.setHTMLUnsafe/, /parseHTMLUnsafe/, /\bexecScript\b/,

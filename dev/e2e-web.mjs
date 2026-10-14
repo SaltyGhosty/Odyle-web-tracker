@@ -377,6 +377,26 @@ check('legión: el código solo vive en el servidor (cifrado, sin código ni has
     orb: c.querySelector('.orb-slot').getBoundingClientRect().left, name: c.querySelector('.name').getBoundingClientRect().left,
     w: c.querySelector('.orb-slot').getBoundingClientRect().width, text: c.querySelector('.name').textContent, cls: !!c.querySelector('.cls-name') })));
   const spread = (xs) => Math.max(...xs) - Math.min(...xs);
+  // Orbe 3D (orb3d.js): con WebGL cada hueco lleva un canvas.orb3d de su mismo tamaño y posición, dibujado (no en blanco)
+  // si está en pantalla, y ningún <canvas> es mayor que un hueco (nada de partículas ni 3D detrás de la página).
+  const orb3d = () => p.evaluate(() => {
+    const drawn = (c) => { const d = c.getContext('2d').getImageData(0, 0, c.width, c.height).data; for (let i = 3; i < d.length; i += 4) if (d[i] > 0) return true; return false; };
+    const slots = [...document.querySelectorAll('#cards .orb-slot')].map((s) => {
+      const r = s.getBoundingClientRect(), c = s.querySelector('canvas.orb3d'), b = c?.getBoundingClientRect();
+      return { has: !!c, same: !!c && ['left', 'top', 'width', 'height'].every((k) => Math.abs(b[k] - r[k]) < 1),
+        onScreen: r.bottom > 0 && r.top < innerHeight, drawn: !!c && c.width > 0 && drawn(c), w: r.width };
+    });
+    const maxSlot = Math.max(...slots.map((x) => x.w));
+    return { gl: !!document.createElement('canvas').getContext('webgl'), slots,
+      big: [...document.querySelectorAll('canvas')].filter((c) => { const b = c.getBoundingClientRect(); return b.width > maxSlot + 1 || b.height > maxSlot + 1; }).length };
+  });
+  const checkOrb3d = async (tag) => {
+    const o = await orb3d();
+    check(`${tag}: WebGL disponible en Chromium (SwiftShader)`, o.gl, JSON.stringify(o));
+    check(`${tag}: cada hueco tiene su canvas.orb3d del tamaño del hueco, dibujado si está en pantalla`,
+      o.slots.length >= 4 && o.slots.every((x) => x.has && x.same && (!x.onScreen || x.drawn)) && o.slots.some((x) => x.drawn), JSON.stringify(o));
+    check(`${tag}: ningún <canvas> mayor que un hueco`, o.big === 0, JSON.stringify(o));
+  };
   for (const w of [1280, 390]) {
     await p.setViewportSize({ width: w, height: 900 });
     await p.waitForTimeout(300);
@@ -386,6 +406,7 @@ check('legión: el código solo vive en el servidor (cifrado, sin código ni has
     check(`${w} px: el orbe de cada fila empieza en la misma x`, spread(cols.map((c) => c.orb)) <= 1, info);
     check(`${w} px: el nombre de cada fila empieza en la misma x`, spread(cols.map((c) => c.name)) <= 1, info);
     check(`${w} px: el orbe mide lo mismo en todas las filas`, spread(cols.map((c) => c.w)) <= 1 && cols[0].w >= 72, info);
+    await checkOrb3d(`orbe 3D ${w} px`);
   }
   await p.setViewportSize({ width: 1280, height: 900 });
   await p.waitForTimeout(300);
@@ -411,6 +432,7 @@ check('legión: el código solo vive en el servidor (cifrado, sin código ni has
     const cols = await columns();
     const info = JSON.stringify(cols);
     check(`compacto ${w} px: el orbe y el nombre de cada fila empiezan en la misma x`, cols.length >= 4 && spread(cols.map((c) => c.orb)) <= 1 && spread(cols.map((c) => c.name)) <= 1 && cols[0].w < 104, info);
+    await checkOrb3d(`orbe 3D compacto ${w} px`);
   }
   await p.evaluate(() => { const t = document.getElementById('compact-toggle'); t.checked = false; t.dispatchEvent(new Event('change', { bubbles: true })); });
   await p.setViewportSize({ width: 1280, height: 900 });
