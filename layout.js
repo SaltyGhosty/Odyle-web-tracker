@@ -33,8 +33,12 @@ export function resolveTab(saved, { social }) {
 export function decisionBand(rows, now, { quiet, tzOffsetMin }) {
   if (!rows.length) return null;
   const full = rows.filter((r) => r.isFull);
-  if (full.length === 1) return { tone: 'urgent', text: `${full[0].name} está al tope · pierde 15 OD cada 3 h`, targetId: full[0].id };
-  if (full.length > 1) return { tone: 'urgent', text: `${full.length} personajes al tope · pierden 15 OD cada 3 h`, targetId: full[0].id };
+  if (full.length === 1) return { tone: 'urgent', text: `${full[0].name} está al tope · pierde ${full[0].regen} OD cada 3 h`, targetId: full[0].id };
+  if (full.length > 1) {
+    const regen = full[0].regen;
+    const loss = full.every((r) => r.regen === regen) ? `${regen} OD` : 'energía';
+    return { tone: 'urgent', text: `${full.length} personajes al tope · pierden ${loss} cada 3 h`, targetId: full[0].id };
+  }
   const pending = rows.filter((r) => r.fullAtMs !== null && r.fullAtMs !== undefined).sort((a, b) => a.fullAtMs - b.fullAtMs);
   for (const r of pending) {
     const w = wasteWarning(r.fullAtMs, now, quiet, tzOffsetMin, r.regen);
@@ -61,4 +65,11 @@ function nextGoal(r, first, now) {
   const left = formatDuration(r.fullAtMs - now);
   const n = first && first.cost > 0 ? Math.floor(r.energy / first.cost) : 0;
   return { tone: 'normal', text: n > 0 ? `${first.name} ×${n} en ${left}` : `Lleno en ${left}` };
+}
+
+// The page header names the recharge and the cap only when every character shares them.
+export function headerRule(rows) {
+  if (!rows.length) return null;
+  const { regen, max } = rows[0];
+  return rows.every((r) => r.regen === regen && r.max === max) ? { regen, max } : null;
 }

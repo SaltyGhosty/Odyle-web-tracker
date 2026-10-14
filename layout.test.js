@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { SECTIONS, navModel, resolveTab, decisionBand, planRows } from './layout.js';
+import { SECTIONS, navModel, resolveTab, decisionBand, planRows, headerRule } from './layout.js';
 
 test('secciones: Energía primero, ids estables y etiqueta nueva', () => {
   assert.equal(SECTIONS[0].id, 'personajes');
@@ -49,6 +49,20 @@ test('banda urgente: varios al tope', () => {
   assert.equal(b.tone, 'urgent');
   assert.equal(b.text, '2 personajes al tope · pierden 15 OD cada 3 h');
   assert.equal(b.targetId, 'c');
+});
+const nrow = (id, name, energy, fullAtMs) => ({ id, name, energy, isFull: energy >= 560, fullAtMs, regen: 15, max: 560 });
+const prem = (id, name, energy, fullAtMs) => ({ id, name, energy, isFull: energy >= 840, fullAtMs, regen: 30, max: 840 });
+test('banda urgente: uno al tope pierde la recarga de su cuenta', () => {
+  const b = decisionBand([nrow('a', 'Ana', 300, 10 * H), prem('p', 'Pre', 840, null)], 0, { quiet, tzOffsetMin: 0 });
+  assert.deepEqual(b, { tone: 'urgent', text: 'Pre está al tope · pierde 30 OD cada 3 h', targetId: 'p' });
+  const n = decisionBand([nrow('n', 'Nor', 560, null)], 0, { quiet, tzOffsetMin: 0 });
+  assert.equal(n.text, 'Nor está al tope · pierde 15 OD cada 3 h');
+});
+test('banda urgente: varios al tope con la misma recarga la nombran; mezclados no', () => {
+  const same = decisionBand([prem('p', 'Pre', 840, null), prem('q', 'Qua', 900, null)], 0, { quiet, tzOffsetMin: 0 });
+  assert.equal(same.text, '2 personajes al tope · pierden 30 OD cada 3 h');
+  const mixed = decisionBand([nrow('n', 'Nor', 560, null), prem('p', 'Pre', 840, null)], 0, { quiet, tzOffsetMin: 0 });
+  assert.deepEqual(mixed, { tone: 'urgent', text: '2 personajes al tope · pierden energía cada 3 h', targetId: 'n' });
 });
 test('banda aviso: se llena antes del final del descanso y perdería energía', () => {
   // ahora 22:00 UTC del día 0; se llena a las 23:00; descanso 00:00–08:00 → pierde recargas
@@ -118,4 +132,11 @@ test('banda urgente: personaje normal al tope de 560', () => {
   const b = decisionBand([n], 0, { quiet, tzOffsetMin: 0 });
   assert.equal(b.tone, 'urgent');
   assert.equal(b.targetId, 'n');
+});
+
+test('cabecera: cifras solo si todas las cuentas coinciden', () => {
+  assert.deepEqual(headerRule([{ regen: 15, max: 560 }, { regen: 15, max: 560 }]), { regen: 15, max: 560 });
+  assert.deepEqual(headerRule([{ regen: 30, max: 840 }]), { regen: 30, max: 840 });
+  assert.equal(headerRule([{ regen: 15, max: 560 }, { regen: 30, max: 840 }]), null);
+  assert.equal(headerRule([]), null);
 });
