@@ -1,7 +1,7 @@
 <meta charset="utf-8">
 <meta name="theme-color" content="#EEF3F8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Energía Odyle</title>
+<title>Odyle Tracker</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Cinzel:wght@600;700&family=Figtree:wght@400;500;600&display=swap">
@@ -238,24 +238,10 @@
   .guide-steps li.done::before { content: "✓"; background: var(--gold); color: var(--on-gold); }
   .guide-steps li.done button { text-decoration: line-through; opacity: .6; }
 
-  /* ---- Desktop: top navigation bar with sections (mobile keeps the ☰ drawer) ---- */
   .privacy { border: 1px solid var(--line); border-radius: 12px; padding: 10px 12px; display: flex; flex-direction: column; gap: 6px; }
   .privacy legend { font-family: var(--font-display); padding: 0 6px; }
-  .topnav .badge { margin-left: 6px; min-width: 18px; height: 18px; padding: 0 5px; border-radius: 9px; display: inline-grid; place-items: center; font-size: .7rem; font-weight: 700; background: var(--urgent); color: #fff; font-variant-numeric: tabular-nums; }
-  .topnav { display: none; }
   .legion-empty { display: none; }
-  @media all { /* the nav bar is shown at every width (it scrolls sideways on narrow screens) */
-    #menu-btn { display: none !important; }
-    .topnav {
-      display: flex; gap: 4px; position: sticky; top: 0; z-index: 6; margin: -8px -16px 0; padding: 8px 16px;
-      overflow-x: auto; scrollbar-width: none; /* narrow windows: the tabs scroll sideways instead of wrapping */
-      background: color-mix(in srgb, var(--bg) 80%, transparent); -webkit-backdrop-filter: blur(12px); backdrop-filter: blur(12px);
-      border-bottom: 1px solid var(--line);
-    }
-    .topnav button { flex: none; white-space: nowrap; border: none; background: none; border-radius: 8px; padding: 10px 14px; color: var(--muted); font-weight: 600; position: relative; }
-    @media (hover: hover) and (pointer: fine) { .topnav button:hover { color: var(--fg); background: var(--hover); } }
-    .topnav button[aria-current="page"] { color: var(--gold-bright); }
-    .topnav button[aria-current="page"]::after { content: ""; position: absolute; left: 14px; right: 14px; bottom: 2px; height: 2px; border-radius: 2px; background: var(--gold); box-shadow: 0 0 8px var(--gold); }
+  @media all { /* sections at every width */
     .tab-panel { display: flex; flex-direction: column; gap: 24px; }
     .tab-panel[hidden] { display: none !important; }
     /* settings and news: panels flow into balanced columns, no empty gaps under short panels */
@@ -286,7 +272,7 @@
   .event-row .ev-note { grid-column: 2; }
   .event-row .ev-when { grid-column: 3; }
   .event-row.favorite .ev-name { color: var(--gold-bright); }
-  .alert { position: fixed; z-index: 12; top: 12px; left: 50%; transform: translate(-50%, -20px); opacity: 0;
+  .alert { position: fixed; z-index: 41; top: 12px; left: 50%; transform: translate(-50%, -20px); opacity: 0;
     display: flex; align-items: center; gap: 12px; max-width: calc(100vw - 32px);
     background: var(--glass-strong); border: 1px solid var(--gold-bright); border-radius: 12px; padding: 10px 12px 10px 16px;
     box-shadow: 0 0 24px color-mix(in srgb, var(--gold-bright) 35%, transparent); transition: opacity .25s ease, transform .25s ease; font-weight: 600; }
@@ -335,15 +321,49 @@
   .event-row.active .ev-name, .event-row.active .ev-when { color: var(--gold-bright); }
   .event-row.active { background: linear-gradient(90deg, color-mix(in srgb, var(--gold) 10%, transparent), transparent); }
 
-  /* ---- Hamburger drawer, spend buttons, undo toast ---- */
-  .menu-btn { font-size: 1.3rem; line-height: 1; padding: 8px 14px; }
-  .scrim { position: fixed; inset: 0; z-index: 9; background: var(--scrim); }
-  .drawer {
-    position: fixed; z-index: 10; top: 0; right: 0; bottom: 0; width: min(360px, 90vw); overflow-y: auto;
-    background: var(--glass-strong); border-left: 1px solid var(--line);
-    -webkit-backdrop-filter: blur(14px); backdrop-filter: blur(14px);
-    padding: 16px; display: flex; flex-direction: column; gap: 14px;
+  /* ---- Marco: rail (>= 900 px), barra inferior + hoja Más (< 900 px) ---- */
+  .i { width: 22px; height: 22px; flex: none; fill: none; stroke: currentColor; stroke-width: 1.75; stroke-linecap: round; stroke-linejoin: round; }
+  .brand { display: flex; flex-direction: column; }
+  .brand-name { font-family: var(--font-display); font-weight: 700; font-size: 1.35rem; letter-spacing: .04em; color: var(--gold-bright); }
+  header .subtitle { font-size: .7rem; margin: 0; }
+  .topnav { position: fixed; z-index: 20; background: var(--glass-strong); border-color: var(--line); display: flex;
+    -webkit-backdrop-filter: blur(12px); backdrop-filter: blur(12px); }
+  .topnav button { border: none; background: none; color: var(--muted); font-weight: 600; min-height: 44px; display: flex; align-items: center; gap: 10px; position: relative; border-radius: 10px; }
+  @media (hover: hover) and (pointer: fine) { .topnav button:hover { color: var(--fg); background: var(--hover); } }
+  .topnav button[aria-current="page"] { color: var(--gold-bright); background: color-mix(in srgb, var(--gold) 12%, transparent); }
+  .topnav .badge, .more-grid .badge { min-width: 18px; height: 18px; padding: 0 5px; border-radius: 9px; display: inline-grid; place-items: center; font-size: .7rem; font-weight: 700; background: var(--urgent); color: #fff; font-variant-numeric: tabular-nums; }
+  .rail-brand, .rail-foot { display: none; }
+  @media (min-width: 900px) {
+    .topnav { top: 0; bottom: 0; left: 0; width: 220px; flex-direction: column; gap: 2px; padding: 16px 12px; border-right: 1px solid var(--line); overflow-y: auto; }
+    .topnav button { padding: 10px 12px; width: 100%; text-align: left; }
+    .topnav .badge { margin-left: auto; }
+    .topnav .more-btn { display: none; }
+    .rail-brand { display: block; padding: 4px 12px 16px; }
+    .rail-foot { display: flex; flex-direction: column; gap: 12px; margin-top: auto; padding-top: 16px; }
+    .page { margin-left: calc(220px + max(0px, (100vw - 220px - 960px) / 2)); margin-right: 0; }
+    header .brand { display: none; }
   }
+  @media (max-width: 899.98px) {
+    .topnav { left: 0; right: 0; bottom: 0; padding: 4px 4px calc(4px + env(safe-area-inset-bottom)); border-top: 1px solid var(--line); justify-content: space-around; }
+    .topnav button { flex: 1 1 0; flex-direction: column; justify-content: center; gap: 2px; padding: 6px 2px; font-size: .7rem; min-width: 0; }
+    .topnav button.in-more { display: none; }
+    .topnav .badge { position: absolute; top: 2px; left: calc(50% + 6px); }
+    .page { padding-bottom: calc(80px + env(safe-area-inset-bottom)); }
+  }
+  .more-sheet { position: fixed; z-index: 30; inset: auto 0 0 0; margin: 0; width: 100%; max-width: none; max-height: 80vh; border: 1px solid var(--line); border-bottom: none;
+    border-radius: 16px 16px 0 0; background: var(--glass-strong); color: var(--fg); padding: 16px 16px calc(16px + env(safe-area-inset-bottom)); box-shadow: var(--shadow); }
+  .more-sheet::backdrop { background: var(--scrim); }
+  .more-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; margin-bottom: 16px; }
+  .more-grid button { flex-direction: column; min-height: 72px; display: flex; align-items: center; justify-content: center; gap: 6px; border-radius: 12px; position: relative; }
+  .more-grid button[aria-current="page"] { color: var(--gold-bright); border-color: var(--gold); }
+  .more-grid .badge { position: absolute; top: 6px; right: 8px; }
+  @media (prefers-reduced-motion: no-preference) {
+    .more-sheet[open] { animation: sheet-in 240ms var(--ease-out); }
+    @keyframes sheet-in { from { transform: translateY(100%); } to { transform: translateY(0); } }
+  }
+
+  /* ---- Spend buttons, undo toast ---- */
+  .drawer { display: none; }
   .drawer .panel { background: var(--hover); }
   .drawer .field { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
   .drawer .row .field { flex: 1 1 120px; }
@@ -357,7 +377,7 @@
   button.spend { border-color: var(--sky); color: var(--sky); padding: 6px 12px; min-height: 34px; font-size: .8125rem; }
   button.extra { padding: 6px 12px; min-height: 34px; font-size: .8125rem; }
   .toast {
-    position: fixed; z-index: 11; left: 50%; bottom: 20px; transform: translateX(-50%);
+    position: fixed; z-index: 38; left: 50%; bottom: 20px; transform: translateX(-50%);
     display: flex; align-items: center; gap: 12px; max-width: calc(100vw - 32px);
     background: var(--glass-strong); border: 1px solid var(--gold); border-radius: 12px; padding: 10px 12px 10px 16px;
     box-shadow: var(--shadow);
@@ -365,16 +385,12 @@
   .toast span { overflow-wrap: anywhere; }
 
   /* ---- Open/close animations (instant with reduced motion) ---- */
-  .drawer { transform: translateX(100%); transition: transform .28s cubic-bezier(.2, .7, .2, 1); }
-  .drawer.open { transform: none; }
-  .scrim { opacity: 0; transition: opacity .28s ease; }
-  .scrim.open { opacity: 1; }
   .toast { opacity: 0; transform: translate(-50%, 16px); transition: opacity .22s ease, transform .22s ease; }
   .toast.show { opacity: 1; transform: translate(-50%, 0); }
   .pop { animation: pop .22s ease-out both; }
   @keyframes pop { from { opacity: 0; transform: translateY(-4px); } to { opacity: 1; transform: none; } }
   @media (prefers-reduced-motion: reduce) {
-    .drawer, .scrim, .toast, .events summary::after { transition: none; }
+    .toast, .events summary::after { transition: none; }
     .pop { animation: none; }
   }
 
@@ -414,10 +430,10 @@
 
   /* ---- AI assistant ---- */
   .sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
-  .ai-fab { position: fixed; z-index: 8; right: 16px; bottom: 16px; border-radius: 999px; padding: 10px 16px; font-weight: 600;
+  .ai-fab { position: fixed; z-index: 36; right: 16px; bottom: 16px; border-radius: 999px; padding: 10px 16px; font-weight: 600;
     background: var(--glass-strong); border-color: var(--gold); color: var(--gold-bright); box-shadow: 0 0 20px color-mix(in srgb, var(--gold) 30%, transparent);
     -webkit-backdrop-filter: blur(10px); backdrop-filter: blur(10px); }
-  .ai-panel { position: fixed; z-index: 9; right: 16px; bottom: 70px; width: min(400px, calc(100vw - 32px)); height: min(560px, calc(100vh - 100px));
+  .ai-panel { position: fixed; z-index: 37; right: 16px; bottom: 70px; width: min(400px, calc(100vw - 32px)); height: min(560px, calc(100vh - 100px));
     display: flex; flex-direction: column; gap: 8px; padding: 12px; border-radius: 16px; border: 1px solid var(--line);
     background: var(--glass-strong); -webkit-backdrop-filter: blur(14px); backdrop-filter: blur(14px); box-shadow: var(--shadow);
     opacity: 0; transform: translateY(12px) scale(.98); transform-origin: bottom right; transition: opacity .22s ease, transform .22s ease; }
@@ -440,6 +456,13 @@
   .ai-form textarea { min-height: 44px; max-height: 120px; flex: 1; }
   body.toast-up .ai-fab { bottom: calc(var(--toast-h, 50px) + 32px); }
   body.toast-up .ai-panel { bottom: calc(var(--toast-h, 50px) + 86px); height: min(560px, calc(100vh - var(--toast-h, 50px) - 116px)); }
+  @media (max-width: 899.98px) { /* por encima de la barra inferior */
+    .toast { bottom: calc(72px + env(safe-area-inset-bottom)); }
+    .ai-fab { bottom: calc(72px + env(safe-area-inset-bottom)); }
+    .ai-panel { bottom: calc(126px + env(safe-area-inset-bottom)); height: min(560px, calc(100vh - 160px)); }
+    body.toast-up .ai-fab { bottom: calc(var(--toast-h, 50px) + 88px + env(safe-area-inset-bottom)); }
+    body.toast-up .ai-panel { bottom: calc(var(--toast-h, 50px) + 142px + env(safe-area-inset-bottom)); height: min(560px, calc(100vh - var(--toast-h, 50px) - 190px)); }
+  }
 
   /* ---- Personajes: "+" button and the add-character modal ---- */
   .chars-bar { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: -8px; }
@@ -448,7 +471,7 @@
     background: linear-gradient(180deg, var(--gold-bright), var(--gold)); color: var(--on-gold); border-color: var(--gold);
     box-shadow: 0 0 16px color-mix(in srgb, var(--gold) 40%, transparent); display: grid; place-items: center; }
   @media (hover: hover) and (pointer: fine) { .add-btn:hover { box-shadow: 0 0 22px color-mix(in srgb, var(--gold) 65%, transparent); } }
-  .modal { position: fixed; inset: 0; z-index: 14; display: grid; place-items: center; padding: 16px; background: var(--scrim);
+  .modal { position: fixed; inset: 0; z-index: 40; display: grid; place-items: center; padding: 16px; background: var(--scrim);
     opacity: 0; transition: opacity .22s ease; }
   .modal.open { opacity: 1; }
   .modal-box { width: min(440px, 100%); transform: translateY(10px) scale(.98); transition: transform .22s cubic-bezier(.2, .7, .2, 1); }
@@ -501,7 +524,7 @@
   /* ---- Keyboard shortcuts ---- */
   .card.selected .panel { outline: 1px solid var(--sky); outline-offset: 2px; }
   kbd { font: 600 .8em var(--font-body); border: 1px solid var(--line); border-bottom-width: 2px; border-radius: 5px; padding: 1px 6px; background: var(--hover); }
-  .keys-help { position: fixed; inset: 0; z-index: 13; display: grid; place-items: center; padding: 16px; background: var(--scrim); }
+  .keys-help { position: fixed; inset: 0; z-index: 39; display: grid; place-items: center; padding: 16px; background: var(--scrim); }
   .keys-help .panel { width: min(440px, 100%); background: var(--glass-strong); }
   .keys { display: grid; grid-template-columns: auto 1fr; gap: 8px 14px; margin: 0; align-items: baseline; }
   .keys dt { white-space: nowrap; } .keys dd { margin: 0; color: var(--muted); font-size: .875rem; }
@@ -548,10 +571,7 @@
 <canvas id="scene" aria-hidden="true"></canvas>
 <div class="page">
   <header>
-    <div>
-      <h1>Energía Odyle</h1>
-      <p class="subtitle" id="subtitle">Daevas de Elyos</p>
-    </div>
+    <div class="brand"><b class="brand-name">Odyle</b><span class="subtitle" id="subtitle">Daevas de Elyos</span></div>
     <div class="clock" id="clock">
       <svg class="ring" viewBox="0 0 60 60" aria-hidden="true">
         <circle class="track" cx="30" cy="30" r="26"></circle>
@@ -562,14 +582,12 @@
         <p class="clock-time" id="next-tick"></p>
       </div>
     </div>
-    <div class="theme-slot" id="theme-slot-header"></div>
     <button type="button" id="profile-chip" class="profile-chip" aria-haspopup="dialog" hidden>
       <span class="pc-icon" id="pc-icon" aria-hidden="true"></span>
       <span class="pc-text"><b id="pc-name"></b><small id="pc-title"></small></span>
     </button>
     <button type="button" id="online-pill" class="online-pill" hidden></button>
     <button type="button" id="motion-btn" hidden>Activar movimiento</button>
-    <button type="button" id="menu-btn" class="menu-btn" aria-label="Menú" aria-expanded="false" aria-controls="drawer" hidden>☰</button>
   </header>
 
   <section class="panel summary" id="summary" aria-label="Resumen" hidden>
@@ -732,12 +750,8 @@
   </section>
 </div>
 
-<div id="scrim" class="scrim" hidden></div>
-<aside id="drawer" class="drawer" role="dialog" aria-modal="true" aria-labelledby="drawer-title" hidden>
-  <div class="drawer-head">
-    <h2 id="drawer-title">Menú</h2>
-    <button type="button" id="drawer-close" aria-label="Cerrar menú">✕</button>
-  </div>
+<!-- Almacén oculto: de aquí toman Ajustes y Novedades sus paneles (applyLayout los mueve a su sección). -->
+<aside id="drawer" class="drawer" hidden>
 
   <form class="panel" id="add-form" novalidate>
     <div class="drawer-head"><h2 id="add-title">Añadir personaje</h2><button type="button" id="add-close" aria-label="Cerrar">✕</button></div>
@@ -922,6 +936,8 @@
 </div>
 
 <script type="module">
+  import { SECTIONS, navModel, resolveTab } from './layout.js';
+  import { iconSvg } from './icons.js';
   import { startI18n, tr, LOCALE, LANG, LANGS, setLang, onLangChange } from './i18n.js';
   startI18n();
   import { buildView, parseEnergyInput, parseMinutesInput, parseNameInput, parseClassInput } from './view.js';
@@ -946,7 +962,7 @@
   const state = { characters: [], memberData: new Map(), stats: null, tasks: DEFAULT_TASKS, progress: new Map(), cpHist: new Map(), hiddenMembers: 0, others: new Map(), names: {}, schedule: null, presets: [], events: [], timers: [], calendar: [], wall: [], legions: new Map(), prefs: { quietStart: '00:00', quietEnd: '08:00', favEvents: [] } };
   // Interface-only state: which card is editing/confirming, validation messages.
   // noDb: no db in this view. readOnly: viewer cannot write (or a write was refused).
-  const ui = { pop: null, notesId: null, tasksOpen: new Set(), menuOpen: false, editingId: null, extraId: null, confirmId: null, errors: {}, selectedId: null, noDb: false, readOnly: false, loaded: false };
+  const ui = { pop: null, notesId: null, tasksOpen: new Set(), editingId: null, extraId: null, confirmId: null, errors: {}, selectedId: null, noDb: false, readOnly: false, loaded: false };
 
   let db = null;
   let user = null;
@@ -1192,7 +1208,7 @@
     }
     return group;
   }
-  for (const id of ['theme-slot-header', 'theme-slot-look', 'theme-slot-profile']) $(id).append(themeSwitch());
+  for (const id of ['theme-slot-look', 'theme-slot-profile']) $(id).append(themeSwitch());
   function applyTheme(t, { persist = false } = {}) {
     const th = themeOf(t);
     theme = th.id;
@@ -1589,13 +1605,13 @@
     } catch (e) { if (!e || e.code !== 'declined') showNotice('No se pudo descargar la imagen aquí'); }
   });
 
-  // ---- Desktop layout: nav bar + sections. The same nodes are moved between the sections (desktop)
-  // and their original places in the page and the ☰ drawer (mobile); nothing is duplicated. ----
-  const DESKTOP = matchMedia('all') // sections + nav bar at every width; the ☰ drawer is no longer used;
-  const TABS = [['personajes', 'Personajes'], ['eventos', 'Eventos'], ['estadisticas', 'Estadísticas'], ['legion', 'Legión'], ['ajustes', 'Ajustes'], ['novedades', 'Novedades']];
-  // Solo web (window.odyleSocialApi viene de social-api.js): amigos, chat y búsqueda de perfiles.
-  const SOCIAL = !!window.odyleSocialApi;
-  if (SOCIAL) TABS.splice(3, 0, ['amigos', 'Amigos'], ['chat', 'Chat'], ['buscar', 'Buscar']);
+  // ---- Layout: rail (>= 900 px) or bottom bar + "Más" sheet (< 900 px). The same nodes are moved into the
+  // section panels; nothing is duplicated. ----
+  const SOCIAL = !!window.odyleSocialApi; // web only (social-api.js): friends, chat and profile search
+  const NAV = navModel({ social: SOCIAL });
+  const SECTION = Object.fromEntries(SECTIONS.map(x => [x.id, x]));
+  const TABS = NAV.rail.map(id => [id, SECTION[id].label]);
+  const WIDE = matchMedia('(min-width: 900px)');
   const socialPanels = SOCIAL ? {
     amigos: el('div', { class: 'social', id: 'social-amigos' }),
     chat: el('div', { class: 'social', id: 'social-chat' }),
@@ -1603,7 +1619,6 @@
   } : {};
   let social = null;
   const pageEl = document.querySelector('.page');
-  const pageOrder = [...pageEl.children];
   const drawerOrder = [...$('drawer').children];
   const drawerPanels = drawerOrder.filter(n => !n.classList.contains('drawer-head'));
   const isNews = n => n.querySelector && (n.querySelector('#news') || n.querySelector('#feedback-form'));
@@ -1616,54 +1631,77 @@
     novedades: () => drawerPanels.filter(isNews),
     ...(SOCIAL ? { amigos: () => [socialPanels.amigos], chat: () => [socialPanels.chat], buscar: () => [socialPanels.buscar] } : {}),
   };
-  const nav = el('nav', { class: 'topnav', id: 'topnav', 'aria-label': 'Secciones' });
+  const navButton = id => el('button', { type: 'button', 'data-tab': id, onclick: () => setTab(id) },
+    iconSvg(document, SECTION[id].icon), el('span', { class: 'lbl' }, SECTION[id].label));
+  const nav = el('nav', { class: 'topnav', id: 'topnav', 'aria-label': 'Secciones' },
+    el('div', { class: 'rail-brand' }, el('b', { class: 'brand-name' }, 'Odyle')));
   const tabWrap = el('div', { class: 'tabs' });
   const tabPanels = {};
   for (const [id, label] of TABS) {
-    nav.append(el('button', { type: 'button', 'data-tab': id, onclick: () => setTab(id) }, label));
+    const b = navButton(id);
+    if (!NAV.bar.includes(id)) b.classList.add('in-more'); // hidden in the mobile bar
+    nav.append(b);
     tabPanels[id] = el('section', { class: 'tab-panel', id: 'tab-' + id, 'aria-label': label });
     tabWrap.append(tabPanels[id]);
   }
+  const moreBtn = el('button', { type: 'button', class: 'more-btn', 'data-more': '', 'aria-haspopup': 'dialog', onclick: () => openMore() },
+    iconSvg(document, 'mas'), el('span', { class: 'lbl' }, 'Más'));
+  nav.append(moreBtn);
+  const railFoot = el('div', { class: 'rail-foot' }, themeSwitch());
+  nav.append(railFoot);
+  const moreSheet = el('dialog', { class: 'more-sheet', id: 'more-sheet', 'aria-label': 'Más secciones' });
+  moreSheet.append(el('div', { class: 'more-grid' }, ...NAV.more.map(id => navButton(id)),
+    el('button', { type: 'button', 'data-profile': '', onclick: () => { closeMore(); $('profile-chip').click(); } },
+      iconSvg(document, 'perfil'), el('span', { class: 'lbl' }, 'Perfil'))),
+    themeSwitch());
+  moreSheet.addEventListener('click', e => { if (e.target === moreSheet) closeMore(); });
+  document.body.append(moreSheet);
+  function openMore() { if (!moreSheet.open) moreSheet.showModal(); }
+  function closeMore() { if (moreSheet.open) moreSheet.close(); }
+  applyTheme(theme); // marks the switches just created
   function setBadge(id, n) {
-    const b = nav.querySelector(`[data-tab="${id}"]`);
-    if (!b) return;
-    let s = b.querySelector('.badge');
-    if (!n) { if (s) s.remove(); return; }
-    if (!s) { s = el('span', { class: 'badge' }); b.append(s); }
-    s.textContent = n > 99 ? '99+' : String(n);
+    for (const b of document.querySelectorAll(`#topnav [data-tab="${id}"], #more-sheet [data-tab="${id}"]`)) {
+      let s = b.querySelector('.badge');
+      if (!n) { if (s) s.remove(); continue; }
+      if (!s) { s = el('span', { class: 'badge' }); b.append(s); }
+      s.textContent = n > 99 ? '99+' : String(n);
+    }
   }
   let activeTab = 'personajes';
-  try { const t = localStorage.getItem('odyle-tab'); if (TABS.some(([id]) => id === t)) activeTab = t; } catch {}
+  try { activeTab = resolveTab(localStorage.getItem('odyle-tab'), { social: SOCIAL }); } catch {}
   function setTab(id) {
+    id = resolveTab(id, { social: SOCIAL });
     activeTab = id;
     try { localStorage.setItem('odyle-tab', id); } catch {}
     for (const [k, p] of Object.entries(tabPanels)) p.hidden = k !== id;
-    for (const b of nav.querySelectorAll('button')) b.toggleAttribute('aria-current', b.dataset.tab === id), b.dataset.tab === id && b.setAttribute('aria-current', 'page');
+    for (const b of document.querySelectorAll('#topnav [data-tab], #more-sheet [data-tab]')) {
+      if (b.dataset.tab === id) b.setAttribute('aria-current', 'page'); else b.removeAttribute('aria-current');
+    }
+    if (NAV.more.includes(id)) moreBtn.setAttribute('aria-current', 'page'); else moreBtn.removeAttribute('aria-current');
+    closeMore();
     if (id === 'eventos') $('events').open = true;
     if (id === 'novedades') loadInbox(); // the owner's feedback inbox
     window.scrollTo({ top: 0 });
     if (social) social.onTab(id);
     render();
   }
-  function applyLayout() {
-    if (DESKTOP.matches) {
-      if (ui.menuOpen) closeMenu();
-      const header = pageEl.querySelector('header');
-      header.after(nav);
-      nav.after(tabWrap);
-      // notices stay above the sections
-      tabWrap.before($('nodata'), $('notice'));
-      for (const [id] of TABS) tabPanels[id].replaceChildren(...PLACE[id]());
-      setTab(activeTab);
-    } else {
-      nav.remove(); tabWrap.remove();
-      for (const n of pageOrder) pageEl.append(n);
-      for (const n of drawerOrder) $('drawer').append(n);
-    }
+  // The profile chip lives at the foot of the rail on desktop and in the header on mobile.
+  function placeChrome() {
+    if (WIDE.matches) { railFoot.append($('profile-chip')); closeMore(); }
+    else pageEl.querySelector('header').append($('profile-chip'));
   }
-  // Where a step lives: a section on desktop, the drawer on mobile.
+  function applyLayout() {
+    pageEl.before(nav);
+    pageEl.querySelector('header').after(tabWrap);
+    // notices stay above the sections
+    tabWrap.before($('nodata'), $('notice'));
+    for (const [id] of TABS) tabPanels[id].replaceChildren(...PLACE[id]());
+    placeChrome();
+    setTab(activeTab);
+  }
+  WIDE.addEventListener('change', placeChrome);
   function goTo(tab, focusId) {
-    if (DESKTOP.matches) { setTab(tab); } else openMenu();
+    setTab(tab);
     const f = $(focusId); if (f) { f.focus({ preventScroll: true }); f.scrollIntoView({ block: 'center' }); }
   }
 
@@ -1679,7 +1717,7 @@
   $('guide').addEventListener('click', e => {
     const b = e.target.closest('[data-step]'); if (!b) return;
     const step = b.dataset.step;
-    if (step === '1') { if (DESKTOP.matches) setTab('personajes'); openAdd(); }
+    if (step === '1') { setTab('personajes'); openAdd(); }
     else if (step === '2') {
       const first = buildView(state.characters, state.schedule, Date.now()).rows[0];
       if (!first) { openAdd(); return; }
@@ -1832,12 +1870,10 @@
     paintClock();
     const locked = ui.noDb || ui.readOnly;
     $('nodata').hidden = !ui.noDb;
-    $('menu-btn').hidden = locked || !db || !ui.loaded;
     $('add-btn').hidden = locked || !db || !ui.loaded; // nothing to add to without data or permission
     $('presets-btn').hidden = $('add-btn').hidden;
     if ($('presets-btn').hidden && !$('presets-modal').hidden) conceal($('presets-modal'), 'open');
     if ($('add-btn').hidden && !$('add-modal').hidden) closeAdd();
-    if ($('menu-btn').hidden && ui.menuOpen) closeMenu();
     paintPresets();
     paintTaskList();
     $('clock').hidden = ui.noDb;
@@ -1933,21 +1969,6 @@
     hideTimers.set(node, setTimeout(() => { node.hidden = true; }, ANIM_MS));
   }
 
-  // Hamburger drawer: Esc / scrim / ✕ close it; focus moves in and back to ☰; Tab stays inside.
-  function openMenu() {
-    ui.menuOpen = true;
-    reveal($('drawer'), 'open'); reveal($('scrim'), 'open');
-    loadInbox();
-    $('menu-btn').setAttribute('aria-expanded', 'true');
-    $('add-name').focus({ preventScroll: true });
-  }
-  function closeMenu() {
-    ui.menuOpen = false;
-    conceal($('drawer'), 'open'); conceal($('scrim'), 'open');
-    $('menu-btn').setAttribute('aria-expanded', 'false');
-    if (!$('menu-btn').hidden) $('menu-btn').focus();
-  }
-
   // Events panel: animate the height when opening/closing instead of jumping.
   $('events').querySelector('summary').addEventListener('click', e => {
     const box = $('events');
@@ -1966,19 +1987,6 @@
       const fade = $('event-list').animate([{ opacity: 1 }, { opacity: 0 }], { duration: 200, fill: 'forwards' });
       a.onfinish = () => { box.open = false; fade.cancel(); };
     }
-  });
-  $('menu-btn').addEventListener('click', () => ui.menuOpen ? closeMenu() : openMenu());
-  $('drawer-close').addEventListener('click', closeMenu);
-  $('scrim').addEventListener('click', closeMenu);
-  document.addEventListener('keydown', e => {
-    if (!ui.menuOpen) return;
-    if (e.key === 'Escape') { e.preventDefault(); closeMenu(); return; }
-    if (e.key !== 'Tab') return;
-    const f = [...$('drawer').querySelectorAll('button, input, select')].filter(x => !x.disabled && x.offsetParent !== null);
-    if (!f.length) return;
-    if (!$('drawer').contains(document.activeElement)) { e.preventDefault(); f[0].focus(); return; }
-    if (e.shiftKey && document.activeElement === f[0]) { e.preventDefault(); f.at(-1).focus(); }
-    else if (!e.shiftKey && document.activeElement === f.at(-1)) { e.preventDefault(); f[0].focus(); }
   });
   $('undo').addEventListener('click', undoLast);
   $('sim-runs').addEventListener('input', () => render());
@@ -2017,7 +2025,7 @@
   $('keys-close').addEventListener('click', () => toggleKeys(false));
   $('keys-help').addEventListener('click', e => { if (e.target === $('keys-help')) toggleKeys(false); });
   document.addEventListener('keydown', e => {
-    if (e.ctrlKey || e.metaKey || e.altKey || e.repeat || ui.menuOpen || !$('ai-panel').hidden || document.querySelector('.modal:not([hidden])')) return;
+    if (e.ctrlKey || e.metaKey || e.altKey || e.repeat || moreSheet.open || !$('ai-panel').hidden || document.querySelector('.modal:not([hidden])')) return;
     if (keysOpen() && e.key === 'Escape') { e.preventDefault(); toggleKeys(false); return; }
     const t = e.target;
     if (t && (t.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(t.tagName))) return;
@@ -2025,7 +2033,7 @@
     if (keysOpen()) return;
     if (/^[1-9]$/.test(e.key)) {
       const preset = state.presets[Number(e.key) - 1];
-      if (!preset || !my || ui.readOnly || ui.noDb || (DESKTOP.matches && activeTab !== 'personajes')) return;
+      if (!preset || !my || ui.readOnly || ui.noDb || activeTab !== 'personajes') return;
       const rows = buildView(state.characters, state.schedule, Date.now()).rows;
       const row = rows.find(r => r.id === ui.selectedId) || rows[0];
       if (!row) return;
@@ -2033,12 +2041,12 @@
       spend(row, preset);
     } else if (e.key === 'z' || e.key === 'Z') {
       if (undo) { e.preventDefault(); undoLast(); }
-    } else if ((e.key === 'ArrowLeft' || e.key === 'ArrowRight') && DESKTOP.matches) {
+    } else if ((e.key === 'ArrowLeft' || e.key === 'ArrowRight')) {
       const i = TABS.findIndex(([id]) => id === activeTab);
       const next = TABS[(i + (e.key === 'ArrowRight' ? 1 : TABS.length - 1)) % TABS.length][0];
       e.preventDefault();
       setTab(next);
-      nav.querySelector(`[data-tab="${next}"]`)?.focus({ preventScroll: true });
+      const nb = nav.querySelector(`[data-tab="${next}"]`); if (nb && nb.offsetParent) nb.focus({ preventScroll: true });
     }
   });
   for (const [code, label] of Object.entries(LANGS)) $('lang-select').append(el('option', { value: code, selected: code === LANG }, label));
@@ -2710,7 +2718,7 @@
     }
   }
   $('online-pill').addEventListener('click', () => {
-    if (DESKTOP.matches) setTab('legion');
+    setTab('legion');
     $('online-panel').scrollIntoView({ block: 'start', behavior: reduceMotion ? 'auto' : 'smooth' });
   });
 
@@ -2850,7 +2858,6 @@
     $('ai-fab').hidden = !sample;
   }
 
-  DESKTOP.addEventListener('change', applyLayout);
   applyLayout(); // after every top-level declaration: it renders
   render();
   initScene();

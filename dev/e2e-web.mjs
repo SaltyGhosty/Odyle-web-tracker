@@ -434,7 +434,7 @@ check('cerrar todas: la cookie de renovación vieja de B no renueva', (await rep
   await register(pd, 'dani@example.com', PW); await login(pd, 'dani@example.com', PW); await fillProfile(pd, 'DaniSombra');
 
   // buscar y pedir amistad
-  await pc.click('[data-tab="buscar"]');
+  await pc.click('#topnav [data-tab="buscar"]');
   await pc.fill('#search-q', 'Dani');
   await pc.waitForSelector('#social-buscar .social-list li');
   check('buscar: encuentra a DaniSombra', /DaniSombra/.test(await text(pc, '#social-buscar')));
@@ -493,7 +493,7 @@ check('cerrar todas: la cookie de renovación vieja de B no renueva', (await rep
   await pd.setViewportSize({ width: 1280, height: 900 });
 
   // tema: Sombra se guarda en prefs.theme, sobrevive a recargar y guardar el perfil no lo cambia
-  await pc.click('#theme-slot-header [data-theme-choice="asmodian"]');
+  await pc.click('#topnav [data-theme-choice="asmodian"]');
   const cUid = (await dbRows('members/')).find((r) => r.data.profile?.nick === 'CarlaLuz')?.path.split('/')[1];
   let themeSaved = false;
   for (let i = 0; i < 50 && !themeSaved; i++) {
@@ -515,7 +515,7 @@ check('cerrar todas: la cookie de renovación vieja de B no renueva', (await rep
   await pd.uncheck('#profile-searchable');
   await pd.click('#profile-form button[type=submit]');
   await pd.waitForSelector('#profile-modal', { state: 'hidden' });
-  await pc.click('[data-tab="buscar"]');
+  await pc.click('#topnav [data-tab="buscar"]');
   await pc.fill('#search-q', '');
   await pc.fill('#search-q', 'Dani');
   await pc.waitForSelector('#social-buscar >> text=Nadie se llama así');
@@ -561,7 +561,7 @@ check('cerrar todas: la cookie de renovación vieja de B no renueva', (await rep
     if (!fSaved) await new Promise((r) => setTimeout(r, 100));
   }
   check('tema primera vez: prefs.theme se guarda con la facción del perfil', fSaved);
-  await pf.click('[data-tab="ajustes"]').catch(() => {});
+  await pf.click('#topnav [data-tab="ajustes"]').catch(() => {});
   await pf.fill('#quiet-start', '01:00');
   await pf.click('#prefs-form button[type=submit]');
   await new Promise((r) => setTimeout(r, 600));

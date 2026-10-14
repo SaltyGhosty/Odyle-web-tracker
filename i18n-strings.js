@@ -914,3 +914,11 @@ const SOCIAL_ERRORS = {
 };
 for (const l of Object.keys(SOCIAL_ERRORS)) for (const [k, v] of Object.entries(SOCIAL_ERRORS[l])) if (!(k in STRINGS[l])) STRINGS[l][k] = v;
 
+
+// Frame: rail, bottom bar and "more" sheet (2026-10-14).
+const FRAME = {
+  en: { 'Más': 'More', 'Más secciones': 'More sections', Perfil: 'Profile', Secciones: 'Sections', 'Odyle Tracker': 'Odyle Tracker' },
+  it: { 'Más': 'Altro', 'Más secciones': 'Altre sezioni', Perfil: 'Profilo', Secciones: 'Sezioni', 'Odyle Tracker': 'Odyle Tracker' },
+  pt: { 'Más': 'Mais', 'Más secciones': 'Mais seções', Perfil: 'Perfil', Secciones: 'Seções', 'Odyle Tracker': 'Odyle Tracker' },
+};
+for (const l of Object.keys(FRAME)) for (const [k, v] of Object.entries(FRAME[l])) if (!(k in STRINGS[l])) STRINGS[l][k] = v;
