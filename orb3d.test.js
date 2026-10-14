@@ -6,7 +6,7 @@ import { register } from 'node:module';
 // orb3d.js imports Three.js from the CDN (the build rewrites it); in Node, resolve that URL to the installed package.
 register('data:text/javascript,' + encodeURIComponent(
   "export const resolve = (s, c, next) => next(s.startsWith('https://cdn.jsdelivr.net/npm/three@') ? 'three' : s, c);"));
-const { levelOf, ripplePower, beatOpacity, spinAngle, runePositions, parseColor, atlasCell, RUNE_INK, RIPPLE_MS, BEAT_MS, TURN_MS, RING_R, RING_TILT, createOrbs3D } = await import('./orb3d.js');
+const { levelOf, ripplePower, beatOpacity, spinAngle, runePositions, parseColor, atlasCell, RUNE_INK, RIPPLE_MS, BEAT_MS, TURN_MS, RING_R, RING_TILT, createOrbs3D, RUNE_FS, ATLAS_COLS, ATLAS_ROWS } = await import('./orb3d.js');
 
 const near = (a, b, eps = 1e-9) => Math.abs(a - b) < eps;
 
@@ -109,4 +109,13 @@ test('runePositions: on the near-circle every rune keeps ~full size, top outward
       assert.ok(reach(a) + reach(b) <= d + 1e-9, `runes ${i} and ${i + 1} overlap at spin ${spin}`);
     });
   }
+});
+
+test('the shader atlas numbers (28 / 7 / 4) match RUNE_GLYPHS and the atlas grid', async () => {
+  const { RUNE_GLYPHS } = await import('./runes.js');
+  assert.equal(ATLAS_COLS * ATLAS_ROWS, RUNE_GLYPHS.length);
+  assert.ok(RUNE_FS.includes(`mod(vIndex, ${RUNE_GLYPHS.length}.0)`), 'glyph count in the shader');
+  assert.ok(RUNE_FS.includes(`mod(k, ${ATLAS_COLS}.0), floor(k / ${ATLAS_COLS}.0)`), 'columns in the shader');
+  assert.ok(RUNE_FS.includes(`/ ${ATLAS_COLS}.0, 1.0 - (cell.y + 1.0 - vUv.y) / ${ATLAS_ROWS}.0`), 'columns and rows in the sampling');
+  for (const i of [0, 6, 7, RUNE_GLYPHS.length - 1]) assert.deepEqual(atlasCell(i), { col: i % ATLAS_COLS, row: Math.floor(i / ATLAS_COLS) });
 });

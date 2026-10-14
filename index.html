@@ -1694,7 +1694,7 @@
     if (!incoming.length && d.characters.length) { $('import-state').textContent = 'Ese archivo no es una copia válida de esta página.'; return; }
     try {
       // write everything first; delete characters missing from the copy only at the end
-      for (const c of incoming) { const { id, ...rest } = c; await write(() => db.doc(my.characters + '/' + id).set(rest)); }
+      for (const c of incoming) { const { id, account, ...rest } = c; await write(() => db.doc(my.characters + '/' + id).set(account === 'normal' || account === 'premium' ? { ...rest, account } : rest)); } // unknown account = absent = Premium (spec §2)
       if (Array.isArray(d.presets)) await write(() => db.doc(my.presets).set({ items: d.presets }));
       if (d.prefs && typeof d.prefs === 'object') await write(() => db.doc(my.prefs).set(d.prefs));
       if (Array.isArray(d.tasks)) await write(() => db.doc(my.tasks).set({ items: d.tasks }));

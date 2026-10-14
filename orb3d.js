@@ -147,7 +147,7 @@ const RUNE_VS = `
     gl_Position = projectionMatrix * (c + vec4(q * uSize * aScale, 0.0, 0.0)); // billboard: the rune faces the camera
     if (aPos.z * uSide < 0.0) gl_Position = vec4(2.0, 2.0, 2.0, 1.0);        // drawn in the other pass (behind / in front)
   }`;
-const RUNE_FS = `
+export const RUNE_FS = `
   uniform sampler2D uAtlas;
   uniform float uLit, uNew, uFlash, uBeat, uFull; uniform vec3 uOn, uOff, uUrgent; uniform float uOffA;
   varying vec2 vUv; varying float vIndex; varying float vDepth;

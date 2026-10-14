@@ -222,8 +222,8 @@ check('exportar: descarga un JSON del formato de la página', exported.app === '
 const imported = {
   ...exported, exportedAt: new Date().toISOString(),
   characters: [
-    { id: 'imp1', name: 'Importada Uno', classId: 'asesino', energy: 500, recordedAt: Date.now(), order: 1 },
-    { id: 'imp2', name: 'Importada Dos', classId: 'gladiador', energy: 120, recordedAt: Date.now(), order: 2, cp: 12345 },
+    { id: 'imp1', name: 'Importada Uno', classId: 'asesino', energy: 500, recordedAt: Date.now(), order: 1, account: 'gold' },
+    { id: 'imp2', name: 'Importada Dos', classId: 'gladiador', energy: 120, recordedAt: Date.now(), order: 2, cp: 12345, account: 'normal' },
   ],
 };
 await pa.setInputFiles('#import-file', { name: 'copia.json', mimeType: 'application/json', buffer: Buffer.from(JSON.stringify(imported)) });
@@ -234,6 +234,8 @@ await pa.click('#topnav [data-tab=personajes]');
 await pa.waitForFunction(() => document.querySelectorAll('article.card').length === 2);
 const names = (await dbRows('members/')).filter((r) => r.path.includes('/characters/')).map((r) => r.data.name).sort();
 check('importar: sustituye los personajes por los de la copia', names.join('|') === 'Importada Dos|Importada Uno', names.join('|'));
+const cardOf = (n) => pa.locator('article.card', { hasText: n }).first();
+check('importar: un account desconocido cuenta como Premium (/ 840) y normal se respeta (/ 560)', /\/ 840/.test(await cardOf('Importada Uno').textContent()) && /\/ 560/.test(await cardOf('Importada Dos').textContent()));
 
 // legión
 await pa.click('#topnav [data-tab=legion]');
