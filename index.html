@@ -127,6 +127,15 @@
   .card { display: grid; grid-template-columns: 1fr; justify-items: center; gap: 0; position: relative; }
   .orb-col { display: flex; flex-direction: column; align-items: center; gap: 2px; margin-bottom: 8px; z-index: 2; }
   .orb-slot { width: 150px; height: 150px; position: relative; }
+  /* Rune ring of the flat orb: 56 runes, lit ones in the faction accent, crimson at cap. No animation. */
+  .rune-ring { position: absolute; inset: 0; width: 100%; height: 100%; display: none; pointer-events: none; }
+  body.flat .rune-ring { display: block; }
+  .rune { fill: none; stroke: var(--track); stroke-width: 1.1; stroke-linecap: round; stroke-linejoin: round; }
+  .rune.on { stroke: var(--gold-bright); }
+  .rune-ring.full .rune.on { stroke: var(--urgent); }
+  .rune-ring.dots .rune { fill: var(--track); stroke: none; }
+  .rune-ring.dots .rune.on { fill: var(--gold-bright); }
+  .rune-ring.dots.full .rune.on { fill: var(--urgent); }
   .tick-left { margin: 0; font-size: .8rem; font-weight: 600; color: var(--sky); font-variant-numeric: tabular-nums;
     letter-spacing: .03em; text-shadow: 0 0 8px var(--glow); white-space: nowrap; }
   .tick-left.full { color: var(--gold-bright); text-shadow: 0 0 8px var(--glow); }
@@ -922,6 +931,7 @@
   const sound = createSound();
   import { makeCode, normalizeCode, hashCode, roomName, parseLegionName, parseProfile, legionOf, sameLegion, legionTitle, proofFor, pickLegion, legionKey } from './legion.js';
   import { formatClock, detectGains, rollValue, becameFull, sceneOptions } from './motion.js';
+  import { litRunes, buildRuneRing } from './runes.js';
 
   // Data comes only from db snapshots. Writes happen only after a user action.
   const state = { characters: [], memberData: new Map(), stats: null, tasks: DEFAULT_TASKS, progress: new Map(), cpHist: new Map(), hiddenMembers: 0, others: new Map(), names: {}, schedule: null, presets: [], events: [], timers: [], calendar: [], wall: [], legions: new Map(), prefs: { quietStart: '00:00', quietEnd: '08:00', favEvents: [] } };
@@ -1249,7 +1259,8 @@
 
     card.append(el('div', { class: 'orb-col' },
       el('div', { class: 'orb-slot', 'data-orb': row.id, role: 'img', 'aria-label': `${row.percent}% de energía` },
-        el('div', { class: 'orb-flat', style: `--fill:${row.percent}%` })),
+        el('div', { class: 'orb-flat', style: `--fill:${row.percent}%` }),
+        buildRuneRing(document, litRunes(row.energy), { full: row.isFull })),
       el('p', { class: 'tick-left', 'data-full': row.isFull ? '1' : null })));
 
     const panel = el('div', { class: 'panel' });
@@ -1769,7 +1780,6 @@
       p.classList.toggle('missing', !full && anchor === null);
       p.textContent = full ? 'Lleno' : anchor === null ? 'Falta la hora de recarga' : `+15 en ${formatClock(left)}`;
     }
-    for (const o of orbList) o.tick = left === null ? null : 1 - left / TICK_MS;
     $('clock').classList.toggle('missing', anchor === null);
     if (anchor === null) { $('next-tick').textContent = 'Falta la hora de recarga'; return; }
     $('next-tick').textContent = formatClock(left);
@@ -1836,7 +1846,7 @@
     $('legion').replaceChildren(...groups);
     $('chars-bar').hidden = ui.noDb || !ui.loaded || (!view.rows.length && $('add-btn').hidden);
     orbList = [...view.rows, ...otherRows].map(r => ({
-      id: r.id, el: document.querySelector(`[data-orb="${CSS.escape(r.id)}"]`), tick: null,
+      id: r.id, el: document.querySelector(`[data-orb="${CSS.escape(r.id)}"]`), runes: litRunes(r.energy),
       percent: r.percent, color: r.color, state: r.isFull ? 'full' : r.nearFull ? 'near' : 'normal',
     }));
     paintClock(); // fills the new cards' timers and the orbs' rune progress

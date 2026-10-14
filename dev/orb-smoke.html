@@ -10,9 +10,9 @@ const scene = createScene(document.getElementById('c'), { particles: 200, feathe
 window.__scene = !!scene;
 if (scene) {
   scene.setOrbs([
-    { id: 'a', el: document.getElementById('s1'), percent: 26, color: '#b79cff', state: 'normal', tick: null },
-    { id: 'b', el: document.getElementById('s2'), percent: 41, color: '#e0924a', state: 'normal', tick: 0 },
-    { id: 'c', el: document.getElementById('s3'), percent: 41, color: '#e0924a', state: 'normal', tick: 0.95 },
+    { id: 'a', el: document.getElementById('s1'), percent: 26, color: '#b79cff', state: 'full', runes: 56 },
+    { id: 'b', el: document.getElementById('s2'), percent: 41, color: '#e0924a', state: 'normal', runes: 0 },
+    { id: 'c', el: document.getElementById('s3'), percent: 41, color: '#e0924a', state: 'normal', runes: 44 },
   ]);
   scene.start();
   window.__scn = scene;
