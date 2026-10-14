@@ -2,6 +2,8 @@
 // Amigos, chat y búsqueda (solo web). Guarda el estado compartido y el canal en vivo; cada pantalla
 // (social-friends, social-search, social-chat, social-profile) pinta en su panel. Lo arranca app.js.
 import { el, S } from './social-dom.js';
+import { createProfileSheet } from './social-profile.js';
+import { createFriends } from './social-friends.js';
 import { sortFriends, applyIncoming, totalUnread, otherOf } from './social.js';
 
 export function startSocial(ctx) {
@@ -70,6 +72,9 @@ export function startSocial(ctx) {
 
   refreshFriends();
   refreshConvs();
+
+  shared.register('profile', createProfileSheet(shared));
+  shared.register('friends', createFriends(shared, ctx.panels.amigos));
 
   return {
     shared,
