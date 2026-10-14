@@ -9,7 +9,7 @@ import { MAX } from './energy.js';
 
 export const RIPPLE_MS = 900, BEAT_MS = 2400, TURN_MS = 48000;
 export const RING_R = 1.3;          // ring radius (glass radius 1)
-export const RING_TILT = 1.15;      // ~66° between the ring's axis and the view axis: an ellipse in front of and behind the glass
+export const RING_TILT = 0.44;      // ~25° between the ring's axis and the view axis: nearly face-on, the lower half a little in front
 export const RING_ROLL = -0.18;     // a slight slant so the ellipse is not perfectly flat
 const VIEW_HALF = 1.5;              // world half-height seen at z = 0: the ring and its runes fit inside the slot
 export const ATLAS_COLS = 7, ATLAS_ROWS = 4, ATLAS_CELL = 64;
@@ -19,7 +19,7 @@ const ATLAS_STROKE = 1.6;           // rune grid units
 // World size of a full-size rune's ink (glyphs span x 1..9, y 1..13 of their 10 × 14 grid, plus the stroke).
 export const RUNE_INK = { w: 2 * RUNE_SIZE * (8 + ATLAS_STROKE) * ATLAS_SCALE / ATLAS_CELL, h: 2 * RUNE_SIZE * (12 + ATLAS_STROKE) * ATLAS_SCALE / ATLAS_CELL };
 const RUNE_GAP = 1.05;              // spacing / ink box ≥ this (the box is the widest glyph's): neighbours never touch
-const RUNE_MIN_SCALE = 0.3;         // at the ends of the ellipse neighbours sit ~2 px apart: runes shrink this far to stay apart
+const RUNE_MIN_SCALE = 0.3;         // safety floor; on the near-circle the spacing keeps every rune at ~full size
 
 // ---- Pure helpers (tested in orb3d.test.js) ----
 export function levelOf(energy, max = MAX) {
@@ -36,8 +36,8 @@ export function ripplePower(elapsedMs) {
 export const beatOpacity = (now) => 0.75 + 0.25 * Math.cos(2 * Math.PI * ((now % BEAT_MS) / BEAT_MS));
 export const spinAngle = (now) => 2 * Math.PI * ((now % TURN_MS) / TURN_MS);
 // Rune i on the tilted ring, turned by `spin`: index 0 starts at the top of the ring's own circle, clockwise as in the SVG.
-// `scale` shrinks each billboard to its on-screen spacing: full size where the ring runs across the screen (front and
-// back), smaller toward the ends of the ellipse, where neighbours are stacked a couple of pixels apart.
+// `angle` is the on-screen direction from the centre to the rune: the billboard turns so its top points that way, as on
+// the SVG orb. `scale` is a safety: it shrinks a rune if its on-screen spacing to its neighbours gets too tight.
 export function runePositions(spin = 0, r = RING_R, tilt = RING_TILT, roll = RING_ROLL) {
   const ct = Math.cos(tilt), st = Math.sin(tilt), cr = Math.cos(roll), sr = Math.sin(roll);
   const step = 2 * Math.PI / RUNE_COUNT;
@@ -48,9 +48,11 @@ export function runePositions(spin = 0, r = RING_R, tilt = RING_TILT, roll = RIN
     const y1 = y0 * ct, z = -y0 * st;                       // tilt around x: the lower half comes forward
     const dx0 = -Math.sin(a) * r, dy1 = -Math.cos(a) * r * ct; // tangent on the screen plane (before the roll, which keeps lengths)
     const dx = dx0 * cr - dy1 * sr, dy = dx0 * sr + dy1 * cr, len = Math.hypot(dx, dy);
-    const ink = (RUNE_INK.w * Math.abs(dx) + RUNE_INK.h * Math.abs(dy)) / len;
+    const x = x0 * cr - y1 * sr, y = x0 * sr + y1 * cr, angle = Math.atan2(y, x);
+    const up = Math.abs(Math.cos(angle) * dx + Math.sin(angle) * dy), side = Math.abs(Math.sin(angle) * dx - Math.cos(angle) * dy);
+    const ink = (RUNE_INK.w * side + RUNE_INK.h * up) / len;     // the rune's ink box measured along the ring
     const scale = Math.max(RUNE_MIN_SCALE, Math.min(1, len * step / (ink * RUNE_GAP)));
-    out.push({ x: x0 * cr - y1 * sr, y: x0 * sr + y1 * cr, z, scale });
+    out.push({ x, y, z, angle, scale });
   }
   return out;
 }
@@ -134,13 +136,15 @@ const SHELL_FS = `
     gl_FragColor = vec4(mix(uRim, uShine, clamp(spec * 1.5, 0.0, 1.0)), a);
   }`;
 const RUNE_VS = `
-  attribute vec3 aPos; attribute float aIndex; attribute float aScale;
+  attribute vec3 aPos; attribute float aIndex; attribute float aScale; attribute float aAngle;
   uniform float uSize, uSide;
   varying vec2 vUv; varying float vIndex; varying float vDepth;
   void main() {
     vUv = uv; vIndex = aIndex; vDepth = aPos.z;
     vec4 c = modelViewMatrix * vec4(aPos, 1.0);
-    gl_Position = projectionMatrix * (c + vec4(position.xy * uSize * aScale, 0.0, 0.0)); // billboard: the rune faces the camera, upright
+    float t = aAngle - 1.5707963;                                             // top of the rune points away from the centre
+    vec2 q = mat2(cos(t), sin(t), -sin(t), cos(t)) * position.xy;
+    gl_Position = projectionMatrix * (c + vec4(q * uSize * aScale, 0.0, 0.0)); // billboard: the rune faces the camera
     if (aPos.z * uSide < 0.0) gl_Position = vec4(2.0, 2.0, 2.0, 1.0);        // drawn in the other pass (behind / in front)
   }`;
 const RUNE_FS = `
@@ -161,7 +165,7 @@ const RUNE_FS = `
     vec3 lit = mix(ink, vec3(1.0), 0.3);                            // a lighter core: it must read over the pale liquid too
     vec3 col = on > 0.5 ? lit * (core / max(tex.a, 0.001)) : ink;   // lit: that core inside its dark edge
     float body = on > 0.5 ? tex.a : core * uOffA;                   // unlit runes stay faint, without the edge
-    float a = (body + glow * 0.5) * mix(1.0, 0.45, back) * mix(1.0, uBeat, on * uFull);
+    float a = (body + glow * 0.5) * mix(1.0, 0.6, back) * mix(1.0, uBeat, on * uFull);
     if (a < 0.01) discard;
     gl_FragColor = vec4(col, a);
   }`;
@@ -207,6 +211,8 @@ export function createOrbs3D(doc = document) {
   runeGeo.setAttribute('aPos', runePos);
   const runeScale = new THREE.InstancedBufferAttribute(new Float32Array(RUNE_COUNT).fill(1), 1);
   runeGeo.setAttribute('aScale', runeScale);
+  const runeAngle = new THREE.InstancedBufferAttribute(new Float32Array(RUNE_COUNT), 1);
+  runeGeo.setAttribute('aAngle', runeAngle);
   runeGeo.setAttribute('aIndex', new THREE.InstancedBufferAttribute(Float32Array.from({ length: RUNE_COUNT }, (_, i) => i), 1));
   const runePass = (side, order) => {
     const m = new THREE.Mesh(runeGeo, new THREE.ShaderMaterial({ vertexShader: RUNE_VS, fragmentShader: RUNE_FS,
@@ -259,8 +265,8 @@ export function createOrbs3D(doc = document) {
     if (renderer.domElement.width !== px) renderer.setSize(px, px, false);
 
     const pos = runePositions(motion ? spinAngle(now) : 0);
-    pos.forEach((p, i) => { runePos.setXYZ(i, p.x, p.y, p.z); runeScale.setX(i, p.scale); });
-    runePos.needsUpdate = true; runeScale.needsUpdate = true;
+    pos.forEach((p, i) => { runePos.setXYZ(i, p.x, p.y, p.z); runeScale.setX(i, p.scale); runeAngle.setX(i, p.angle); });
+    runePos.needsUpdate = true; runeScale.needsUpdate = true; runeAngle.needsUpdate = true;
     liquidU.uFill.value = fill; liquidU.uTime.value = t; liquidU.uRipple.value = ripple;
     shellU.uRim.value.copy(full ? colors.urgent : colors.rim);
     runeU.uLit.value = o.lit; runeU.uFull.value = full ? 1 : 0; runeU.uBeat.value = beat;

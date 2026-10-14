@@ -55,7 +55,7 @@ test('runePositions: 56 stars on a tilted circle, half in front of the glass and
   // seen from the front it is an ellipse: about R wide and R·cos(tilt) tall
   const tall = Math.max(...pos.map((p) => Math.abs(p.y))), wide = Math.max(...pos.map((p) => Math.abs(p.x)));
   assert.ok(tall < wide && tall >= RING_R * Math.cos(RING_TILT) - 1e-9);
-  assert.ok(RING_TILT > (60 * Math.PI) / 180 && RING_TILT < (70 * Math.PI) / 180);
+  assert.ok(RING_TILT >= (20 * Math.PI) / 180 && RING_TILT <= (30 * Math.PI) / 180); // nearly face-on, slightly tilted
   // star 0 is at the top of the ring (the far side), star 14 a quarter turn clockwise (to the right)
   assert.ok(pos[0].z < 0 && pos[0].y > 0);
   assert.ok(pos[14].x > 1.2);
@@ -91,19 +91,21 @@ test('atlasCell: rune i samples cell i % 28 of the 7 × 4 atlas', () => {
   assert.deepEqual(atlasCell(28), { col: 0, row: 0 });
 });
 
-test('runePositions: each rune shrinks to its on-screen spacing so neighbours never overlap', () => {
+test('runePositions: on the near-circle every rune keeps ~full size, top outward, and neighbours never overlap', () => {
   const pos = runePositions(0);
-  for (const p of pos) assert.ok(p.scale >= 0.3 - 1e-9 && p.scale <= 1);
-  // front and back of the ring (tangent across the screen): full size; the ends of the ellipse: much smaller
-  assert.ok(pos[0].scale > 0.9 && pos[28].scale > 0.9);
-  assert.ok(pos[14].scale < 0.5 && pos[42].scale < 0.5);
-  // projected on the screen (x, y), the ink boxes of two neighbours do not touch along the line between them
+  for (const p of pos) assert.ok(p.scale >= 0.9 && p.scale <= 1, `scale ${p.scale}`);
+  // each rune is turned so its top points away from the centre, as on the SVG orb
+  for (const p of pos) assert.ok(Math.cos(p.angle) * p.x + Math.sin(p.angle) * p.y > 0.95 * Math.hypot(p.x, p.y));
+  // projected on the screen (x, y), the ink boxes of two neighbours (in each rune's own turned frame) do not touch
   for (const spin of [0, 0.3, 1.1]) {
     const q = runePositions(spin);
     q.forEach((a, i) => {
       const b = q[(i + 1) % q.length];
       const dx = b.x - a.x, dy = b.y - a.y, d = Math.hypot(dx, dy);
-      const reach = (r) => r.scale * (RUNE_INK.w * Math.abs(dx) + RUNE_INK.h * Math.abs(dy)) / d / 2;
+      const reach = (r) => {
+        const up = Math.abs(Math.cos(r.angle) * dx + Math.sin(r.angle) * dy) / d, side = Math.abs(Math.sin(r.angle) * dx - Math.cos(r.angle) * dy) / d;
+        return r.scale * (RUNE_INK.w * side + RUNE_INK.h * up) / 2;
+      };
       assert.ok(reach(a) + reach(b) <= d + 1e-9, `runes ${i} and ${i + 1} overlap at spin ${spin}`);
     });
   }
