@@ -2,7 +2,7 @@
 // ONE WebGL renderer on an offscreen canvas draws each character's scene, then copies it into that orb's own 2D
 // <canvas class="orb3d"> in its .orb-slot, so the page keeps its DOM layering and uses a single GL context.
 // The SVG orb (starorb.js) stays in the slot: it is the fallback when WebGL is missing or the context is lost.
-// Colours are the same CSS tokens the SVG uses. Strict CSP: shaders are plain strings, no HTML sinks.
+// Colours are the same CSS tokens the SVG uses; the liquid takes the class tone when update() gets one. Strict CSP: shaders are plain strings, no HTML sinks.
 import * as THREE from 'https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js';
 import { RUNE_COUNT, RUNE_GLYPHS, litRunes } from './runes.js';
 import { MAX } from './energy.js';
@@ -191,7 +191,7 @@ export function createOrbs3D(doc = document) {
   cam.lookAt(0, 0, 0);
 
   const colors = { top: v3(), deep: v3(), glass: v3(), rim: v3(), shine: v3(), on: v3(), off: v3(), urgent: v3(), offA: 0.26 };
-  const liquidU = { uFill: { value: 0 }, uTime: { value: 0 }, uRipple: { value: 0 }, uTop: { value: colors.top }, uDeep: { value: colors.deep } };
+  const liquidU = { uFill: { value: 0 }, uTime: { value: 0 }, uRipple: { value: 0 }, uTop: { value: v3() }, uDeep: { value: v3() } };
   const shellU = { uRim: { value: v3() }, uShine: { value: colors.shine }, uRimA: { value: 0.75 } };
   const atlas = new THREE.CanvasTexture(buildRuneAtlas(doc));
   atlas.colorSpace = THREE.NoColorSpace; atlas.anisotropy = 4;
@@ -258,7 +258,7 @@ export function createOrbs3D(doc = document) {
     const full = o.state === 'full';
     const beat = motion && full ? beatOpacity(now) : 1;
     const fill = levelOf(o.energy, o.max);
-    const key = `${px}|${fill}|${o.lit}|${o.state}|${version}`;
+    const key = `${px}|${fill}|${o.lit}|${o.state}|${o.liquidKey}|${version}`;
     if (!motion && key === o.key) return; // calm: only redraw when something changed
     o.key = key;
     if (o.canvas.width !== px) { o.canvas.width = px; o.canvas.height = px; }
@@ -268,6 +268,8 @@ export function createOrbs3D(doc = document) {
     pos.forEach((p, i) => { runePos.setXYZ(i, p.x, p.y, p.z); runeScale.setX(i, p.scale); runeAngle.setX(i, p.angle); });
     runePos.needsUpdate = true; runeScale.needsUpdate = true; runeAngle.needsUpdate = true;
     liquidU.uFill.value = fill; liquidU.uTime.value = t; liquidU.uRipple.value = ripple;
+    if (o.liquid) { setV(liquidU.uTop.value, o.liquid[0]); setV(liquidU.uDeep.value, o.liquid[1]); } // class tone
+    else { liquidU.uTop.value.copy(colors.top); liquidU.uDeep.value.copy(colors.deep); }
     shellU.uRim.value.copy(full ? colors.urgent : colors.rim);
     runeU.uLit.value = o.lit; runeU.uFull.value = full ? 1 : 0; runeU.uBeat.value = beat;
     runeU.uNew.value = o.newIdx; runeU.uFlash.value = ripple;
@@ -307,15 +309,19 @@ export function createOrbs3D(doc = document) {
         const c = doc.createElement('canvas');
         c.className = 'orb3d';
         c.setAttribute('aria-hidden', 'true');
-        o = { canvas: c, energy: 0, max: MAX, state: 'normal', lit: -1, newIdx: -1, rippleAt: undefined, key: '' };
+        o = { canvas: c, energy: 0, max: MAX, state: 'normal', lit: -1, newIdx: -1, rippleAt: undefined, key: '', liquid: null, liquidKey: '' };
         orbs.set(id, o);
         io.observe(c);
       }
       return o.canvas;
     },
-    update(id, { energy = 0, state = 'normal', max = MAX } = {}) {
+    // liquid: { top, deep } hex from liquidColors (the class tone), or null for the theme's liquid.
+    update(id, { energy = 0, state = 'normal', max = MAX, liquid = null } = {}) {
       const o = orbs.get(id);
       if (!o) return;
+      const lq = liquid && [parseColor(liquid.top), parseColor(liquid.deep)];
+      o.liquid = lq && lq[0] && lq[1] ? lq : null;
+      o.liquidKey = o.liquid ? liquid.top + liquid.deep : '';
       const lit = litRunes(energy, max);
       if (o.lit >= 0 && lit > o.lit) o.newIdx = lit - 1;
       o.lit = lit; o.energy = energy; o.state = state; o.max = max;

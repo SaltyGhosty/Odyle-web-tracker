@@ -2,7 +2,7 @@
 // Ayudas de DOM para las pantallas sociales (solo web). Todo el texto va por textContent/append (SR-2, SR-43).
 // Lo que escribe un usuario lleva translate="no": la traducción en vivo de la página nunca lo reescribe.
 import { buildStarOrb } from './starorb.js';
-import { classById } from './classes.js';
+import { classById, liquidColors } from './classes.js';
 import { LOCALE } from './i18n.js';
 
 // Marca un texto de la interfaz (i18n-social.test.js comprueba que está traducido). No hace nada más.
@@ -59,7 +59,11 @@ export function personHead(p, { online = false } = {}) {
 export function miniOrb(row) {
   const wrap = el('span', { class: 'mini-orb' + (row && row.isFull ? ' full' : '') + (row ? '' : ' hidden-energy'), role: 'img',
     'aria-label': row ? fmt(S('{0} de {1} de energía'), row.energy, row.max) : S('Energía no compartida') });
-  wrap.append(buildStarOrb(document, { energy: row ? row.energy : 0, ...(row ? { max: row.max } : {}), state: row && row.isFull ? 'full' : 'normal', size: 44, id: 'mini' + (miniSeq++) }));
+  const svg = buildStarOrb(document, { energy: row ? row.energy : 0, ...(row ? { max: row.max } : {}), state: row && row.isFull ? 'full' : 'normal', size: 44, id: 'mini' + (miniSeq++) });
+  // Liquid in the class tone, as on the main orbs (CSSOM custom properties: no style attribute under the CSP).
+  const liquid = row && liquidColors(row.classId, getComputedStyle(document.documentElement).getPropertyValue('--orb-glass'));
+  if (liquid) { svg.style.setProperty('--orb-liquid-top', liquid.top); svg.style.setProperty('--orb-liquid-deep', liquid.deep); }
+  wrap.append(svg);
   return wrap;
 }
 let miniSeq = 0;
