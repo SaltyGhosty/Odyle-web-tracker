@@ -5,6 +5,7 @@ import { el, S } from './social-dom.js';
 import { createProfileSheet } from './social-profile.js';
 import { createFriends } from './social-friends.js';
 import { createSearch } from './social-search.js';
+import { createChat } from './social-chat.js';
 import { sortFriends, applyIncoming, totalUnread, otherOf } from './social.js';
 
 export function startSocial(ctx) {
@@ -77,6 +78,7 @@ export function startSocial(ctx) {
   shared.register('profile', createProfileSheet(shared));
   shared.register('friends', createFriends(shared, ctx.panels.amigos));
   shared.register('search', createSearch(shared, ctx.panels.buscar));
+  shared.register('chat', createChat(shared, ctx.panels.chat));
 
   return {
     shared,
