@@ -884,3 +884,33 @@ const SOCIAL = {
   },
 };
 for (const l of Object.keys(SOCIAL)) Object.assign(STRINGS[l], SOCIAL[l]);
+
+// Error messages the social screens show as received (client wrapper in web/social-api.js and the server routes).
+const SOCIAL_ERRORS = {
+  en: { 'No se pudo conectar. Inténtalo de nuevo.': 'Could not connect. Try again.', 'No se pudo completar la acción.': 'Could not complete the action.',
+    'No encontrado.': 'Not found.', 'Escribe entre 2 y 20 caracteres.': 'Type between 2 and 20 characters.',
+    'Has llegado al máximo de amigos.': 'You have reached the friends limit.', 'Tienes demasiadas solicitudes pendientes.': 'You have too many pending requests.',
+    'Mensaje no válido.': 'Invalid message.', 'El mensaje debe tener entre 1 y 1000 caracteres.': 'The message must be 1 to 1000 characters.',
+    'Invitación no válida.': 'Invalid invitation.', 'Tipo de mensaje no válido.': 'Invalid message type.', 'Consulta no válida.': 'Invalid query.',
+    'Motivo no válido.': 'Invalid reason.', 'La nota debe tener entre 1 y 500 caracteres.': 'The note must be 1 to 500 characters.',
+    'Demasiados intentos. Prueba más tarde.': 'Too many attempts. Try again later.', 'El servidor está ocupado. Inténtalo en unos segundos.': 'The server is busy. Try again in a few seconds.',
+    'Error interno del servidor.': 'Internal server error.' },
+  it: { 'No se pudo conectar. Inténtalo de nuevo.': 'Impossibile connettersi. Riprova.', 'No se pudo completar la acción.': "Impossibile completare l'azione.",
+    'No encontrado.': 'Non trovato.', 'Escribe entre 2 y 20 caracteres.': 'Scrivi da 2 a 20 caratteri.',
+    'Has llegado al máximo de amigos.': 'Hai raggiunto il massimo di amici.', 'Tienes demasiadas solicitudes pendientes.': 'Hai troppe richieste in sospeso.',
+    'Mensaje no válido.': 'Messaggio non valido.', 'El mensaje debe tener entre 1 y 1000 caracteres.': 'Il messaggio deve avere da 1 a 1000 caratteri.',
+    'Invitación no válida.': 'Invito non valido.', 'Tipo de mensaje no válido.': 'Tipo di messaggio non valido.', 'Consulta no válida.': 'Richiesta non valida.',
+    'Motivo no válido.': 'Motivo non valido.', 'La nota debe tener entre 1 y 500 caracteres.': 'La nota deve avere da 1 a 500 caratteri.',
+    'Demasiados intentos. Prueba más tarde.': 'Troppi tentativi. Riprova più tardi.', 'El servidor está ocupado. Inténtalo en unos segundos.': 'Il server è occupato. Riprova tra qualche secondo.',
+    'Error interno del servidor.': 'Errore interno del server.' },
+  pt: { 'No se pudo conectar. Inténtalo de nuevo.': 'Não foi possível conectar. Tente novamente.', 'No se pudo completar la acción.': 'Não foi possível concluir a ação.',
+    'No encontrado.': 'Não encontrado.', 'Escribe entre 2 y 20 caracteres.': 'Escreva de 2 a 20 caracteres.',
+    'Has llegado al máximo de amigos.': 'Você atingiu o máximo de amigos.', 'Tienes demasiadas solicitudes pendientes.': 'Você tem solicitações pendentes demais.',
+    'Mensaje no válido.': 'Mensagem inválida.', 'El mensaje debe tener entre 1 y 1000 caracteres.': 'A mensagem deve ter de 1 a 1000 caracteres.',
+    'Invitación no válida.': 'Convite inválido.', 'Tipo de mensaje no válido.': 'Tipo de mensagem inválido.', 'Consulta no válida.': 'Consulta inválida.',
+    'Motivo no válido.': 'Motivo inválido.', 'La nota debe tener entre 1 y 500 caracteres.': 'A nota deve ter de 1 a 500 caracteres.',
+    'Demasiados intentos. Prueba más tarde.': 'Tentativas demais. Tente mais tarde.', 'El servidor está ocupado. Inténtalo en unos segundos.': 'O servidor está ocupado. Tente em alguns segundos.',
+    'Error interno del servidor.': 'Erro interno do servidor.' },
+};
+for (const l of Object.keys(SOCIAL_ERRORS)) for (const [k, v] of Object.entries(SOCIAL_ERRORS[l])) if (!(k in STRINGS[l])) STRINGS[l][k] = v;
+

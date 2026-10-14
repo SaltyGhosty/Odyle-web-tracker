@@ -25,3 +25,17 @@ test('las pantallas sociales no usan texto entre comillas dobles ni plantillas p
     assert.ok(!/\bS\(\s*["`]/.test(src), `${f}: usa S('…') con comillas simples`);
   }
 });
+
+test('los errores que el cliente y las rutas sociales del servidor devuelven en español están traducidos', () => {
+  const keys = new Set(['No se pudo conectar. Inténtalo de nuevo.', 'No se pudo completar la acción.']);
+  const dir = new URL('./server/src/routes/', import.meta.url);
+  for (const f of ['profiles.js', 'friends.js', 'messages.js', 'reports.js']) {
+    const src = readFileSync(new URL(f, dir), 'utf8');
+    for (const m of src.matchAll(/(?:error: |bad\(reply, |FULL = |\{ error: )'((?:[^'\\]|\\.)*)'/g)) keys.add(m[1]);
+  }
+  keys.add(readFileSync(new URL('./server/src/lib/social-rules.js', import.meta.url), 'utf8').match(/NOT_FOUND = '([^']+)'/)[1]);
+  const missing = [];
+  for (const key of keys) for (const l of ['en', 'it', 'pt']) if (!(key in STRINGS[l])) missing.push(`${l}: ${key}`);
+  assert.ok(keys.size >= 12);
+  assert.deepEqual(missing, []);
+});
