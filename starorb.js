@@ -110,5 +110,20 @@ export function markGain(svg) {
     ref.listening = true;
     svg.addEventListener('animationend', (e) => { if (e && e.animationName === 'so-ripple') withClass(svg, 'ripple', false); });
   }
+  if (ref) ref.rippleAt = Date.now();
   withClass(svg, 'ripple', true);
+}
+
+export const RIPPLE_MS = 900, BEAT_MS = 2400;
+
+// The page rebuilds its cards on every repaint, and re-inserting an SVG restarts its CSS animations. Call this after
+// placing the orb: negative delays resume the ripple and the cap pulse where they were (the pulse is phased on the
+// wall clock), and a ripple that has run its course (or was missed while the tab was hidden) is cleared.
+export function syncOrbMotion(svg, now = Date.now()) {
+  const ref = refs.get(svg);
+  if (!ref || !svg.style || !svg.style.setProperty) return;
+  const elapsed = ref.rippleAt === undefined ? Infinity : now - ref.rippleAt;
+  if (elapsed >= RIPPLE_MS) withClass(svg, 'ripple', false);
+  svg.style.setProperty('--so-ripple-delay', `${-Math.max(0, Math.min(elapsed, RIPPLE_MS))}ms`);
+  svg.style.setProperty('--so-beat-delay', `${-(now % BEAT_MS)}ms`);
 }

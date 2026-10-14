@@ -584,9 +584,9 @@
   @media (prefers-reduced-motion: no-preference) {
     /* The one authored moment: recharge ripple (once, ~900 ms), the new star scales in, the ring beats at the cap.
        Off with «Reducir animaciones» (body.calm). Only markGain / the cap state start them, never a repaint. */
-    body:not(.calm) .star-orb.ripple .so-surface { animation: so-ripple 900ms var(--ease-out) 1; }
-    body:not(.calm) .star-orb.ripple .so-star.new { animation: so-star-in 500ms var(--ease-out) 1; }
-    body:not(.calm) .orb-slot .star-orb.full .so-ring { animation: so-beat 2.4s ease-in-out infinite; }
+    body:not(.calm) .star-orb.ripple .so-surface { animation: so-ripple 900ms var(--ease-out) var(--so-ripple-delay, 0ms) 1; }
+    body:not(.calm) .star-orb.ripple .so-star.new { animation: so-star-in 500ms var(--ease-out) var(--so-ripple-delay, 0ms) 1; }
+    body:not(.calm) .orb-slot .star-orb.full .so-ring { animation: so-beat 2.4s ease-in-out var(--so-beat-delay, 0ms) infinite; }
     @keyframes so-ripple { 0% { transform: translate(0, 0); } 35% { transform: translate(-14px, -2.5px); } 100% { transform: translate(-36px, 0); } }
     @keyframes so-star-in { from { transform: scale(.6); opacity: .4; } to { transform: scale(1); opacity: 1; } }
     @keyframes so-beat { 0%, 100% { opacity: 1; } 50% { opacity: .5; } }
@@ -1004,7 +1004,7 @@
   const sound = createSound();
   import { makeCode, normalizeCode, hashCode, roomName, parseLegionName, parseProfile, legionOf, sameLegion, legionTitle, proofFor, pickLegion, legionKey } from './legion.js';
   import { formatClock, detectGains, rollValue, becameFull } from './motion.js';
-  import { buildStarOrb, updateStarOrb, markGain } from './starorb.js';
+  import { buildStarOrb, updateStarOrb, markGain, syncOrbMotion } from './starorb.js';
 
   // Data comes only from db snapshots. Writes happen only after a user action.
   const state = { characters: [], memberData: new Map(), stats: null, tasks: DEFAULT_TASKS, progress: new Map(), cpHist: new Map(), hiddenMembers: 0, others: new Map(), names: {}, schedule: null, presets: [], events: [], timers: [], calendar: [], wall: [], legions: new Map(), prefs: { quietStart: '00:00', quietEnd: '08:00', favEvents: [] } };
@@ -1313,7 +1313,7 @@
   function orbFor(row) {
     const stateOf = row.isFull ? 'full' : row.nearFull ? 'near' : 'normal';
     let svg = orbNodes.get(row.id);
-    if (svg) { svg.setAttribute('class', svg.getAttribute('class').split(' ').filter(c => c !== 'ripple').join(' ')); updateStarOrb(svg, { energy: row.energy, state: stateOf }); }
+    if (svg) updateStarOrb(svg, { energy: row.energy, state: stateOf });
     else { svg = buildStarOrb(document, { energy: row.energy, state: stateOf, id: row.id }); orbNodes.set(row.id, svg); }
     return svg;
   }
@@ -2072,6 +2072,9 @@
       }
       if (anchor === lastAnchor) for (const id of becameFull(lastEnergy, now, MAX)) sound.fanfare();
     }
+    // Drop the orbs of characters that are gone; resume the motion of the rest after their cards were re-inserted.
+    const liveIds = new Set([...view.rows, ...otherRows].map(r => r.id));
+    for (const [id, svg] of orbNodes) { if (liveIds.has(id)) syncOrbMotion(svg); else orbNodes.delete(id); }
     if (!keepBaseline) lastEnergy = new Map(now.map(r => [r.id, r]));
     lastAnchor = anchor;
 

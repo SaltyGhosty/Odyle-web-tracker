@@ -15,6 +15,8 @@ const STUB = () => {
     for (const [path, d] of Object.entries(seed.docs || {})) docs.set(path, d);
   }
   window.__docs = docs;
+  // The first visit opens the profile modal; this script is about the energy UI, so close it as soon as it shows.
+  setInterval(() => { const m = document.getElementById('profile-modal'); if (m && !m.hidden) m.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true })); }, 100);
   const me = (seed && seed.me) || 'u_me';
   const notify = () => { const d = seed && seed.delay; d ? setTimeout(() => subs.forEach(f => f()), d) : subs.forEach(f => f()); };
   window.__notify = () => subs.forEach(f => f());
@@ -85,47 +87,39 @@ for (const [label, width, height] of [['mobile', 390, 844], ['desktop', 1280, 80
     page.on('pageerror', e => errors.push(`${label}/${scheme}: ${e.message}`));
     if (!process.env.NO_STUB) await page.addInitScript(STUB);
     await page.goto(BASE);
-    const openMenu = async () => { if (!(await page.locator('#drawer').isVisible())) await page.click('#menu-btn'); await page.waitForTimeout(100); };
-    const closeMenu = async () => { if (await page.locator('#drawer').isVisible()) await page.keyboard.press('Escape'); await page.waitForTimeout(100); };
-    if (scheme === 'dark' && label === 'mobile') {
-      await page.evaluate(() => { window.__alive = true; });
-      await page.waitForSelector('#menu-btn:not([hidden])');
-      await openMenu();
-      await page.waitForSelector('#add-form:not([hidden])');
-      await page.fill('#add-name', 'Temprano'); await page.click('#add-form button[type=submit]');
-      await page.waitForTimeout(300);
-      check('add form works before Three.js loads', await page.evaluate(() => window.__alive === true) && await page.locator('article.card').count() === 1);
-      await closeMenu();
-      await page.waitForTimeout(2600);
-      await page.goto(BASE); await page.waitForTimeout(2800); // fresh stub state for the rest of the run
-    }
+    // Current UI: «+ Añadir» opens a modal, presets have their own modal, «Ajustar recarga» lives in Ajustes, extra/remove in the row's ⋯ menu.
+    const modalOpen = () => page.evaluate(() => !!document.querySelector('dialog[open], .modal:not([hidden])'));
+    const openAdd = async () => { await page.click('#add-btn'); await page.waitForSelector('#add-name', { state: 'visible' }); await page.waitForTimeout(100); };
+    const closeModal = async () => { if (await modalOpen()) await page.keyboard.press('Escape'); await page.waitForTimeout(150); };
+    const addChar = async (n) => { await openAdd(); await page.fill('#add-name', n); await page.click('#add-form button[type=submit]'); await page.waitForTimeout(300); await closeModal(); };
+    const goTab = (t) => page.evaluate((x) => document.querySelector(`[data-tab="${x}"]`)?.click(), t);
+    const rowMenu = async (id, cls) => { await page.click(`article[data-id=${id}] button.more-actions`); await page.click(`article[data-id=${id}] .menu button.${cls}`); await page.waitForTimeout(150); };
     const shot = n => page.screenshot({ path: `dev/screens/${label}-${scheme}-${n}.png`, fullPage: true });
     await shot('1-empty');
     if (label === 'desktop' && scheme === 'dark') {
       await page.waitForTimeout(500);
       check('add form is not on the main page', !(await page.locator('#add-form').isVisible()));
-      await page.click('#menu-btn');
-      check('menu opens with focus in the name field', await page.locator('#drawer').isVisible() && await page.evaluate(() => document.activeElement?.id === 'add-name'));
+      await page.click('#add-btn');
+      check('add opens with focus in the name field', await page.locator('#add-name').isVisible() && await page.evaluate(() => document.activeElement?.id === 'add-name'));
       await page.keyboard.press('Escape');
-      check('Esc closes the menu and focus returns to ☰', !(await page.locator('#drawer').isVisible()) && await page.evaluate(() => document.activeElement?.id === 'menu-btn'));
-      await openMenu();
-      await page.fill('#add-name', 'Sin horario'); await page.click('#add-form button[type=submit]');
-      await page.waitForTimeout(200);
-      await closeMenu();
+      await page.waitForTimeout(500);
+      check('Esc closes the add form and focus returns to + Añadir', !(await page.locator('#add-name').isVisible()) && await page.evaluate(() => document.activeElement?.id === 'add-btn'));
+      await addChar('Sin horario');
       check('no schedule: rune timer says so', (await page.evaluate(() => document.querySelector('article.card .tick-left')?.textContent ?? '')) === 'Falta la hora de recarga');
-      await page.click('article.card button.remove'); await page.click('article.card button.danger');
+      await page.click('article.card button.more-actions'); await page.click('article.card .menu button.remove'); await page.click('article.card button.danger');
       await page.goto(BASE); await page.waitForTimeout(600);
     }
     // validation errors
-    await openMenu();
+    await openAdd();
     await page.click('#add-form button[type=submit]');
     await shot('2-name-error');
-    for (const n of ['Personaje 1', 'Personaje 2', 'Personaje 3']) {
-      await page.fill('#add-name', n); await page.click('#add-form button[type=submit]');
-    }
+    await closeModal();
+    for (const n of ['Personaje 1', 'Personaje 2', 'Personaje 3']) await addChar(n);
+    await goTab('ajustes');
     await page.fill('#adjust-minutes', '102');
     await page.click('#adjust-form button[type=submit]');
-    await closeMenu();
+    await page.waitForTimeout(200);
+    await goTab('personajes');
     const vals = { c1: '612', c2: '345', c3: '840' };
     for (const id of ['c1', 'c2', 'c3']) {
       await page.click(`article[data-id=${id}] button.primary`);
@@ -136,15 +130,68 @@ for (const [label, width, height] of [['mobile', 390, 844], ['desktop', 1280, 80
     await shot('3-cards');
     const tl = id => page.evaluate(i => document.querySelector(`article[data-id=${i}] .tick-left`)?.textContent ?? '', id);
     check(`${label}/${scheme} rune timer text`, /^\+15 en \d\d:\d\d:\d\d$/.test(await tl('c1')) && (await tl('c3')) === 'Lleno');
+    check(`${label}/${scheme} orbs are drawn SVG (no 3D canvas)`, await page.locator('.star-orb').count() === 3 && await page.locator('#scene').count() === 0);
     const slots = await page.locator('.orb-slot').count();
     check(`${label}/${scheme} one orb slot per card`, slots === await page.locator('article.card').count() && slots === 3);
     // a near-full and a full card get their classes
     if (label === 'mobile') {
       const orb = await page.locator('article[data-id=c2] .orb-slot').boundingBox();
-      const pan = await page.locator('article[data-id=c2] .panel').boundingBox();
-      check(`mobile/${scheme} panel does not cover the orb`, orb.y + orb.height <= pan.y + 1);
+      const txt = await page.locator('article[data-id=c2] .r-text').boundingBox();
+      check(`mobile/${scheme} row text does not overlap the orb`, orb.x + orb.width <= txt.x + 1 || orb.y + orb.height <= txt.y + 1 || txt.x + txt.width <= orb.x + 1);
     }
     check(`${label}/${scheme} full card marked`, await page.locator('article[data-id=c3].full').count() === 1);
+    if (scheme === 'dark') {
+      // after scrolling, the SVG orb is still inside its slot and has the 56 stars
+      await page.evaluate(() => { document.querySelector('article[data-id=c3] .orb-slot').scrollIntoView({ block: 'center' }); window.scrollBy(0, 60); });
+      await page.waitForTimeout(400);
+      const slot = await page.locator('article[data-id=c3] .orb-slot').boundingBox();
+      const svg = await page.locator('article[data-id=c3] .orb-slot .star-orb').boundingBox();
+      check(`${label} orb stays inside its slot after scroll`, svg && Math.abs(svg.x - slot.x) < 1 && Math.abs(svg.y - slot.y) < 1 && await page.locator('article[data-id=c3] .so-star').count() === 56);
+      await page.evaluate(() => window.scrollTo(0, 0));
+    }
+    if (label === 'desktop' && scheme === 'dark') {
+      check('events: 8 rows', await page.locator('.event-row').count() === 8);
+    }
+    if (label === 'desktop' && scheme === 'dark') {
+      const num = id => page.locator(`article[data-id=${id}] .num`).textContent();
+      const events = () => page.evaluate(() => [...window.__docs.keys()].filter(k => k.startsWith('members/u_me/events/')).length);
+      await page.click('#presets-btn');
+      await page.fill('#preset-name', 'Mazmorra'); await page.fill('#preset-cost', '40');
+      await page.click('#preset-form button[type=submit]');
+      await page.waitForTimeout(200);
+      await closeModal();
+      const ev0 = await events(); // the earlier 'Actualizar' edits already logged 'set' events
+      await page.click('article[data-id=c1] button.spend');
+      await page.waitForTimeout(1000);
+      check('spend: Mazmorra −40 → 572 and one more event', (await num('c1')) === '572' && (await events()) === ev0 + 1);
+      check('spend: undo toast shown', await page.locator('#toast').isVisible());
+      await page.click('#undo');
+      await page.waitForTimeout(1000);
+      check('undo: back to 612 and the event removed', (await num('c1')) === '612' && (await events()) === ev0);
+      await rowMenu('c2', 'extra');
+      await page.fill('#extra-c2', '100'); await page.press('#extra-c2', 'Enter');
+      await page.waitForTimeout(1000);
+      check('extra: +100 → 445', (await num('c2')) === '445');
+      await page.click('article[data-id=c1] button.primary');
+      await page.fill('#energy-c1', '30'); await page.press('#energy-c1', 'Enter');
+      await page.waitForTimeout(800);
+      await page.click('article[data-id=c1] button.spend');
+      await page.waitForTimeout(200);
+      check('spend: not enough energy is refused', (await page.locator('article[data-id=c1]').textContent()).includes('No hay energía suficiente') && (await num('c1')) === '30');
+      await page.waitForTimeout(8500);
+      check('undo toast disappears after 8 s', !(await page.locator('#toast').isVisible()));
+    }
+    await page.click('article[data-id=c2] button.primary');
+    await page.fill('#energy-c2', '12x'); await page.press('#energy-c2', 'Enter');
+    await shot('4-edit-error');
+    await rowMenu('c1', 'remove');
+    await shot('5-confirm');
+    await page.click('article[data-id=c1] button.danger');
+    await page.waitForTimeout(300);
+    check(`${label}/${scheme} removing a card removes its orb`, await page.locator('.orb-slot').count() === 2 && await page.locator('.star-orb').count() === 2);
+    const overflow = await page.evaluate(() => document.documentElement.scrollWidth > document.documentElement.clientWidth);
+    console.log(label, scheme, 'horizontal overflow:', overflow); check(`${label}/${scheme} no horizontal overflow`, !overflow);
+    await ctx.close();
   }
 }
 // Seeded data: stored 7 h ago, schedule snapshot arrives after characters.
@@ -166,21 +213,26 @@ for (const [label, width, height] of [['mobile', 390, 844], ['desktop', 1280, 80
   await page.goto(BASE);
   await page.waitForTimeout(1800);
   check('seeded: no false +N on load', await page.locator('.gain').count() === 0);
-  check('summary: tip about the full character', ((await page.locator('#summary').textContent().catch(() => '')) || '').includes('Lleno está lleno'));
+  check('summary: tip about the full character', ((await page.locator('#summary').textContent().catch(() => '')) || '').includes('Lleno está al tope'));
   check('forecast: 3 lines and a legend', await page.locator('#forecast path.series').count() === 3 && await page.locator('#forecast-legend li').count() === 3);
-  check('summary: total energy', ((await page.locator('#summary').textContent().catch(() => '')) || '').includes('1795'));
-  check('waste: full card says it is losing energy', (await page.locator('article[data-id=s3]').textContent()).includes('Estás perdiendo 15 de OD cada 3 h'));
+  check('summary: legion readiness line', ((await page.locator('#summary').textContent().catch(() => '')) || '').includes('Listos para mazmorra en la legión: 3'));
+  check('waste: full card says it is losing energy', (await page.locator('article[data-id=s3]').textContent()).includes('Lleno · perdiendo energía'));
   check('waste: card filling during rest hours warns', (await page.locator('article[data-id=s2]').textContent()).includes('Perderás 15 de OD'));
-  await page.click('#menu-btn');
-  check('drawer: rest hours fields', await page.locator('#quiet-start').isVisible() && await page.locator('#quiet-end').isVisible());
-  await page.keyboard.press('Escape');
-  check('seeded: class icon and name shown', await page.locator('.cls-icon').count() === 3 && (await page.locator('article[data-id=s1] .cls-name').textContent()) === 'Gladiador');
+  await page.evaluate(() => document.querySelector('[data-tab="ajustes"]')?.click());
+  check('settings: rest hours fields', await page.locator('#quiet-start').isVisible() && await page.locator('#quiet-end').isVisible());
+  await page.evaluate(() => document.querySelector('[data-tab="personajes"]')?.click());
+  check('seeded: class icon and name shown', await page.locator('article .cls-icon').count() === 3 && (await page.locator('article[data-id=s1] .cls-name').textContent()) === 'Gladiador');
+  check('seeded: already-full character has the cap class and no ripple on load', await page.locator('article[data-id=s3] .star-orb.full').count() === 1 && await page.locator('.star-orb.ripple').count() === 0);
   await page.evaluate(() => { Object.defineProperty(document, 'hidden', { configurable: true, get: () => true }); });
   await page.waitForTimeout(8000);
   await page.evaluate(() => { Object.defineProperty(document, 'hidden', { configurable: true, get: () => false }); document.dispatchEvent(new Event('visibilitychange')); });
   await page.waitForTimeout(200);
   check('seeded: +15 shown after returning from background', (await page.locator('.gain').allTextContents()).join() === '+15,+15');
+  // a render right after the gain must not cut the ripple (the orb resumes where it was)
+  await page.evaluate(() => { document.getElementById('events').open = false; });
   check('seeded: the recharged orbs ripple once', await page.locator('.star-orb.ripple').count() === 2);
+  await page.waitForTimeout(1200);
+  check('seeded: the ripple is cleared when it ends', await page.locator('.star-orb.ripple').count() === 0);
   await page.screenshot({ path: 'dev/screens/seeded.png' });
   await ctx.close();
 }
@@ -223,20 +275,22 @@ for (const [label, width, height] of [['mobile', 390, 844], ['desktop', 1280, 80
   check('forecast: one line for the character', await page.locator('#forecast path.series').count() === 1);
   await ctx.close();
   ({ ctx, page } = await mk(base('{ failEvents: true }')));
+  // the notice is transient (a later save clears it), so watch it instead of reading it afterwards
+  await page.evaluate(() => { window.__notices = []; new MutationObserver(() => window.__notices.push(document.getElementById('notice').textContent)).observe(document.getElementById('notice'), { childList: true, characterData: true, subtree: true }); });
   await page.click('article[data-id=a] button.spend');
   await page.waitForTimeout(1000);
-  const notice = (await page.locator('#notice').textContent()) || '';
+  const notice = (await page.evaluate(() => window.__notices)).join('|');
   check('failed event write: page stays editable and says the log failed', await page.locator('article[data-id=a] button.spend').count() === 1 && notice.includes('historial'));
   await ctx.close();
   ({ ctx, page } = await mk(base('{}')));
-  await page.click('#menu-btn');
+  await page.click('#presets-btn');
   await page.focus('#preset-del-p1').catch(() => {});
   await page.evaluate(() => window.__notify());
   await page.waitForTimeout(300);
   check('menu: focus survives a repaint', await page.evaluate(() => document.activeElement?.id === 'preset-del-p1'));
   await ctx.close();
   ({ ctx, page } = await mk(`(() => { window.__SEED = { charPath: 'members/u_me/characters', characters: {}, schedule: null, docs: { 'members/u_me': { joinedAt: 1 } } }; })()`));
-  check('empty page points to the ☰ menu', ((await page.locator('#empty').textContent()) || '').includes('☰'));
+  check('empty page points to the + button', ((await page.locator('#empty').textContent()) || '').includes('Pulsa +'));
   await ctx.close();
 }
 // Migration: old shared 'characters' move into members/u_me/characters, once, intact.

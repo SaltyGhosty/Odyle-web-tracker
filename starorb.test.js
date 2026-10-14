@@ -1,7 +1,7 @@
 // starorb.test.js
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { buildStarOrb, updateStarOrb, markGain, litStars } from './starorb.js';
+import { buildStarOrb, updateStarOrb, markGain, litStars, syncOrbMotion } from './starorb.js';
 
 function fakeDoc() {
   const make = (tag) => ({
@@ -134,4 +134,18 @@ test('ids de clipPath unicos por orbe', () => {
   const a = buildStarOrb(doc, { energy: 1, id: 'c1' }), b = buildStarOrb(doc, { energy: 1, id: 'c2' });
   assert.notEqual(clipId(a), clipId(b));
   assert.match(clipId(buildStarOrb(doc, { energy: 1, id: 'we ird~id' })), /^[A-Za-z0-9_-]+$/);
+});
+
+test('syncOrbMotion: reanuda la ondulacion y el latido tras reinsertar el nodo, y limpia la ondulacion vencida', () => {
+  const svg = buildStarOrb(fakeDoc(), { energy: 150, id: 'z' });
+  const props = {};
+  svg.style = { setProperty: (k, v) => { props[k] = v; } };
+  const t0 = Date.now();
+  markGain(svg);
+  syncOrbMotion(svg, t0 + 300);
+  assert.ok(hasCls(svg, 'ripple'));
+  assert.ok(/^-(2\d\d|3\d\d)ms$/.test(props['--so-ripple-delay']), props['--so-ripple-delay']);
+  assert.equal(props['--so-beat-delay'], `${-((t0 + 300) % 2400)}ms`);
+  syncOrbMotion(svg, t0 + 5000); // oculta mucho tiempo: ya no hay ondulacion pendiente
+  assert.ok(!hasCls(svg, 'ripple'));
 });
