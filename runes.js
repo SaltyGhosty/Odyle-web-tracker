@@ -1,5 +1,5 @@
 // The energy rune ring: 56 original runes around each orb, one per +15 OD (840 = 56 x 15).
-// Shared by the 3D orb (orb.js) and the flat orb / small friend orbs (SVG).
+// Shared by the star orb (starorb.js) and anything that needs the ring geometry.
 import { MAX, REGEN } from './energy.js';
 
 export const RUNE_COUNT = MAX / REGEN; // 56

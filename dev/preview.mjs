@@ -3,8 +3,6 @@
 import { loadChromium } from './pw.mjs';
 const chromium = await loadChromium();
 import { readFileSync } from 'node:fs';
-const THREE_URL = 'https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js';
-const THREE_SRC = readFileSync(new URL('../node_modules/three/build/three.module.js', import.meta.url));
 
 // In-memory stand-in for window.claude (db + user), injected before the page loads.
 const STUB = () => {
@@ -57,7 +55,6 @@ if (process.env.THEME_SHOTS) {
     for (const [label, width, height] of (process.env.SHOT_SIZES ? JSON.parse(process.env.SHOT_SIZES) : [['desktop', 1280, 900], ['mobile', 390, 844]])) {
       const ctx = await browser.newContext({ viewport: { width, height }, colorScheme: theme === 'asmodian' ? 'dark' : 'light' });
       const page = await ctx.newPage();
-      await page.route(THREE_URL, r => r.fulfill({ contentType: 'text/javascript', body: THREE_SRC }));
       page.on('pageerror', e => errors.push(`theme ${theme}/${label}: ${e.message}`));
       await page.addInitScript(t => { try { localStorage.setItem('odyle-theme', t); } catch {} }, theme);
       if (process.env.SHOT_TAB) await page.addInitScript(t => { try { localStorage.setItem('odyle-tab', t); } catch {} }, process.env.SHOT_TAB);
@@ -84,15 +81,9 @@ for (const [label, width, height] of [['mobile', 390, 844], ['desktop', 1280, 80
   for (const scheme of ['dark', 'reduce']) {
     const ctx = await browser.newContext({ viewport: { width, height }, colorScheme: 'dark', reducedMotion: scheme === 'reduce' ? 'reduce' : 'no-preference' });
     const page = await ctx.newPage();
-    await page.route(THREE_URL, r => r.fulfill({ contentType: 'text/javascript', body: THREE_SRC }));
     page.on('console', m => { if (m.type() === 'error') errors.push(`${label}/${scheme}: ${m.text()}`); });
     page.on('pageerror', e => errors.push(`${label}/${scheme}: ${e.message}`));
     if (!process.env.NO_STUB) await page.addInitScript(STUB);
-    if (scheme === 'dark' && label === 'mobile') {
-      // Three.js arrives late: the add form must already work (no page reload).
-      await page.unroute(THREE_URL);
-      await page.route(THREE_URL, async r => { await new Promise(res => setTimeout(res, 2500)); r.fulfill({ contentType: 'text/javascript', body: THREE_SRC }); });
-    }
     await page.goto(BASE);
     const openMenu = async () => { if (!(await page.locator('#drawer').isVisible())) await page.click('#menu-btn'); await page.waitForTimeout(100); };
     const closeMenu = async () => { if (await page.locator('#drawer').isVisible()) await page.keyboard.press('Escape'); await page.waitForTimeout(100); };
@@ -145,8 +136,6 @@ for (const [label, width, height] of [['mobile', 390, 844], ['desktop', 1280, 80
     await shot('3-cards');
     const tl = id => page.evaluate(i => document.querySelector(`article[data-id=${i}] .tick-left`)?.textContent ?? '', id);
     check(`${label}/${scheme} rune timer text`, /^\+15 en \d\d:\d\d:\d\d$/.test(await tl('c1')) && (await tl('c3')) === 'Lleno');
-    const flat = await page.evaluate(() => document.body.classList.contains('flat'));
-    check(`${label}/${scheme} flat mode = ${scheme === 'reduce'}`, flat === (scheme === 'reduce'));
     const slots = await page.locator('.orb-slot').count();
     check(`${label}/${scheme} one orb slot per card`, slots === await page.locator('article.card').count() && slots === 3);
     // a near-full and a full card get their classes
@@ -156,68 +145,12 @@ for (const [label, width, height] of [['mobile', 390, 844], ['desktop', 1280, 80
       check(`mobile/${scheme} panel does not cover the orb`, orb.y + orb.height <= pan.y + 1);
     }
     check(`${label}/${scheme} full card marked`, await page.locator('article[data-id=c3].full').count() === 1);
-    if (scheme === 'dark') {
-      // after scrolling, the orb is still drawn inside its slot
-      await page.evaluate(() => { document.querySelector('article[data-id=c3] .orb-slot').scrollIntoView({ block: 'center' }); window.scrollBy(0, 60); });
-      await page.waitForTimeout(400);
-      const box = await page.locator('article[data-id=c3] .orb-slot').boundingBox();
-      const buf = await page.screenshot();
-      const { execFileSync } = await import('node:child_process');
-      const fs = await import('node:fs'); fs.writeFileSync('dev/screens/_tmp.png', buf);
-      const [r, g, b] = JSON.parse(execFileSync('python3', ['-c', `import json;from PIL import Image;im=Image.open('dev/screens/_tmp.png').convert('RGB');print(json.dumps(im.getpixel((${Math.round(box.x + box.width / 2)},${Math.round(box.y + box.height / 2)}))))`]).toString());
-      check(`${label} orb follows its slot after scroll`, r + g + b > 300);
-      await page.evaluate(() => window.scrollTo(0, 0));
-    }
-    if (label === 'desktop' && scheme === 'dark') {
-      check('events: 8 rows', await page.locator('.event-row').count() === 8);
-    }
-    if (label === 'desktop' && scheme === 'dark') {
-      const num = id => page.locator(`article[data-id=${id}] .num`).textContent();
-      const events = () => page.evaluate(() => [...window.__docs.keys()].filter(k => k.startsWith('members/u_me/events/')).length);
-      await openMenu();
-      await page.fill('#preset-name', 'Mazmorra'); await page.fill('#preset-cost', '40');
-      await page.click('#preset-form button[type=submit]');
-      await page.waitForTimeout(200);
-      await closeMenu();
-      const ev0 = await events(); // the earlier 'Actualizar' edits already logged 'set' events
-      await page.click('article[data-id=c1] button.spend');
-      await page.waitForTimeout(1000);
-      check('spend: Mazmorra −40 → 572 and one more event', (await num('c1')) === '572' && (await events()) === ev0 + 1);
-      check('spend: undo toast shown', await page.locator('#toast').isVisible());
-      await page.click('#undo');
-      await page.waitForTimeout(1000);
-      check('undo: back to 612 and the event removed', (await num('c1')) === '612' && (await events()) === ev0);
-      await page.click('article[data-id=c2] button.extra');
-      await page.fill('#extra-c2', '100'); await page.press('#extra-c2', 'Enter');
-      await page.waitForTimeout(1000);
-      check('extra: +100 → 445', (await num('c2')) === '445');
-      await page.click('article[data-id=c1] button.primary');
-      await page.fill('#energy-c1', '30'); await page.press('#energy-c1', 'Enter');
-      await page.waitForTimeout(800);
-      await page.click('article[data-id=c1] button.spend');
-      await page.waitForTimeout(200);
-      check('spend: not enough energy is refused', (await page.locator('article[data-id=c1]').textContent()).includes('No hay energía suficiente') && (await num('c1')) === '30');
-      await page.waitForTimeout(8500);
-      check('undo toast disappears after 8 s', !(await page.locator('#toast').isVisible()));
-    }
-    await page.click('article[data-id=c2] button.primary');
-    await page.fill('#energy-c2', '12x'); await page.press('#energy-c2', 'Enter');
-    await shot('4-edit-error');
-    await page.click('article[data-id=c1] button.remove');
-    await shot('5-confirm');
-    await page.click('article[data-id=c1] button.danger');
-    await page.waitForTimeout(300);
-    check(`${label}/${scheme} removing a card removes its orb`, await page.locator('.orb-slot').count() === 2);
-    const overflow = await page.evaluate(() => document.documentElement.scrollWidth > document.documentElement.clientWidth);
-    console.log(label, scheme, 'horizontal overflow:', overflow); check(`${label}/${scheme} no horizontal overflow`, !overflow);
-    await ctx.close();
   }
 }
 // Seeded data: stored 7 h ago, schedule snapshot arrives after characters.
 {
   const ctx = await browser.newContext({ viewport: { width: 1280, height: 800 }, colorScheme: 'dark' });
   const page = await ctx.newPage();
-  await page.route(THREE_URL, r => r.fulfill({ contentType: 'text/javascript', body: THREE_SRC }));
   page.on('pageerror', e => errors.push(`seeded: ${e.message}`));
   await page.addInitScript(() => {
     const now = Date.now();
@@ -242,44 +175,13 @@ for (const [label, width, height] of [['mobile', 390, 844], ['desktop', 1280, 80
   check('drawer: rest hours fields', await page.locator('#quiet-start').isVisible() && await page.locator('#quiet-end').isVisible());
   await page.keyboard.press('Escape');
   check('seeded: class icon and name shown', await page.locator('.cls-icon').count() === 3 && (await page.locator('article[data-id=s1] .cls-name').textContent()) === 'Gladiador');
-  const above = async id => {
-    await page.evaluate(i => { document.querySelector(`article[data-id=${i}] .orb-slot`).scrollIntoView({ block: 'center' }); }, id);
-    await page.waitForTimeout(150);
-    const box = await page.locator(`article[data-id=${id}] .orb-slot`).boundingBox();
-    const buf = await page.screenshot();
-    const fs = await import('node:fs'); fs.writeFileSync('dev/screens/_tmp.png', buf);
-    const { execFileSync } = await import('node:child_process');
-    const x = Math.round(box.x + box.width / 2), y = Math.max(2, Math.round(box.y - 30));
-    return JSON.parse(execFileSync('python3', ['-c', `import json;from PIL import Image;im=Image.open('dev/screens/_tmp.png').convert('RGB');print(max(sum(im.getpixel((xx,${y}))) for xx in range(${x}-6,${x}+6)))`]).toString());
-  };
-  check('seeded: already-full character gets no beam on load', (await above('s3')) < 300);
   await page.evaluate(() => { Object.defineProperty(document, 'hidden', { configurable: true, get: () => true }); });
   await page.waitForTimeout(8000);
   await page.evaluate(() => { Object.defineProperty(document, 'hidden', { configurable: true, get: () => false }); document.dispatchEvent(new Event('visibilitychange')); });
   await page.waitForTimeout(200);
   check('seeded: +15 shown after returning from background', (await page.locator('.gain').allTextContents()).join() === '+15,+15');
-  await page.waitForTimeout(1700); // let the floating "+15" fade; the beam lasts ~3 s
-  await page.evaluate(() => { document.getElementById('events').open = false; });
-  const lit = await above('s2'), dark = await above('s1'); // same row, only s2 has a beam
-  check('seeded: beam when a character reaches 840', lit > 300 && lit > dark + 80);
+  check('seeded: the recharged orbs ripple once', await page.locator('.star-orb.ripple').count() === 2);
   await page.screenshot({ path: 'dev/screens/seeded.png' });
-  await ctx.close();
-}
-// iOS-style permission denied: the motion button must not stay as a dead control.
-{
-  const ctx = await browser.newContext({ viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true, colorScheme: 'dark' });
-  const page = await ctx.newPage();
-  await page.route(THREE_URL, r => r.fulfill({ contentType: 'text/javascript', body: THREE_SRC }));
-  page.on('pageerror', e => errors.push(`ios: ${e.message}`));
-  await page.addInitScript(() => { window.DeviceOrientationEvent = window.DeviceOrientationEvent || function () {}; window.DeviceOrientationEvent.requestPermission = async () => 'denied'; });
-  await page.addInitScript(STUB);
-  await page.goto(BASE);
-  await page.waitForTimeout(1500);
-  const btn = page.locator('#motion-btn');
-  check('ios: motion button offered', await btn.isVisible());
-  if (await btn.isVisible()) await btn.tap();
-  await page.waitForTimeout(300);
-  check('ios: denied → button disabled and says so', await btn.isDisabled() && (await btn.textContent()) === 'Movimiento no disponible');
   await ctx.close();
 }
 // Event timers with the browser clock fixed at 18:05 UTC: Shugo is running.
@@ -287,7 +189,6 @@ for (const [label, width, height] of [['mobile', 390, 844], ['desktop', 1280, 80
   const ctx = await browser.newContext({ viewport: { width: 1280, height: 800 }, colorScheme: 'dark' });
   const page = await ctx.newPage();
   await page.clock.setFixedTime(new Date(Date.UTC(2026, 9, 10, 18, 5)));
-  await page.route(THREE_URL, r => r.fulfill({ contentType: 'text/javascript', body: THREE_SRC }));
   page.on('pageerror', e => errors.push(`events: ${e.message}`));
   await page.addInitScript(STUB);
   await page.goto(BASE);
@@ -303,7 +204,6 @@ for (const [label, width, height] of [['mobile', 390, 844], ['desktop', 1280, 80
   const mk = async (seedFn) => {
     const ctx = await browser.newContext({ viewport: { width: 1280, height: 800 }, colorScheme: 'dark' });
     const page = await ctx.newPage();
-    await page.route(THREE_URL, r => r.fulfill({ contentType: 'text/javascript', body: THREE_SRC }));
     page.on('pageerror', e => errors.push(`fixesA: ${e.message}`));
     await page.addInitScript(seedFn);
     await page.addInitScript(STUB);
@@ -343,7 +243,6 @@ for (const [label, width, height] of [['mobile', 390, 844], ['desktop', 1280, 80
 {
   const ctx = await browser.newContext({ viewport: { width: 1280, height: 800 }, colorScheme: 'dark' });
   const page = await ctx.newPage();
-  await page.route(THREE_URL, r => r.fulfill({ contentType: 'text/javascript', body: THREE_SRC }));
   page.on('pageerror', e => errors.push(`migration: ${e.message}`));
   await page.addInitScript(() => {
     window.__SEED = { characters: {

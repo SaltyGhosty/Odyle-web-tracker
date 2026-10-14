@@ -18,6 +18,8 @@
     --field: #FFFFFF; --hover: rgba(20, 33, 58, .05); --track: rgba(20, 33, 58, .12);
     --glow: rgba(168, 122, 30, .22); --ok: #1E7A4C; --warn: #A2560B; --scrim: rgba(20, 33, 58, .35);
     --shadow: 0 1px 2px rgba(20, 33, 58, .08), 0 8px 24px rgba(20, 33, 58, .08);
+    --orb-liquid-top: #8FC3EE; --orb-liquid-deep: #2E6FB0; --orb-glass: rgba(20, 33, 58, .10);
+    --orb-ring: #8A6212; --orb-ring-off: rgba(20, 33, 58, .22);
     --font-display: "Cinzel", "Trajan Pro", Georgia, serif;
     --font-body: "Figtree", system-ui, -apple-system, "Segoe UI", sans-serif;
     --ease-out: cubic-bezier(0.23, 1, 0.32, 1);
@@ -31,6 +33,8 @@
     --gold: #9B6BD6; --gold-bright: #C9A8F0; --sky: #C9C3D6; --on-gold: #120D17;
     --danger: #E0455A; --urgent: #E0455A; --urgent-strong: #B8303F;
     --field: #150F1B; --hover: rgba(237, 230, 242, .05); --track: rgba(237, 230, 242, .12);
+    --orb-liquid-top: #C9C3D6; --orb-liquid-deep: #7A4FB8; --orb-glass: rgba(237, 230, 242, .08);
+    --orb-ring: #C9A8F0; --orb-ring-off: rgba(237, 230, 242, .24);
     --glow: rgba(155, 107, 214, .35); --ok: #7EE2A8; --warn: #FFB35C; --scrim: rgba(0, 0, 0, .55);
     --shadow: 0 8px 24px rgba(0, 0, 0, .35);
     color-scheme: dark;
@@ -48,7 +52,6 @@
     font-size: 15px;
     line-height: 1.45;
   }
-  #scene { position: fixed; inset: 0; width: 100%; height: 100%; z-index: 0; pointer-events: none; display: block; }
   .page {
     position: relative; z-index: 1;
     padding: 28px 16px 56px;
@@ -114,13 +117,8 @@
   /* ---- Character cards: orb (canvas-drawn) + glass panel ---- */
   .grid { display: flex; flex-direction: column; gap: 10px; }
   /* One character per row: orb | name + timers | number | actions; forms and the task list open below. */
-  /* The shared 3D canvas sits behind the page: the row's glass is a ::before with a round hole over the orb so it shows through. */
-  .card.row { --orbcol: 88px; --slot: 72px; --pady: 10px; position: relative; isolation: isolate; display: grid; grid-template-columns: var(--orbcol) minmax(0, 1fr) auto auto; grid-template-areas: "orb text num act" "below below below below";
+  .card.row { --orbcol: 88px; --slot: 72px; --pady: 10px; position: relative; display: grid; background: var(--glass); grid-template-columns: var(--orbcol) minmax(0, 1fr) auto auto; grid-template-areas: "orb text num act" "below below below below";
     align-items: center; gap: 4px 16px; padding: var(--pady) 14px; border: 1px solid var(--line); border-radius: 14px; box-shadow: var(--shadow); }
-  .card.row::before { content: ""; position: absolute; inset: 0; z-index: -1; border-radius: 13px; background: var(--glass); pointer-events: none; }
-  body:not(.flat) .card.row::before {
-    -webkit-mask: radial-gradient(circle calc(var(--slot) / 2 + 6px) at calc(14px + var(--orbcol) / 2) calc(var(--pady) + var(--slot) / 2), transparent 98%, #000 100%);
-    mask: radial-gradient(circle calc(var(--slot) / 2 + 6px) at calc(14px + var(--orbcol) / 2) calc(var(--pady) + var(--slot) / 2), transparent 98%, #000 100%); }
   .card.row.full { border-color: var(--urgent); }
   .card.row.near { border-color: var(--gold); }
   .orb-col { display: flex; flex-direction: column; align-items: center; gap: 2px; z-index: 2; }
@@ -150,18 +148,18 @@
     .menu { animation: menu-in 160ms var(--ease-out); }
     @keyframes menu-in { from { opacity: 0; transform: scale(0.96); } to { opacity: 1; transform: scale(1); } }
   }
-  /* Rune ring of the flat orb: 56 runes, lit ones in the faction accent, crimson at cap. No animation. */
-  .rune-ring { position: absolute; inset: 0; width: 100%; height: 100%; display: none; pointer-events: none; }
-  body.flat .rune-ring { display: block; }
-  .rune { fill: none; stroke: var(--track); stroke-width: 1.1; stroke-linecap: round; stroke-linejoin: round; }
-  .rune.on { stroke: var(--gold-bright); }
-  .rune-ring.full .rune.on { stroke: var(--urgent); }
-  /* at row size (72 px) the 150-unit ring is scaled by half: thicken the strokes so the 56 runes still read */
-  .r-orb .rune { stroke-width: 2.8; }
-  .r-orb .rune:not(.on) { stroke: color-mix(in srgb, var(--muted) 55%, transparent); }
-  .rune-ring.dots .rune { fill: var(--track); stroke: none; }
-  .rune-ring.dots .rune.on { fill: var(--gold-bright); }
-  .rune-ring.dots.full .rune.on { fill: var(--urgent); }
+  /* Star orb (starorb.js): glass sphere of liquid light inside a ring of 56 four-point stars. Colours are tokens. */
+  .star-orb { display: block; width: 100%; height: 100%; overflow: visible; pointer-events: none; }
+  .so-top { stop-color: var(--orb-liquid-top); }
+  .so-deep { stop-color: var(--orb-liquid-deep); }
+  .so-glass { fill: var(--orb-glass); }
+  .so-rim { fill: none; stroke: var(--sky); stroke-width: 1; opacity: .75; }
+  .so-shine { fill: var(--fg); opacity: .3; }
+  .so-star { fill: var(--orb-ring-off); transform-box: fill-box; transform-origin: center; }
+  .so-star.lit { fill: var(--orb-ring); }
+  .star-orb.full .so-star.lit { fill: var(--urgent); }
+  .star-orb.full .so-rim { stroke: var(--urgent); }
+  .orb-slot .star-orb { position: absolute; inset: 0; }
   .tick-left { margin: 0; font-size: .8rem; font-weight: 600; color: var(--sky); font-variant-numeric: tabular-nums;
     letter-spacing: .03em; text-shadow: 0 0 8px var(--glow); white-space: nowrap; }
   .tick-left.full { color: var(--gold-bright); text-shadow: 0 0 8px var(--glow); }
@@ -180,16 +178,6 @@
   .full-in { margin: 0; font-weight: 600; font-variant-numeric: tabular-nums; }
   .full-at { margin: 0; color: var(--muted); font-size: .8125rem; }
   .confirm-text { margin: 0; color: var(--danger); font-size: .875rem; font-weight: 500; }
-  /* Flat orb: used when there is no WebGL or the system asks for reduced motion. */
-  .orb-flat { display: none; position: absolute; inset: calc(var(--slot) * .16); border-radius: 50%;
-    border: 2px solid var(--gold);
-    background:
-      radial-gradient(circle at 35% 30%, rgba(255,255,255,.35), transparent 30%),
-      linear-gradient(to top, color-mix(in srgb, var(--c) 70%, var(--gold)) var(--fill), color-mix(in srgb, var(--glass-strong) 85%, transparent) var(--fill));
-    box-shadow: 0 0 18px color-mix(in srgb, var(--gold) 35%, transparent), inset 0 0 14px var(--track); }
-  body.flat .orb-flat { display: block; }
-  body.flat #scene { display: none; }
-
   .gain {
     position: absolute; z-index: 3; left: 58px; top: 8px; transform: translateX(-50%);
     font-weight: 700; font-size: 1.1rem; color: var(--gold-bright); pointer-events: none;
@@ -395,7 +383,6 @@
   @media (prefers-reduced-motion: reduce) { .side-link { transition: none; } }
   .more-sheet { position: fixed; z-index: 30; inset: auto 0 0 0; margin: 0; width: 100%; max-width: none; max-height: 80vh; border: 1px solid var(--line); border-bottom: none;
     border-radius: 16px 16px 0 0; background: var(--glass-strong); color: var(--fg); padding: 16px 16px calc(16px + env(safe-area-inset-bottom)); box-shadow: var(--shadow); }
-  .more-inner #motion-btn { width: 100%; min-height: 44px; margin-top: 16px; }
   .more-sheet::backdrop { background: var(--scrim); }
   .more-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; margin-bottom: 16px; }
   .more-grid button { flex-direction: column; min-height: 72px; display: flex; align-items: center; justify-content: center; gap: 6px; border-radius: 12px; position: relative; }
@@ -595,6 +582,14 @@
 
   /* ---- Motion (only when allowed) ---- */
   @media (prefers-reduced-motion: no-preference) {
+    /* The one authored moment: recharge ripple (once, ~900 ms), the new star scales in, the ring beats at the cap.
+       Off with «Reducir animaciones» (body.calm). Only markGain / the cap state start them, never a repaint. */
+    body:not(.calm) .star-orb.ripple .so-surface { animation: so-ripple 900ms var(--ease-out) 1; }
+    body:not(.calm) .star-orb.ripple .so-star.new { animation: so-star-in 500ms var(--ease-out) 1; }
+    body:not(.calm) .orb-slot .star-orb.full .so-ring { animation: so-beat 2.4s ease-in-out infinite; }
+    @keyframes so-ripple { 0% { transform: translate(0, 0); } 35% { transform: translate(-14px, -2.5px); } 100% { transform: translate(-36px, 0); } }
+    @keyframes so-star-in { from { transform: scale(.6); opacity: .4; } to { transform: scale(1); opacity: 1; } }
+    @keyframes so-beat { 0%, 100% { opacity: 1; } 50% { opacity: .5; } }
     .card.enter { animation: rise .6s cubic-bezier(.2, .7, .2, 1) both; animation-delay: calc(var(--i) * 90ms); }
     @keyframes rise { from { opacity: 0; transform: translateY(14px); } to { opacity: 1; transform: none; } }
     .card.row.near { animation: pulse 1.6s ease-in-out infinite; }
@@ -617,7 +612,6 @@
   }
 </style>
 
-<canvas id="scene" aria-hidden="true"></canvas>
 <div class="page">
   <header>
     <div class="brand"><h1 class="brand-name">Odyle</h1><span class="subtitle" id="subtitle">Daevas de Elyos</span></div>
@@ -636,7 +630,6 @@
       <span class="pc-text"><b id="pc-name"></b><small id="pc-title"></small></span>
     </button>
     <button type="button" id="online-pill" class="online-pill" hidden></button>
-    <button type="button" id="motion-btn" hidden>Activar movimiento</button>
   </header>
 
   <section class="band" id="summary" hidden>
@@ -861,7 +854,7 @@
   <section class="panel" aria-labelledby="look-title">
     <h2 id="look-title">Apariencia</h2>
     <div class="theme-slot" id="theme-slot-look"></div>
-    <label class="switch"><input type="checkbox" id="lite-toggle"> Modo ligero (sin 3D, ahorra batería)</label>
+    <label class="switch"><input type="checkbox" id="lite-toggle"> Reducir animaciones (sin ondulación ni latido en los orbes)</label>
     <label class="switch"><input type="checkbox" id="compact-toggle"> Modo compacto (tarjetas pequeñas, sin gráficos)</label>
     <p class="hint keys-hint">Atajos de teclado: pulsa <kbd>?</kbd> para verlos.</p>
     <div class="field"><label for="lang-select">Idioma</label><select id="lang-select"></select></div>
@@ -1010,8 +1003,8 @@
   import { EMPTY_STATS, bumped, unlocked, streak, weekTotals } from './achievements.js';
   const sound = createSound();
   import { makeCode, normalizeCode, hashCode, roomName, parseLegionName, parseProfile, legionOf, sameLegion, legionTitle, proofFor, pickLegion, legionKey } from './legion.js';
-  import { formatClock, detectGains, rollValue, becameFull, sceneOptions } from './motion.js';
-  import { litRunes, buildRuneRing } from './runes.js';
+  import { formatClock, detectGains, rollValue, becameFull } from './motion.js';
+  import { buildStarOrb, updateStarOrb, markGain } from './starorb.js';
 
   // Data comes only from db snapshots. Writes happen only after a user action.
   const state = { characters: [], memberData: new Map(), stats: null, tasks: DEFAULT_TASKS, progress: new Map(), cpHist: new Map(), hiddenMembers: 0, others: new Map(), names: {}, schedule: null, presets: [], events: [], timers: [], calendar: [], wall: [], legions: new Map(), prefs: { quietStart: '00:00', quietEnd: '08:00', favEvents: [] } };
@@ -1024,28 +1017,12 @@
   let my = null; // paths(myUid): this viewer's own part of the db
   let myUid = null;
 
-  // ---- Motion setup: the 3D scene loads in the background; flat orbs until it is ready ----
+  // ---- Motion setup: orbs are drawn SVG; «Reducir animaciones» (body.calm) and the system setting switch the motion off ----
   const reduceMotion = matchMedia('(prefers-reduced-motion: reduce)').matches;
-  let scene = null;
-  let animate = false;
-  document.body.classList.add('flat');
-  let lite = false;
+  let lite = false; // «Reducir animaciones» (key odyle-lite kept from the old «Modo ligero»)
   try { lite = localStorage.getItem('odyle-lite') === '1'; } catch {}
-  async function initScene() {
-    if (reduceMotion || lite) return;
-    if (scene) { animate = true; document.body.classList.remove('flat'); scene.start(); render(); return; }
-    try {
-      const { createScene } = await import('./orb.js');
-      scene = createScene(document.getElementById('scene'), sceneOptions(innerWidth));
-    } catch { scene = null; }
-    if (!scene) return;
-    animate = true;
-    document.body.classList.remove('flat');
-    scene.setPalette({ ...themeOf(theme).orb, light: themeOf(theme).light });
-    scene.start();
-    enableOrientation();
-    render();
-  }
+  let animate = !reduceMotion && !lite;
+  document.body.classList.toggle('calm', lite);
 
   // ---- Actions (the only functions that write data), one write at a time ----
   let queue = Promise.resolve();
@@ -1270,7 +1247,6 @@
     const meta = document.querySelector('meta[name="theme-color"]');
     if (meta) meta.setAttribute('content', th.themeColor);
     for (const b of document.querySelectorAll('[data-theme-choice]')) b.setAttribute('aria-pressed', String(b.dataset.themeChoice === th.id));
-    if (scene) scene.setPalette({ ...th.orb, light: th.light });
     try { localStorage.setItem('odyle-theme', th.id); } catch {}
     if (persist && my && !ui.readOnly && state.prefs.theme !== th.id) {
       state.prefs = { ...state.prefs, theme: th.id };
@@ -1332,6 +1308,15 @@
 
   const seen = new Set();
 
+  // One SVG orb per character, reused across repaints (updateStarOrb only changes attributes, so nothing restarts).
+  const orbNodes = new Map();
+  function orbFor(row) {
+    const stateOf = row.isFull ? 'full' : row.nearFull ? 'near' : 'normal';
+    let svg = orbNodes.get(row.id);
+    if (svg) { svg.setAttribute('class', svg.getAttribute('class').split(' ').filter(c => c !== 'ripple').join(' ')); updateStarOrb(svg, { energy: row.energy, state: stateOf }); }
+    else { svg = buildStarOrb(document, { energy: row.energy, state: stateOf, id: row.id }); orbNodes.set(row.id, svg); }
+    return svg;
+  }
   function cardNode(row, index, readonly = false) {
     const editing = ui.editingId === row.id;
     const confirming = ui.confirmId === row.id;
@@ -1345,8 +1330,7 @@
 
     const orb = el('div', { class: 'r-orb orb-col' },
       el('div', { class: 'orb-slot', 'data-orb': row.id, role: 'img', 'aria-label': `${row.percent}% de energía` },
-        el('div', { class: 'orb-flat', style: `--fill:${row.percent}%` }),
-        buildRuneRing(document, litRunes(row.energy), { full: row.isFull })),
+        orbFor(row)),
       el('p', { class: 'tick-left', 'data-full': row.isFull ? '1' : null }));
 
     const text = el('div', { class: 'r-text' });
@@ -1820,8 +1804,6 @@
   function placeChrome() {
     if (WIDE.matches) { railFoot.append($('profile-chip')); closeMore(); }
     else pageEl.querySelector('header').append($('profile-chip'));
-    // iOS motion permission: in the «Más» sheet on phones (the header has no room), in the header on wide screens
-    if (WIDE.matches) pageEl.querySelector('header').append($('motion-btn')); else moreInner.append($('motion-btn'));
     if (WIDE.matches) document.body.append($('ai-fab')); else pageEl.querySelector('header').append($('ai-fab'));
   }
   function applyLayout() {
@@ -1991,7 +1973,6 @@
   }
 
   // Also the per-card rune timers ("+15 en hh:mm:ss") and the rune ring progress.
-  let orbList = [];
   function paintClock() {
     paintEvents(Date.now());
     paintTimers(Date.now());
@@ -2074,12 +2055,7 @@
     if (state.hiddenMembers > 0) groups.push(el('p', { class: 'hint' }, `Mostrando ${MAX_SHOWN_TEXT(state.others.size, state.others.size + state.hiddenMembers)}`));
     $('legion').replaceChildren(...groups);
     $('chars-bar').hidden = ui.noDb || !ui.loaded || (!view.rows.length && $('add-btn').hidden);
-    orbList = [...view.rows, ...otherRows].map(r => ({
-      id: r.id, el: document.querySelector(`[data-orb="${CSS.escape(r.id)}"]`), runes: litRunes(r.energy),
-      percent: r.percent, color: r.color, state: r.isFull ? 'full' : r.nearFull ? 'near' : 'normal',
-    }));
     paintClock(); // fills the new cards' timers and the orbs' rune progress
-    if (scene) scene.setOrbs(orbList);
 
     // Recharge gains (not manual edits): floating "+N" and an orb ripple.
     const recorded = new Map(state.characters.map(c => [c.id, c.recordedAt]));
@@ -2090,10 +2066,11 @@
       for (const g of detectGains(lastEnergy, now)) {
         const card = cards.querySelector(`article[data-id="${CSS.escape(g.id)}"]`);
         if (card) card.append(el('span', { class: 'gain', 'aria-hidden': 'true' }, `+${g.gain}`));
-        scene.ripple(g.id);
+        const orb = orbNodes.get(g.id);
+        if (orb) markGain(orb);
         sound.chime();
       }
-      if (anchor === lastAnchor) for (const id of becameFull(lastEnergy, now, MAX)) { scene.beam(id); sound.fanfare(); }
+      if (anchor === lastAnchor) for (const id of becameFull(lastEnergy, now, MAX)) sound.fanfare();
     }
     if (!keepBaseline) lastEnergy = new Map(now.map(r => [r.id, r]));
     lastAnchor = anchor;
@@ -2231,8 +2208,9 @@
   $('lite-toggle').addEventListener('change', e => {
     lite = e.target.checked;
     try { localStorage.setItem('odyle-lite', lite ? '1' : '0'); } catch {}
-    if (lite) { animate = false; if (scene) scene.stop(); document.body.classList.add('flat'); render(); }
-    else initScene();
+    animate = !reduceMotion && !lite;
+    document.body.classList.toggle('calm', lite);
+    render();
   });
   $('event-list').addEventListener('click', e => { const b = e.target.closest('[data-fav]'); if (b) toggleFav(b.dataset.fav); });
   $('alert-close').addEventListener('click', () => { clearTimeout(alertTimer); conceal($('alert'), 'show'); });
@@ -2586,20 +2564,6 @@
     closeProfile();
     render();
   });
-
-  // Phones: orbs follow the device's tilt. iOS needs a tap to grant permission.
-  function enableOrientation() {
-    if (!matchMedia('(pointer: coarse)').matches || !window.DeviceOrientationEvent) return;
-    if (typeof DeviceOrientationEvent.requestPermission === 'function') {
-      $('motion-btn').hidden = false;
-      $('motion-btn').addEventListener('click', async () => {
-        if (await scene.enableOrientation()) { $('motion-btn').hidden = true; return; }
-        // Denied: iOS won't ask again, so don't leave a button that does nothing.
-        $('motion-btn').disabled = true;
-        $('motion-btn').textContent = 'Movimiento no disponible';
-      });
-    } else scene.enableOrientation();
-  }
 
   // Shared legion data (calendar, wall): a refused write only affects that write, never the viewer's own data.
   async function saveShared(fn) {
@@ -3008,7 +2972,6 @@
 
   applyLayout(); // after every top-level declaration: it renders
   render();
-  initScene();
   // Timers only repaint from memory; they never write.
   let nextRepaintAt = Infinity;
   setInterval(() => {

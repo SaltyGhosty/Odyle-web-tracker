@@ -7,8 +7,6 @@ import { loadChromium } from './pw.mjs';
 const chromium = await loadChromium();
 
 const ROOT = new URL('..', import.meta.url).pathname;
-const THREE_URL = 'https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js';
-const THREE_SRC = readFileSync(path.join(ROOT, 'node_modules/three/build/three.module.js'));
 const server = http.createServer((q, r) => {
   const f = path.join(ROOT, decodeURIComponent(q.url.split('?')[0]) === '/' ? 'index.html' : decodeURIComponent(q.url.split('?')[0]));
   try { const body = readFileSync(f); r.writeHead(200, { 'content-type': f.endsWith('.js') ? 'text/javascript' : 'text/html; charset=utf-8' }); r.end(body); }
@@ -136,7 +134,6 @@ const errors = [];
 async function open(width, height = 900, opts = {}) {
   const ctx = await browser.newContext({ viewport: { width, height }, colorScheme: 'dark' });
   const page = await ctx.newPage();
-  await page.route(THREE_URL, r => r.fulfill({ contentType: 'text/javascript', body: THREE_SRC }));
   page.on('pageerror', e => errors.push(`${width}px: ${e.message}`));
   page.on('console', m => { if (m.type() === 'error' && !/favicon|Failed to load resource/.test(m.text())) errors.push(`${width}px console: ${m.text()}`); });
   if (opts.noProfile) await page.addInitScript(() => { window.__noProfile = true; });

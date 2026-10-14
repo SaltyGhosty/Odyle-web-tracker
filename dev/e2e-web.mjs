@@ -305,20 +305,21 @@ check('legión: el código solo vive en el servidor (cifrado, sin código ni has
   check('375 px: el último botón no queda tapado por la barra', !!box && box.y + box.height <= barTop, JSON.stringify({ box, barTop }));
   const topEl = await p.evaluate(({ x, y }) => { const e = document.elementFromPoint(x, y); return { ok: !!e?.closest('article.card button.primary'), tag: e?.tagName + '.' + e?.className + '#' + e?.id }; }, { x: box.x + box.width / 2, y: box.y + box.height / 2 });
   check('375 px: el último botón recibe el clic (no hay nada encima)', topEl.ok, JSON.stringify(topEl));
-  // cabecera de 375 px con los botones de iOS y «en línea» forzados visibles: una línea y la marca no pisa el reloj
-  await p.evaluate(() => { document.getElementById('online-pill').hidden = false; document.getElementById('motion-btn').hidden = false; });
+  // cabecera de 375 px con «en línea» forzado visible: una línea y la marca no pisa el reloj
+  await p.evaluate(() => { document.getElementById('online-pill').hidden = false; });
   const hd = await p.evaluate(() => {
     const h = document.querySelector('header').getBoundingClientRect();
     const b = document.querySelector('header .brand-name').getBoundingClientRect();
     const c = document.getElementById('clock').getBoundingClientRect();
-    const pill = document.getElementById('online-pill'), mb = document.getElementById('motion-btn');
+    const pill = document.getElementById('online-pill');
     return { h: h.height, hit: !(b.right <= c.left || b.left >= c.right || b.bottom <= c.top || b.top >= c.bottom), brandW: b.width,
-      pill: getComputedStyle(pill).display, mbInHeader: !!mb.closest('header') };
+      pill: getComputedStyle(pill).display };
   });
-  check('375 px: con «en línea» y «Activar movimiento» visibles la cabecera es de una línea', hd.h < 70, JSON.stringify(hd));
+  check('375 px: con «en línea» visible la cabecera es de una línea', hd.h < 70, JSON.stringify(hd));
   check('375 px: la marca no se solapa con el reloj', !hd.hit && hd.brandW > 40, JSON.stringify(hd));
-  check('375 px: «en línea» se oculta y «Activar movimiento» vive en la hoja Más', hd.pill === 'none' && !hd.mbInHeader, JSON.stringify(hd));
-  await p.evaluate(() => { document.getElementById('online-pill').hidden = true; document.getElementById('motion-btn').hidden = true; });
+  check('375 px: «en línea» se oculta en la cabecera', hd.pill === 'none', JSON.stringify(hd));
+  check('375 px: ya no existe el botón de movimiento 3D ni el lienzo de la escena', !(await p.locator('#motion-btn, #scene').count()), '');
+  await p.evaluate(() => { document.getElementById('online-pill').hidden = true; });
   // el aviso de deshacer en móvil va arriba y no tapa los botones de la última fila
   await p.setViewportSize({ width: 390, height: 844 });
   await p.waitForTimeout(300);

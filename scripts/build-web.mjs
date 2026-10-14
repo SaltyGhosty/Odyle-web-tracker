@@ -13,26 +13,16 @@ const need = (p) => { if (!existsSync(p)) fail(`falta ${path.relative(ROOT, p)}`
 const read = (p) => readFileSync(need(p), 'utf8');
 
 rmSync(OUT, { recursive: true, force: true });
-mkdirSync(path.join(OUT, 'vendor'), { recursive: true });
 mkdirSync(path.join(OUT, 'fonts'), { recursive: true });
 
 // ---- módulos del repositorio (sin pruebas) ----
 const modules = readdirSync(ROOT).filter((f) => f.endsWith('.js') && !f.endsWith('.test.js'));
 const EXPECTED = ['i18n.js', 'i18n-strings.js', 'view.js', 'energy.js', 'classes.js', 'store.js', 'spend.js', 'events.js', 'planner.js',
-  'charts.js', 'sound.js', 'tasks.js', 'achievements.js', 'motion.js', 'orb.js', 'legion.js', 'theme.js', 'social.js', 'runes.js', 'layout.js', 'icons.js'];
+  'charts.js', 'sound.js', 'tasks.js', 'achievements.js', 'motion.js', 'starorb.js', 'legion.js', 'theme.js', 'social.js', 'runes.js', 'layout.js', 'icons.js'];
 for (const m of EXPECTED) if (!modules.includes(m)) fail(`falta el módulo ${m}`);
 for (const m of modules) {
-  let src = read(path.join(ROOT, m));
-  if (m === 'orb.js') {
-    const CDN = "'https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js'";
-    if (!src.includes(CDN)) fail('orb.js no importa Three.js desde el CDN esperado');
-    src = src.replace(CDN, "'./vendor/three.module.js'");
-  }
-  writeFileSync(path.join(OUT, m), src);
+  writeFileSync(path.join(OUT, m), read(path.join(ROOT, m)));
 }
-
-// ---- Three.js vendorizado ----
-copyFileSync(need(path.join(ROOT, 'node_modules/three/build/three.module.js')), path.join(OUT, 'vendor/three.module.js'));
 
 // ---- index.html: sin <style> ni <script> en línea ----
 const html = read(path.join(ROOT, 'index.html'));

@@ -12,11 +12,8 @@
 .avatar.online::after { content: ""; position: absolute; right: -1px; bottom: -1px; width: 11px; height: 11px; border-radius: 50%;
   background: var(--ok); border: 2px solid var(--glass-strong); }
 .mini-orb { position: relative; flex: none; width: 44px; height: 44px; display: inline-block; }
-.mini-orb-fill { position: absolute; inset: 7px; border-radius: 50%; border: 1px solid var(--gold);
-  background: linear-gradient(to top, color-mix(in srgb, var(--gold) 70%, var(--sky)) var(--fill), var(--field) var(--fill)); }
-.mini-orb.full .mini-orb-fill { border-color: var(--urgent); }
 .mini-orb.hidden-energy { opacity: .45; }
-.mini-orb .rune-ring { display: block; }
+.mini-orb .star-orb { width: 44px; height: 44px; }
 .social-note { margin: 0; color: var(--muted); font-size: .875rem; }
 .social-note.error { color: var(--danger); font-weight: 500; }
 .live-status { position: fixed; left: 50%; bottom: 16px; transform: translateX(-50%); z-index: 50; margin: 0;
