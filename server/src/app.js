@@ -8,9 +8,17 @@ import { hashPassword } from './lib/passwords.js';
 import authRoutes from './routes/auth.js';
 import docsRoutes from './routes/docs.js';
 import legionsRoutes from './routes/legions.js';
+import profilesRoutes from './routes/profiles.js';
+import friendsRoutes from './routes/friends.js';
+import streamRoutes from './routes/stream.js';
+import messagesRoutes from './routes/messages.js';
+import reportsRoutes from './routes/reports.js';
 import pagesRoutes from './routes/pages.js';
+import { MemoryBus } from './lib/bus.js';
+import { createPresence } from './lib/presence.js';
 
-export const CSP = "default-src 'self'; script-src 'self'; style-src 'self'; style-src-attr 'unsafe-inline'; font-src 'self'; img-src 'self' data: blob:; connect-src 'self'; object-src 'none'; base-uri 'none'; form-action 'self'; frame-ancestors 'none'; require-trusted-types-for 'script'; trusted-types 'none'";
+import { CSP } from './lib/headers.js';
+export { CSP } from './lib/headers.js';
 
 export const PROD_LOGGER = {
   level: 'info',
@@ -24,7 +32,7 @@ export const PROD_LOGGER = {
   },
 };
 
-export function buildApp({ config, db, mailer, now = Date.now, hasher = hashPassword, logger = PROD_LOGGER, publicDir }) {
+export function buildApp({ config, db, mailer, now = Date.now, hasher = hashPassword, logger = PROD_LOGGER, publicDir, bus = new MemoryBus(), streamTtlScale = 1 }) {
   const app = Fastify({
     // Exactamente N saltos de confianza (TRUST_PROXY_HOPS, por defecto 1 = el balanceador de Render), nunca `true` (SR-18).
     // Con un número, Fastify 5.12 no confía en nadie; esta función confía solo en los N pares más cercanos al socket,
@@ -39,6 +47,9 @@ export function buildApp({ config, db, mailer, now = Date.now, hasher = hashPass
   app.decorate('mailer', mailer);
   app.decorate('now', now);
   app.decorate('hasher', hasher);
+  app.decorate('bus', bus);
+  app.decorate('presence', createPresence());
+  app.decorate('streamTtlScale', streamTtlScale);
 
   // Solo application/json (SR-13): se quita el parser text/plain por defecto.
   app.removeContentTypeParser('text/plain');
@@ -96,6 +107,11 @@ export function buildApp({ config, db, mailer, now = Date.now, hasher = hashPass
   app.register(authRoutes);
   app.register(docsRoutes);
   app.register(legionsRoutes);
+  app.register(profilesRoutes);
+  app.register(friendsRoutes);
+  app.register(streamRoutes);
+  app.register(messagesRoutes);
+  app.register(reportsRoutes);
   app.register(pagesRoutes, { publicDir });
 
   return app;

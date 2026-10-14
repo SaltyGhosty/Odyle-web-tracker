@@ -19,7 +19,7 @@ mkdirSync(path.join(OUT, 'fonts'), { recursive: true });
 // ---- módulos del repositorio (sin pruebas) ----
 const modules = readdirSync(ROOT).filter((f) => f.endsWith('.js') && !f.endsWith('.test.js'));
 const EXPECTED = ['i18n.js', 'i18n-strings.js', 'view.js', 'energy.js', 'classes.js', 'store.js', 'spend.js', 'events.js', 'planner.js',
-  'charts.js', 'sound.js', 'tasks.js', 'achievements.js', 'motion.js', 'orb.js', 'legion.js'];
+  'charts.js', 'sound.js', 'tasks.js', 'achievements.js', 'motion.js', 'orb.js', 'legion.js', 'theme.js', 'social.js', 'runes.js'];
 for (const m of EXPECTED) if (!modules.includes(m)) fail(`falta el módulo ${m}`);
 for (const m of modules) {
   let src = read(path.join(ROOT, m));
@@ -43,17 +43,19 @@ if (!script) fail('index.html no tiene <script type="module"> en línea');
 let page = html
   .replace(/<link rel="preconnect"[^>]*>\s*/g, '')
   .replace(/<link rel="stylesheet" href="https:\/\/fonts\.googleapis\.com[^>]*>\s*/g, '')
-  .replace(style[0], '<link rel="stylesheet" href="fonts.css"><link rel="stylesheet" href="app.css">')
-  .replace(script[0], () => '<script src="claude-shim.js"></script><script src="legion-api.js"></script><script type="module" src="app.js"></script>');
+  .replace(style[0], '<link rel="stylesheet" href="fonts.css"><link rel="stylesheet" href="app.css"><link rel="stylesheet" href="social.css">')
+  .replace(script[0], () => '<script src="claude-shim.js"></script><script src="legion-api.js"></script><script src="social-api.js"></script><script type="module" src="app.js"></script>');
 if (/<style[\s>]/i.test(page) || /fonts\.g/.test(page)) fail('index.html conserva estilos en línea o Google Fonts');
 if ([...page.matchAll(/<script\b[^>]*>/gi)].some((m) => !/\ssrc="/.test(m[0]))) fail('index.html conserva un <script> en línea');
 writeFileSync(path.join(OUT, 'index.html'), page);
 writeFileSync(path.join(OUT, 'app.css'), style[1].replace(/^\n/, ''));
 writeFileSync(path.join(OUT, 'app.js'), script[1].replace(/^\n/, ''));
 
-// ---- páginas y adaptadores ----
-for (const f of ['claude-shim.js', 'legion-api.js', 'auth.html', 'auth-i18n.js', 'auth.js', 'auth.css']) {
-  copyFileSync(need(path.join(ROOT, 'web', f)), path.join(OUT, f));
+// ---- páginas, adaptadores y pantallas solo web (todo web/ salvo pruebas) ----
+const WEB_DIR = path.join(ROOT, 'web');
+for (const f of ['claude-shim.js', 'legion-api.js', 'social-api.js', 'social-dom.js', 'social-ui.js', 'social.css', 'auth.html', 'auth-i18n.js', 'auth.js', 'auth.css']) need(path.join(WEB_DIR, f));
+for (const f of readdirSync(WEB_DIR)) {
+  if (/\.(js|css|html)$/.test(f) && !f.endsWith('.test.js')) copyFileSync(path.join(WEB_DIR, f), path.join(OUT, f));
 }
 
 // ---- fuentes propias (@fontsource): latin + latin-ext ----

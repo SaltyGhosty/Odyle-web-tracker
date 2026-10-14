@@ -470,8 +470,9 @@ test('segmento de 129 caracteres → 400; cuerpo de 66 000 bytes → 413', async
 
 test('el código fuente no contiene marcas bidi literales', async () => {
   const { readFileSync, readdirSync } = await import('node:fs');
-  const dirs = ['src/lib', 'src/routes', 'test'].map((d) => new URL(`../${d}/`, import.meta.url));
-  for (const d of dirs) for (const f of readdirSync(d).filter((x) => x.endsWith('.js'))) {
-    assert.ok(!/[\u202A-\u202E\u2066-\u2069]/.test(readFileSync(new URL(f, d), 'utf8')), f);
-  }
+  const walk = (dir) => readdirSync(dir, { withFileTypes: true }).flatMap((e) => (
+    e.isDirectory() ? walk(new URL(`${e.name}/`, dir)) : e.name.endsWith('.js') ? [new URL(e.name, dir)] : []));
+  const files = ['src', 'test'].flatMap((d) => walk(new URL(`../${d}/`, import.meta.url)));
+  assert.ok(files.length > 20);
+  for (const f of files) assert.ok(!/[\u202A-\u202E\u2066-\u2069]/.test(readFileSync(f, 'utf8')), f.pathname);
 });

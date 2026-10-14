@@ -2,9 +2,11 @@
 // drawn inside each card's slot (scissor/viewport per slot, a single GL context).
 import * as THREE from 'https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js';
 import { wrapY, orientationTilt, pointerTilt } from './motion.js';
+import { RUNE_COUNT, RUNE_STROKES } from './runes.js';
 
 const GOLD = new THREE.Color('#e8b85a');
 const SKY = new THREE.Color('#7cc8ff');
+const URGENT = new THREE.Color('#E0455A');
 
 const PARTICLE_VS = `
   attribute float seed;
@@ -59,11 +61,17 @@ const LIQUID_FS = `
     gl_FragColor = vec4(col, 1.0);
   }`;
 const SHELL_FS = `
-  uniform vec3 uGold; uniform float uGlow; uniform vec3 uLightDir;
+  uniform vec3 uGold; uniform float uGlow, uLight; uniform vec3 uLightDir;
   varying vec3 vNormal; varying vec3 vView;
   void main() {
     float fres = pow(1.0 - abs(dot(normalize(vNormal), normalize(vView))), 2.5);
     float spec = pow(max(dot(reflect(-normalize(vView), normalize(vNormal)), normalize(uLightDir)), 0.0), 40.0);
+    if (uLight > 0.5) {
+      // Light theme (normal blending): colour stays the accent, intensity goes into alpha, the highlight is white.
+      float a = clamp(fres * (0.5 + 0.35 * uGlow) + spec * 0.9, 0.0, 1.0);
+      gl_FragColor = vec4(mix(uGold, vec3(1.0), clamp(spec * 1.6, 0.0, 1.0)), a);
+      return;
+    }
     gl_FragColor = vec4(uGold * (fres * (0.8 + uGlow) + spec * 1.2), fres * 0.9 + spec);
   }`;
 const HALO_VS = `varying vec2 vUv; void main(){ vUv = uv; gl_Position = projectionMatrix * modelViewMatrix * vec4(position,1.0); }`;
@@ -84,15 +92,18 @@ const RUNE_VS = `
     gl_Position = projectionMatrix * (center + vec4(position.xy, 0.0, 0.0)); // billboard
   }`;
 const RUNE_FS = `
-  uniform sampler2D uAtlas; uniform float uLit, uFull, uFade, uTime; uniform vec3 uGold;
+  uniform sampler2D uAtlas; uniform float uLit, uFull, uFade, uTime, uLight; uniform vec3 uGold, uUrgent;
   varying vec2 vUv; varying float vIndex;
   void main() {
-    float glyph = texture2D(uAtlas, vec2((vIndex + vUv.x) / 12.0, vUv.y)).a;
+    float glyph = texture2D(uAtlas, vec2((mod(vIndex, 12.0) + vUv.x) / 12.0, vUv.y)).a;
     float on = max(uFull, step(vIndex + 0.5, uLit));
     float newest = (1.0 - uFull) * step(uLit - 0.5, vIndex) * step(vIndex, uLit - 0.5);
     float flicker = 0.85 + 0.15 * sin(uTime * 3.0 + vIndex * 1.7);
     float glow = smoothstep(0.5, 0.0, length(vUv - 0.5)) * on * 0.35;
-    vec3 col = uGold * (on * (1.25 + newest * 0.6) * flicker + (1.0 - on) * 0.22);
+    vec3 tone = mix(uGold, uUrgent, uFull);
+    float pulse = uFull > 0.5 ? 0.75 + 0.25 * sin(uTime * 4.0) : 1.0;
+    vec3 col = tone * (on * (1.25 + newest * 0.6) * flicker + (1.0 - on) * 0.22) * pulse;
+    col *= mix(1.0, 0.6, uLight * (1.0 - on));
     float a = (glyph * (on * 0.95 + (1.0 - on) * 0.35) + glow) * uFade;
     if (a < 0.01) discard;
     gl_FragColor = vec4(col, a);
@@ -119,14 +130,7 @@ function runeAtlas() {
   const c = document.createElement('canvas'); c.width = 64 * 12; c.height = 64;
   const g = c.getContext('2d');
   g.strokeStyle = '#fff'; g.lineWidth = 5; g.lineCap = 'round'; g.lineJoin = 'round';
-  const strokes = [
-    [[32,10,32,54],[32,20,46,30]], [[24,10,24,54],[24,14,42,26],[24,30,42,42]], [[32,10,32,54],[18,24,46,24]],
-    [[20,54,32,10],[32,10,44,54],[24,38,40,38]], [[22,10,22,54],[22,32,42,14],[22,32,42,54]], [[32,10,32,54],[18,18,46,46]],
-    [[18,32,32,12],[32,12,46,32],[46,32,32,52],[32,52,18,32]], [[24,10,24,54],[40,10,40,54],[24,32,40,32]],
-    [[32,10,32,54],[20,20,32,32],[44,20,32,32]], [[20,12,44,52],[44,12,20,52]], [[32,10,32,54],[32,40,46,52],[32,40,18,52]],
-    [[22,12,42,12],[42,12,22,52],[22,52,42,52]],
-  ];
-  strokes.forEach((lines, i) => {
+  RUNE_STROKES.forEach((lines, i) => {
     g.beginPath();
     for (const [x1, y1, x2, y2] of lines) { g.moveTo(i * 64 + x1, y1); g.lineTo(i * 64 + x2, y2); }
     g.stroke();
@@ -177,7 +181,7 @@ const CLOUD_VS = `
     gl_Position = projectionMatrix * viewMatrix * wp;
   }`;
 const CLOUD_FS = `
-  uniform float uTime; uniform vec3 uSky; varying vec2 vUv; varying float vSeed;
+  uniform float uTime, uLight; uniform vec3 uSky; varying vec2 vUv; varying float vSeed;
   float h(vec2 p) { return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }
   float n(vec2 p) { vec2 i = floor(p), f = fract(p); f = f * f * (3.0 - 2.0 * f);
     return mix(mix(h(i), h(i + vec2(1, 0)), f.x), mix(h(i + vec2(0, 1)), h(i + vec2(1, 1)), f.x), f.y); }
@@ -185,7 +189,7 @@ const CLOUD_FS = `
     vec2 p = vUv * 3.0 + vSeed * 7.0 + vec2(uTime * 0.01, 0.0);
     float v = n(p) * 0.5 + n(p * 2.0) * 0.25 + n(p * 4.0) * 0.125;
     float edge = smoothstep(0.5, 0.15, length(vUv - 0.5));
-    gl_FragColor = vec4(uSky, smoothstep(0.35, 0.8, v) * edge * 0.28);
+    gl_FragColor = vec4(uSky, smoothstep(0.35, 0.8, v) * edge * mix(0.28, 0.1, uLight));
   }`;
 const BEAM_VS = `varying vec2 vUv; void main(){ vUv = uv; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }`;
 const BEAM_FS = `
@@ -236,7 +240,7 @@ export function createScene(canvas, { particles = 300, feathers = 20, clouds = 5
   bgScene.add(new THREE.Points(pGeo, pMat));
 
   // Far layer: soft ether clouds. Near layer: golden Daeva feathers falling and turning.
-  const cloudU = { uTime: { value: 0 }, uCamY: { value: 0 }, uSky: { value: SKY } };
+  const cloudU = { uTime: { value: 0 }, uCamY: { value: 0 }, uSky: { value: SKY }, uLight: { value: 0 } };
   const cloudMat = new THREE.ShaderMaterial({ vertexShader: CLOUD_VS, fragmentShader: CLOUD_FS, uniforms: cloudU,
     transparent: true, depthWrite: false, blending: THREE.AdditiveBlending });
   // Clouds sit around z −9 (view ≈ ±11 units tall there); each centre wraps within ±16 of the
@@ -294,7 +298,7 @@ export function createScene(canvas, { particles = 300, feathers = 20, clouds = 5
     vertexShader: LIQUID_VS, fragmentShader: LIQUID_FS, uniforms: liquidU,
     side: THREE.DoubleSide,
   }));
-  const shellU = { uGold: { value: GOLD }, uGlow: { value: 0 }, uLightDir: { value: new THREE.Vector3(-0.5, 0.8, 0.6) } };
+  const shellU = { uGold: { value: GOLD }, uGlow: { value: 0 }, uLight: { value: 0 }, uLightDir: { value: new THREE.Vector3(-0.5, 0.8, 0.6) } };
   const shell = new THREE.Mesh(new THREE.SphereGeometry(1.0, 64, 48), new THREE.ShaderMaterial({
     vertexShader: LIQUID_VS, fragmentShader: SHELL_FS, uniforms: shellU,
     transparent: true, depthWrite: false, blending: THREE.AdditiveBlending,
@@ -306,17 +310,17 @@ export function createScene(canvas, { particles = 300, feathers = 20, clouds = 5
   }));
   halo.position.z = -1.2;
 
-  // Rune ring: 12 billboards on a tilted, slowly spinning circle (radius 1.3).
+  // Rune ring: 56 billboards on a tilted, slowly spinning circle (radius 1.3).
   const RING_R = 1.3;
-  const runeU = { uAtlas: { value: runeAtlas() }, uLit: { value: 0 }, uFull: { value: 0 }, uFade: { value: 1 }, uTime: { value: 0 }, uGold: { value: GOLD } };
-  const runes = new THREE.InstancedMesh(new THREE.PlaneGeometry(0.3, 0.3), new THREE.ShaderMaterial({
+  const runeU = { uAtlas: { value: runeAtlas() }, uLit: { value: 0 }, uFull: { value: 0 }, uFade: { value: 1 }, uTime: { value: 0 }, uGold: { value: GOLD }, uUrgent: { value: URGENT }, uLight: { value: 0 } };
+  const runes = new THREE.InstancedMesh(new THREE.PlaneGeometry(0.16, 0.16), new THREE.ShaderMaterial({
     vertexShader: RUNE_VS, fragmentShader: RUNE_FS, uniforms: runeU,
     transparent: true, depthWrite: false, blending: THREE.AdditiveBlending,
-  }), 12);
-  const idx = new Float32Array(12);
+  }), RUNE_COUNT);
+  const idx = new Float32Array(RUNE_COUNT);
   const m = new THREE.Matrix4();
-  const runeAngle = i => -Math.PI / 2 + i * (Math.PI * 2 / 12);
-  for (let i = 0; i < 12; i++) {
+  const runeAngle = i => -Math.PI / 2 + i * (Math.PI * 2 / RUNE_COUNT);
+  for (let i = 0; i < RUNE_COUNT; i++) {
     idx[i] = i;
     m.makeTranslation(Math.cos(runeAngle(i)) * RING_R, 0, Math.sin(runeAngle(i)) * RING_R);
     runes.setMatrixAt(i, m);
@@ -325,7 +329,7 @@ export function createScene(canvas, { particles = 300, feathers = 20, clouds = 5
   // Burst: 8 sparks per rune flying into the orb.
   const sparks = 96, start = new Float32Array(sparks * 3), sseed = new Float32Array(sparks);
   for (let i = 0; i < sparks; i++) {
-    const a = runeAngle(i % 12) + (Math.random() - 0.5) * 0.3;
+    const a = runeAngle(i % RUNE_COUNT) + (Math.random() - 0.5) * 0.3;
     const r = RING_R + (Math.random() - 0.5) * 0.15;
     start.set([Math.cos(a) * r, (Math.random() - 0.5) * 0.15, Math.sin(a) * r], i * 3);
     sseed[i] = Math.random();
@@ -446,10 +450,10 @@ export function createScene(canvas, { particles = 300, feathers = 20, clouds = 5
       liquid.rotation.y = t * 0.2;
       runeU.uTime.value = t;
       runeU.uFull.value = o.state === 'full' ? 1 : 0;
-      runeU.uLit.value = o.tick == null ? 0 : Math.min(12, Math.max(0, Math.floor(o.tick * 12)));
-      // During a burst the old runes fade out and sparks fly in; the ring refills from zero.
+      runeU.uLit.value = Math.min(RUNE_COUNT, Math.max(0, o.runes | 0));
+      // Sparks fly into the orb on a recharge; the ring itself stays put.
       burstU.uT.value = since < 0.9 ? since / 0.9 : 0;
-      runeU.uFade.value = since < 0.9 ? 0.3 + 0.7 * (since / 0.9) : 1;
+      runeU.uFade.value = 1;
       renderer.render(orbScene, orbCam);
     }
   }
@@ -459,14 +463,21 @@ export function createScene(canvas, { particles = 300, feathers = 20, clouds = 5
   function pause() { cancelAnimationFrame(raf); raf = 0; }
   document.addEventListener('visibilitychange', onVisibility);
 
+  // Every material drawn with additive blending; setPalette flips them to normal blending in the light theme.
+  let lightMode = false;
+  const glowMats = [pMat, cloudMat, shell.material, halo.material, runes.material, burst.material, beamMesh.material];
   return {
     setOrbs(list) { orbs = list.slice(); },
     ripple(id) { ripples.set(id, clock.getElapsedTime()); },
     beam(id) { beams.set(id, clock.getElapsedTime()); },
-    // Faction colours: every material shares GOLD/SKY by reference, so updating them recolours
-    // orbs, runes, feathers, clouds and the beam; particle tints are rewritten.
-    setPalette({ primary, secondary }) {
-      GOLD.set(primary); SKY.set(secondary);
+    // Faction colours: every material shares GOLD/SKY/URGENT by reference, so updating them recolours
+    // orbs, runes, feathers, clouds and the beam; particle tints are rewritten. `light` is the light
+    // theme: additive glow vanishes on a pale background, so the glow materials switch to normal blending.
+    setPalette({ primary, secondary, urgent, light }) {
+      GOLD.set(primary); SKY.set(secondary); URGENT.set(urgent || primary);
+      lightMode = !!light;
+      runeU.uLight.value = lightMode ? 1 : 0; shellU.uLight.value = lightMode ? 1 : 0; cloudU.uLight.value = lightMode ? 1 : 0;
+      for (const mat of glowMats) { mat.blending = lightMode ? THREE.NormalBlending : THREE.AdditiveBlending; mat.needsUpdate = true; }
       const attr = pGeo.getAttribute('tint');
       for (let i = 0; i < particles; i++) { const c = isSky[i] ? SKY : GOLD; attr.setXYZ(i, c.r, c.g, c.b); }
       attr.needsUpdate = true;

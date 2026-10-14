@@ -30,13 +30,6 @@ export function rollValue(from, to, t) {
   return Math.round(from + (to - from) * (1 - (1 - k) ** 3));
 }
 
-// The rune ring: one rune lights per twelfth of the recharge interval (15 min of 3 h).
-export const RUNES = 12;
-export function runesLit(msLeft, tickMs) {
-  const lit = Math.floor((tickMs - msLeft) / (tickMs / RUNES));
-  return Math.min(RUNES, Math.max(0, lit));
-}
-
 // Characters that crossed into full since the previous render (not ones already full or new).
 export function becameFull(prev, rows, max) {
   return rows.filter(r => { const p = prev.get(r.id); return p && p.energy < max && r.energy >= max; }).map(r => r.id);

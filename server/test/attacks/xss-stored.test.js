@@ -5,7 +5,7 @@ import assert from 'node:assert/strict';
 import { setup, quickUser, as, legionWith, docOf } from './_lib.js';
 
 const PAYLOADS = ['<img src=x onerror=alert(1)>', '"><svg onload=alert(1)>', "'-alert(1)-'", 'javascript:alert(1)', '<script>alert(1)</script>'];
-const BIDI = ['‮', '‪', '‫', '‬', '‭', '⁦', '⁧', '⁨', '⁩'];
+const BIDI = ['\u202E', '\u202A', '\u202B', '\u202C', '\u202D', '\u2066', '\u2067', '\u2068', '\u2069'];
 const CTRL = ['\u0000', '\u0001', '\u0007', '\u001B', '\u007F', '\u0085', '\u009B'];
 
 test('cargas XSS en nick, bio, servidor, personaje, notas, muro, calendario y feedback se guardan como texto literal y salen como JSON', async () => {
@@ -57,18 +57,18 @@ test('nombre de legión: XSS como texto; bidi (U+202E) y control se eliminan o s
   assert.equal((await docOf(s, `legions/${L.id}`)).name, '<img src=x onerror=1>');
   const problems = [];
   for (const [label, name] of [
-    ['RLO (suplantación visual)', 'Líder‮oficial'], ['LRI/PDI', 'Los⁦ Albores⁩'], ['NUL', 'Los\u0000Albores'],
+    ['RLO (suplantación visual)', 'Líder\u202Eoficial'], ['LRI/PDI', 'Los\u2066 Albores\u2069'], ['NUL', 'Los\u0000Albores'],
     ['ESC', 'Los\u001B[31mAlbores'], ['C1', 'Los\u009BAlbores'], ['DEL', 'Los\u007FAlbores'],
   ]) {
     const r = await as(s, L)('PATCH', '/api/legions/mine', { name });
     if (r.statusCode >= 500) { problems.push(`${label}: rename -> ${r.statusCode}`); continue; }
     if (r.statusCode === 200) {
       const stored = (await docOf(s, `legions/${L.id}`)).name;
-      if (/[\u0000-\u001F\u007F-\u009F‪-‮⁦-⁩]/.test(stored)) problems.push(`${label}: guardado tal cual (${JSON.stringify(stored)})`);
+      if (/[\u0000-\u001F\u007F-\u009F\u202A-\u202E\u2066-\u2069]/.test(stored)) problems.push(`${label}: guardado tal cual (${JSON.stringify(stored)})`);
     }
   }
-  const c2 = await as(s, X)('POST', '/api/legions', { name: 'Admin‮noigel' });
-  if (c2.statusCode === 200 && /‮/.test((await docOf(s, `legions/${X.id}`)).name)) problems.push('crear: RLO guardado tal cual');
+  const c2 = await as(s, X)('POST', '/api/legions', { name: 'Admin\u202Enoigel' });
+  if (c2.statusCode === 200 && /\u202E/.test((await docOf(s, `legions/${X.id}`)).name)) problems.push('crear: RLO guardado tal cual');
   assert.deepEqual(problems, []);
   await s.app.close();
 });
@@ -76,7 +76,7 @@ test('nombre de legión: XSS como texto; bidi (U+202E) y control se eliminan o s
 test('claves de objeto con bidi o control se rechazan (no se pueden colar en el JSON pintado)', async () => {
   const s = await setup();
   const M = await quickUser(s, 'm');
-  for (const key of ['a‮b', 'a\u0000b', 'a\u001Bb']) {
+  for (const key of ['a\u202Eb', 'a\u0000b', 'a\u001Bb']) {
     const r = await as(s, M)('PUT', `/api/docs/members/${M.id}`, { rank: { achievements: { [key]: 1 } } });
     assert.equal(r.statusCode, 400, JSON.stringify(key));
   }

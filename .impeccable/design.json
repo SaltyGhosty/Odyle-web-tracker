@@ -1,0 +1,96 @@
+{
+  "schemaVersion": 3,
+  "title": "Design System: Odyle Tracker",
+  "source": "index.html :root / :root[data-faction]",
+  "themes": {
+    "elyos": {
+      "label": "Luz",
+      "--bg": "#EEF3F8",
+      "--bg-2": "#DCE7F3",
+      "--glass": "rgba(255, 255, 255, .88)",
+      "--glass-strong": "#FFFFFF",
+      "--fg": "#14213A",
+      "--muted": "#4A5770",
+      "--line": "rgba(168, 122, 30, .35)",
+      "--gold": "#A87A1E",
+      "--gold-bright": "#8A6212",
+      "--sky": "#2E6FB0",
+      "--on-gold": "#FFFFFF",
+      "--danger": "#B4232F",
+      "--urgent": "#B4232F",
+      "--field": "#FFFFFF",
+      "--hover": "rgba(20, 33, 58, .05)",
+      "--track": "rgba(20, 33, 58, .12)",
+      "--glow": "rgba(168, 122, 30, .22)",
+      "--ok": "#1E7A4C",
+      "--warn": "#A2560B",
+      "--scrim": "rgba(20, 33, 58, .35)",
+      "--shadow": "0 1px 2px rgba(20, 33, 58, .08), 0 8px 24px rgba(20, 33, 58, .08)"
+    },
+    "asmodian": {
+      "label": "Sombra",
+      "--bg": "#120D17",
+      "--bg-2": "#241830",
+      "--glass": "rgba(29, 21, 36, .88)",
+      "--glass-strong": "#1D1524",
+      "--fg": "#EDE6F2",
+      "--muted": "#B5A9C4",
+      "--line": "rgba(201, 195, 214, .28)",
+      "--gold": "#9B6BD6",
+      "--gold-bright": "#C9A8F0",
+      "--sky": "#C9C3D6",
+      "--on-gold": "#120D17",
+      "--danger": "#E0455A",
+      "--urgent": "#E0455A",
+      "--field": "#150F1B",
+      "--hover": "rgba(237, 230, 242, .05)",
+      "--track": "rgba(237, 230, 242, .12)",
+      "--glow": "rgba(155, 107, 214, .35)",
+      "--ok": "#7EE2A8",
+      "--warn": "#FFB35C",
+      "--scrim": "rgba(0, 0, 0, .55)",
+      "--shadow": "0 8px 24px rgba(0, 0, 0, .35)"
+    }
+  },
+  "shared": {
+    "--font-display": "\"Cinzel\", \"Trajan Pro\", Georgia, serif",
+    "--font-body": "\"Figtree\", system-ui, -apple-system, \"Segoe UI\", sans-serif",
+    "--ease-out": "cubic-bezier(0.23, 1, 0.32, 1)"
+  },
+  "fonts": {
+    "display": {
+      "family": "Cinzel",
+      "weights": [
+        600,
+        700
+      ],
+      "use": "titulos y nombres"
+    },
+    "body": {
+      "family": "Figtree",
+      "weights": [
+        400,
+        500,
+        600
+      ],
+      "use": "texto",
+      "numerals": "tabular-nums"
+    }
+  },
+  "runes": {
+    "count": 56,
+    "od": 15,
+    "max": 840,
+    "glyphs": 12,
+    "ring": {
+      "flat": "SVG, sin animacion",
+      "full": "urgent"
+    }
+  },
+  "motion": {
+    "ease": "cubic-bezier(0.23, 1, 0.32, 1)",
+    "press": "scale(0.97)",
+    "pressMs": 160,
+    "reducedMotion": "sin transiciones, orbe plano"
+  }
+}

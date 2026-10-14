@@ -33,14 +33,14 @@ test('/: 200 HTML con la CSP exacta, sin <script> en línea ni <style>; carga sh
   for (const m of html.matchAll(/<script\b[^>]*>/gi)) assert.match(m[0], /\ssrc="/, `script sin src: ${m[0]}`);
   assert.ok(!/\son[a-z]+\s*=/i.test(html.replace(/<script[\s\S]*?<\/script>/gi, '')), 'sin manejadores on* en el HTML');
   assert.ok(!/https?:\/\//.test(html), 'sin orígenes externos');
-  assert.ok(html.indexOf('claude-shim.js') < html.indexOf('legion-api.js') && html.indexOf('legion-api.js') < html.indexOf('app.js'));
+  assert.ok(html.indexOf('claude-shim.js') < html.indexOf('legion-api.js') && html.indexOf('legion-api.js') < html.indexOf('social-api.js') && html.indexOf('social-api.js') < html.indexOf('app.js'));
   assert.match(html, /<link rel="stylesheet" href="fonts.css"><link rel="stylesheet" href="app.css">/);
   assert.match(html, /<script type="module" src="app.js"><\/script>/);
 });
 
 test('/app.js, /claude-shim.js, /legion-api.js y /vendor/three.module.js con Content-Type JavaScript', async () => {
   const { app } = await makeTestApp();
-  for (const url of ['/app.js', '/claude-shim.js', '/legion-api.js', '/vendor/three.module.js', '/orb.js', '/auth.js', '/store.js']) {
+  for (const url of ['/app.js', '/claude-shim.js', '/legion-api.js', '/social-api.js', '/vendor/three.module.js', '/orb.js', '/auth.js', '/store.js']) {
     const r = await app.inject({ method: 'GET', url });
     assert.equal(r.statusCode, 200, url);
     assert.match(r.headers['content-type'], /javascript/, url);
