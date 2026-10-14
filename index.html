@@ -869,10 +869,10 @@
     <fieldset class="field account-pick">
       <legend>Cuenta</legend>
       <div class="theme-switch">
-        <label><input type="radio" name="add-account" value="normal" checked> Normal</label>
-        <label><input type="radio" name="add-account" value="premium"> Premium</label>
+        <label><input type="radio" name="add-account" value="normal" checked aria-describedby="add-account-hint"> Normal</label>
+        <label><input type="radio" name="add-account" value="premium" aria-describedby="add-account-hint"> Premium</label>
       </div>
-      <p class="hint">Normal: +15 cada 3 h, tope 560 · Premium: +30 cada 3 h, tope 840</p>
+      <p class="hint" id="add-account-hint">Normal: +15 cada 3 h, tope 560 · Premium: +30 cada 3 h, tope 840</p>
     </fieldset>
     <button type="submit" class="primary">Añadir</button>
   </form>
@@ -1459,8 +1459,8 @@
           value: Number.isFinite(row.cpGoal) ? String(row.cpGoal) : '' })));
       form.append(el('fieldset', { class: 'field account-pick' }, el('legend', {}, 'Cuenta'),
         el('div', { class: 'theme-switch' }, ...['normal', 'premium'].map(a => el('label', {},
-          el('input', { type: 'radio', id: `account-${row.id}-${a}`, name: `account-${row.id}`, value: a, checked: row.account === a }), a === 'normal' ? ' Normal' : ' Premium'))),
-        el('p', { class: 'hint' }, 'Normal: +15 cada 3 h, tope 560 · Premium: +30 cada 3 h, tope 840')));
+          el('input', { type: 'radio', id: `account-${row.id}-${a}`, name: `account-${row.id}`, value: a, checked: row.account === a, 'aria-describedby': `account-hint-${row.id}` }), a === 'normal' ? ' Normal' : ' Premium'))),
+        el('p', { class: 'hint', id: `account-hint-${row.id}` }, 'Normal: +15 cada 3 h, tope 560 · Premium: +30 cada 3 h, tope 840')));
       form.append(el('div', { class: 'row' },
         el('button', { type: 'submit', class: 'primary' }, 'Guardar'),
         el('button', { type: 'button',
@@ -2190,7 +2190,7 @@
 
     // Recharge gains (not manual edits): floating "+N" and an orb ripple.
     const recorded = new Map(state.characters.map(c => [c.id, c.recordedAt]));
-    const now = view.rows.map(r => ({ id: r.id, energy: r.energy, recordedAt: recorded.get(r.id), anchorMs: anchor }));
+    const now = view.rows.map(r => ({ id: r.id, energy: r.energy, max: r.max, recordedAt: recorded.get(r.id), anchorMs: anchor }));
     // While hidden, keep the old baseline so returning shows one "+N" with the total.
     const keepBaseline = document.hidden && anchor === lastAnchor;
     if (animate && !keepBaseline) {

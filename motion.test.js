@@ -46,3 +46,8 @@ test('becameFull: solo al cruzar a 840', () => {
   assert.deepEqual(becameFull(p, [{ id: 'c', energy: 840 }], 840), []);
   assert.deepEqual(becameFull(p, [{ id: 'a', energy: 835 }], 840), []);
 });
+test('becameFull: cada personaje con el tope de su cuenta', () => {
+  const p = new Map([['n', { energy: 545, max: 560 }], ['q', { energy: 545, max: 840 }]]);
+  assert.deepEqual(becameFull(p, [{ id: 'n', energy: 560, max: 560 }], 840), ['n']);
+  assert.deepEqual(becameFull(p, [{ id: 'q', energy: 560, max: 840 }], 840), []);
+});
