@@ -125,7 +125,7 @@ test('friendEnergy: proyecta con la hora de recarga de quien mira y ordena por e
     { name: 'Rota', energy: 'x', recordedAt: 1 },
   ], anchor, now);
   assert.deepEqual(out.map((r) => [r.name, r.energy, r.isFull, r.classId]), [['Ana', 840, true, null], ['Bea', 160, false, 'cantor']]);
-  // friends carry no account yet = premium: 100 + 2 ticks * 30 = 160; floor(160/840*100) = 19
+  // friends without an account are premium (rulesOf): 100 + 2 ticks * 30 = 160; floor(160/840*100) = 19
   assert.equal(out[1].percent, 19);
 });
 test('friendEnergy: sin hora de recarga muestra lo guardado; sin personajes, lista vacía', () => {
@@ -146,4 +146,17 @@ test('markMineRead: marca como leídos todos mis mensajes sin depender del reloj
   assert.equal(out[1].readAt, null);
   assert.equal(out[2].readAt, 7);
   assert.equal(list[0].readAt, null);
+});
+
+test('friendEnergy usa la cuenta de cada personaje (sin cuenta o desconocida = premium)', () => {
+  const rows = friendEnergy([
+    { name: 'N', energy: 550, recordedAt: 0, account: 'normal' },
+    { name: 'P', energy: 550, recordedAt: 0 },
+    { name: 'G', energy: 550, recordedAt: 0, account: 'gold' },
+  ], 1, 3 * 10_800_000);
+  const by = Object.fromEntries(rows.map(r => [r.name, r]));
+  assert.equal(by.N.energy, 560); assert.equal(by.N.max, 560); assert.equal(by.N.isFull, true);
+  assert.equal(by.P.energy, 640); assert.equal(by.P.max, 840);
+  assert.equal(by.G.max, 840);
+  assert.match(shareText([by.N]), /560\/560/);
 });

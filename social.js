@@ -1,7 +1,7 @@
 // Pure logic for friends, chat and profile search (web only). No DOM and no network, so node --test covers it.
 // Data shapes come from the server: public profile {uid, nick, server, faction, bio, legion, mainClass},
 // message {id, from, to, kind, body, at, readAt}, conversation {profile, last, unread, friend}.
-import { MAX, currentEnergy } from './energy.js';
+import { MAX, currentEnergy, rulesOf } from './energy.js';
 import { classById } from './classes.js';
 
 const byNick = (a, b) => String(a.nick || '').localeCompare(String(b.nick || ''), 'es', { sensitivity: 'base' });
@@ -104,16 +104,17 @@ export function actionsFor(relation) {
 export function friendEnergy(characters, anchorMs, now) {
   if (!Array.isArray(characters)) return [];
   return characters.filter((c) => c && Number.isFinite(c.energy)).map((c) => {
-    const energy = Math.min(MAX, anchorMs != null && Number.isFinite(c.recordedAt)
-      ? currentEnergy({ energy: c.energy, recordedAt: c.recordedAt }, anchorMs, now) : c.energy);
+    const { account, max } = rulesOf(c);
+    const energy = anchorMs != null && Number.isFinite(c.recordedAt)
+      ? currentEnergy({ energy: c.energy, recordedAt: c.recordedAt, account }, anchorMs, now) : c.energy;
     const cls = classById(c.classId);
-    return { name: typeof c.name === 'string' ? c.name : '', classId: cls ? cls.id : null, energy,
-      percent: Math.min(100, Math.floor(energy / MAX * 100)), isFull: energy >= MAX };
+    return { name: typeof c.name === 'string' ? c.name : '', classId: cls ? cls.id : null, account, max, energy,
+      percent: Math.min(100, Math.floor(energy / max * 100)), isFull: energy >= max };
   }).sort((a, b) => b.energy - a.energy || a.name.localeCompare(b.name, 'es'));
 }
 
 export function shareText(rows) {
   if (!rows || !rows.length) return null;
-  const parts = rows.slice(0, 8).map((r) => `${r.name} ${r.energy}/${MAX}${r.isFull ? ' (lleno)' : ''}`);
+  const parts = rows.slice(0, 8).map((r) => `${r.name} ${r.energy}/${r.max ?? MAX}${r.isFull ? ' (lleno)' : ''}`);
   return `Mi energía: ${parts.join(' · ')}`.slice(0, 1000);
 }

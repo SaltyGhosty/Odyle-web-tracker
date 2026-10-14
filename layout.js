@@ -37,7 +37,7 @@ export function decisionBand(rows, now, { quiet, tzOffsetMin }) {
   if (full.length > 1) return { tone: 'urgent', text: `${full.length} personajes al tope · pierden 15 OD cada 3 h`, targetId: full[0].id };
   const pending = rows.filter((r) => r.fullAtMs !== null && r.fullAtMs !== undefined).sort((a, b) => a.fullAtMs - b.fullAtMs);
   for (const r of pending) {
-    const w = wasteWarning(r.fullAtMs, now, quiet, tzOffsetMin);
+    const w = wasteWarning(r.fullAtMs, now, quiet, tzOffsetMin, r.regen);
     if (w) return { tone: 'warn', text: `${r.name} se llena en ${formatDuration(r.fullAtMs - now)} · perderías ${w.lossOD} OD si no juegas antes`, targetId: r.id };
   }
   if (!pending.length) return { tone: 'calm', text: 'Nadie al tope', targetId: null };
@@ -50,7 +50,7 @@ export function decisionBand(rows, now, { quiet, tzOffsetMin }) {
 export function planRows(rows, presets, { anchorMs, now, endOfDayMs }) {
   return rows.map((r) => {
     const runs = {};
-    for (const p of presets) runs[p.id] = runsToday(r.energy, p.cost, anchorMs, now, endOfDayMs).byMidnight;
+    for (const p of presets) runs[p.id] = runsToday(r.energy, p.cost, anchorMs, now, endOfDayMs, r.regen).byMidnight;
     return { id: r.id, name: r.name, runs, next: nextGoal(r, presets[0], now) };
   });
 }

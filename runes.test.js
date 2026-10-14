@@ -21,3 +21,14 @@ test('la runa 0 esta arriba y la 14 a la derecha (sentido horario)', () => {
   const right = runePoint(14, 10, 50);
   assert.ok(Math.abs(right.x - 60) < 1e-9 && Math.abs(right.y - 50) < 1e-9);
 });
+
+test('runas: cada una vale tope/56 (10 OD en normal, 15 en premium)', () => {
+  assert.equal(litRunes(15, 560), 1);
+  assert.equal(litRunes(30, 560), 3);
+  assert.equal(litRunes(559, 560), 55);
+  assert.equal(litRunes(560, 560), 56);
+  assert.equal(litRunes(700, 560), 56);
+  assert.equal(litRunes(9999, 560), 56);
+  assert.equal(litRunes(-1, 560), 0);
+  assert.equal(litRunes(30, 840), 2);
+});

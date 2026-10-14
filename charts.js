@@ -16,17 +16,18 @@ const node = (tag, attrs = {}, text) => {
 const weekday = { format: v => new Intl.DateTimeFormat(LOCALE, { weekday: 'short' }).format(v) }; // follows the live language
 const when = { format: v => new Intl.DateTimeFormat(LOCALE, { weekday: 'short', hour: '2-digit', minute: '2-digit' }).format(v) }; // follows the live language
 
-// series: [{name, color, points:[{t, energy}]}]; tooltip: an HTML element positioned over the svg.
+// series: [{name, color, max?, points:[{t, energy}]}]; tooltip: an HTML element positioned over the svg.
 export function renderForecast(svg, series, nowMs, tooltip) {
   svg.setAttribute('viewBox', `0 0 ${W} ${H}`);
   svg.replaceChildren();
   const end = nowMs + 7 * DAY;
-  const top = Math.max(840, ...series.flatMap(s => s.points.map(p => p.energy)));
+  const capOf = series.reduce((m, s) => Math.max(m, s.max || 0), 0) || 840; // highest cap among the series
+  const top = Math.max(capOf, ...series.flatMap(s => s.points.map(p => p.energy)));
   const x = t => PAD.l + (t - nowMs) / (end - nowMs) * (W - PAD.l - PAD.r);
   const y = v => H - PAD.b - v / top * (H - PAD.t - PAD.b);
-  // recessive grid: 0, 420, 840 + local midnights
-  for (const v of [0, 420, 840]) {
-    svg.append(node('line', { x1: PAD.l, x2: W - PAD.r, y1: y(v), y2: y(v), class: v === 840 ? 'cap' : 'grid' }));
+  // recessive grid: 0, half cap, cap + local midnights
+  for (const v of [0, capOf / 2, capOf]) {
+    svg.append(node('line', { x1: PAD.l, x2: W - PAD.r, y1: y(v), y2: y(v), class: v === capOf ? 'cap' : 'grid' }));
     svg.append(node('text', { x: PAD.l - 6, y: y(v) + 4, class: 'axis', 'text-anchor': 'end' }, String(v)));
   }
   const d0 = new Date(nowMs); d0.setHours(24, 0, 0, 0);

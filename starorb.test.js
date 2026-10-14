@@ -149,3 +149,9 @@ test('syncOrbMotion: reanuda la ondulacion y el latido tras reinsertar el nodo, 
   syncOrbMotion(svg, t0 + 5000); // oculta mucho tiempo: ya no hay ondulacion pendiente
   assert.ok(!hasCls(svg, 'ripple'));
 });
+
+test('buildStarOrb con tope 560: 280 de energía enciende 28 estrellas', () => {
+  const svg = buildStarOrb(fakeDoc(), { energy: 280, max: 560, id: 'n' });
+  assert.equal(svg.attrs['data-lit'], '28');
+  assert.equal(litStars(280, 560), 28);
+});

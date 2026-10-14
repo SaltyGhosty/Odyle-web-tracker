@@ -1,4 +1,4 @@
-// The drawn orb: a glass sphere of liquid light inside a ring of 56 four-point stars (one per +15 OD).
+// The drawn orb: a glass sphere of liquid light inside a ring of 56 four-point stars (one per 1/56 of the cap).
 // Pure SVG built with createElementNS and fixed attribute names (strict CSP / Trusted Types: no innerHTML).
 // Colours come from CSS variables and every animation is CSS (see index.html); this module only sets classes
 // and attributes. updateStarOrb never recreates nodes and never touches the `ripple` class, so a repaint
@@ -13,7 +13,7 @@ const Y_EMPTY = 91, Y_FULL = 13;    // liquid surface origin: just below the gla
 const WAVE_LEN = 36, WAVE_AMP = 2.2;
 const n2 = (v) => v.toFixed(2);
 
-export const litStars = (energy) => litRunes(energy);
+export const litStars = (energy, max) => litRunes(energy, max);
 
 const refs = new WeakMap(); // svg -> { stars, level, lit }
 
@@ -77,20 +77,21 @@ export function buildStarOrb(doc, { energy = 0, max = 840, state = 'normal', siz
   svg.append(defs, glass, liquid, rim, shine, ring);
   refs.set(svg, { stars, level, lit: 0, max });
   svg.setAttribute('class', 'star-orb');
-  updateStarOrb(svg, { energy, state }, true);
+  updateStarOrb(svg, { energy, state, max }, true);
   return svg;
 }
 
 // Level and stars follow the energy; state sets full/near. Same nodes, only attributes change.
-export function updateStarOrb(svg, { energy = 0, state = 'normal' } = {}, initial = false) {
+export function updateStarOrb(svg, { energy = 0, state = 'normal', max } = {}, initial = false) {
   const ref = refs.get(svg);
   if (!ref) return svg;
+  if (max > 0) ref.max = max; // an account change alters the cap of an existing orb
   const f = levelOf(energy, ref.max);
   const y = Y_EMPTY - (Y_EMPTY - Y_FULL) * f;
   ref.level.setAttribute('data-level', levelStr(f));
   ref.level.setAttribute('transform', `translate(0 ${n2(y)})`);
 
-  const lit = litStars(energy);
+  const lit = litStars(energy, ref.max);
   if (lit !== ref.lit || initial) {
     const rose = !initial && lit > ref.lit;
     ref.stars.forEach((s, i) => setClass(s, ['so-star', ...(i < lit ? ['lit'] : []), ...(rose && i === lit - 1 ? ['new'] : [])]));

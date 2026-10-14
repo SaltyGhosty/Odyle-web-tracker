@@ -1,4 +1,3 @@
-export const REGEN = 15;          // removed in Task 2 once nothing imports it
 export const TICK_MS = 10_800_000;
 export const MAX = 840;           // highest cap of any account
 // Odyle energy per account (Aion 2): same shared recharge moment, different amount and cap.

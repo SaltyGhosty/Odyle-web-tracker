@@ -1576,7 +1576,7 @@
     if (!$('forecast-panel').hidden) {
       const byId = new Map(state.characters.map(c => [c.id, c]));
       const series = rows.map((r, i) => ({ name: r.name, color: CHART_COLORS[i % CHART_COLORS.length],
-        points: projectEnergy(byId.get(r.id), anchor, now, 7) }));
+        max: r.max, points: projectEnergy(byId.get(r.id), anchor, now, 7) }));
       renderForecast($('forecast'), series, now, $('forecast-tip'));
       $('forecast-legend').replaceChildren(...series.map(s => {
         const sw = el('span', { class: 'sw' }); sw.style.background = s.color;

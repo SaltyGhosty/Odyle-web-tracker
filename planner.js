@@ -1,5 +1,5 @@
 // Planning helpers: summary tip, waste warning during rest hours, energy forecast (pure).
-import { REGEN, TICK_MS, currentEnergy, nextTickAt, formatDuration } from './energy.js';
+import { TICK_MS, currentEnergy, nextTickAt, formatDuration } from './energy.js';
 
 const D = 86_400_000;
 const hm = s => { const [h, m] = s.split(':').map(Number); return (h * 60 + m) * 60_000; };
@@ -17,7 +17,7 @@ export function summary(rows, nowMs) {
 
 // The rest window that ends next (the current one if inside it); times in the viewer's local clock.
 // tzOffsetMin is Date#getTimezoneOffset(). Recharges that would land while full inside it are lost.
-export function wasteWarning(fullAtMs, nowMs, quiet, tzOffsetMin) {
+export function wasteWarning(fullAtMs, nowMs, quiet, tzOffsetMin, regen) {
   if (fullAtMs === null || fullAtMs === undefined) return null;
   const shift = tzOffsetMin * 60_000;
   const nowL = nowMs - shift, fullL = fullAtMs - shift;
@@ -27,7 +27,7 @@ export function wasteWarning(fullAtMs, nowMs, quiet, tzOffsetMin) {
   let endL = Infinity;
   for (let k = -1; k <= 1; k++) { const end = day0 + k * D + s + len; if (end > nowL) endL = Math.min(endL, end); }
   if (!(fullL < endL)) return null;
-  const lossOD = REGEN * Math.floor((endL - fullL) / TICK_MS);
+  const lossOD = regen * Math.floor((endL - fullL) / TICK_MS);
   return lossOD > 0 ? { lossOD, deadlineMs: fullAtMs } : null;
 }
 
@@ -35,25 +35,26 @@ export function projectEnergy(char, anchorMs, nowMs, days) {
   const pts = [{ t: nowMs, energy: currentEnergy(char, anchorMs, nowMs) }];
   const until = nowMs + days * D;
   for (let t = nextTickAt(anchorMs, nowMs); t <= until; t += TICK_MS) {
-    pts.push({ t, energy: currentEnergy(char, anchorMs, t) }); // already capped at 840 (values above it stay)
+    pts.push({ t, energy: currentEnergy(char, anchorMs, t) }); // already capped at the account's max (values above it stay)
   }
   return pts;
 }
 
 // Dungeon runs you can afford now, and by the end of the day counting recharges until then.
-export function runsToday(energy, cost, anchorMs, nowMs, endOfDayMs) {
+export function runsToday(energy, cost, anchorMs, nowMs, endOfDayMs, regen) {
   if (!(cost > 0)) return { now: 0, byMidnight: 0 };
   const now = Math.floor(energy / cost);
   let gained = 0;
   if (anchorMs !== null && anchorMs !== undefined) {
-    for (let t = nextTickAt(anchorMs, nowMs); t <= endOfDayMs; t += TICK_MS) gained += REGEN;
+    for (let t = nextTickAt(anchorMs, nowMs); t <= endOfDayMs; t += TICK_MS) gained += regen;
   }
   return { now, byMidnight: Math.floor((energy + gained) / cost) };
 }
 
-// Pace simulator: spend `runsPerDay` × cost every day (spread evenly), recharge every 3 h, cap 840.
+// Pace simulator: spend `runsPerDay` × cost every day (spread evenly), recharge every 3 h, cap of the account (rules = { regen, max }).
 // Returns OD lost to the cap and the first day energy cannot cover the day's runs.
-export function simulate(energy, anchorMs, nowMs, runsPerDay, cost, days = 7) {
+export function simulate(energy, anchorMs, nowMs, runsPerDay, cost, days, rules) {
+  const { regen, max } = rules;
   const step = TICK_MS;
   let e = energy, waste = 0, emptyOn = null;
   const spendEvery = runsPerDay > 0 ? 86_400_000 / runsPerDay : Infinity;
@@ -64,8 +65,8 @@ export function simulate(energy, anchorMs, nowMs, runsPerDay, cost, days = 7) {
     const t = Math.min(nextSpend, nextTick);
     if (t > end) break;
     if (t === nextTick) {
-      if (e >= 840) waste += REGEN; // already full: the whole recharge is lost
-      else { const next = e + REGEN; waste += Math.max(0, next - 840); e = Math.min(840, next); }
+      if (e >= max) waste += regen; // already full: the whole recharge is lost
+      else { const next = e + regen; waste += Math.max(0, next - max); e = Math.min(max, next); }
       nextTick += step;
     } else {
       if (e >= cost) e -= cost; else if (emptyOn === null) emptyOn = t;

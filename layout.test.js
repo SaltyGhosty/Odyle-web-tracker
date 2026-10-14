@@ -35,7 +35,7 @@ test('resolveTab: válido se respeta; desconocido o social en artifact → Energ
 
 const H = 3_600_000;
 const quiet = { start: '00:00', end: '08:00' };
-const row = (id, name, energy, fullAtMs) => ({ id, name, energy, isFull: energy >= 840, fullAtMs });
+const row = (id, name, energy, fullAtMs) => ({ id, name, energy, isFull: energy >= 840, fullAtMs, regen: 15, max: 840 });
 
 test('banda: sin personajes no hay banda', () => {
   assert.equal(decisionBand([], 0, { quiet, tzOffsetMin: 0 }), null);
@@ -73,7 +73,7 @@ test('banda en calma sin hora de recarga', () => {
 // ---- Plan de hoy ----
 const eod = 24 * H;
 const presets = [{ id: 'p1', name: 'Theobomos', cost: 80 }, { id: 'p2', name: 'Campaña', cost: 40 }];
-const prow = (id, name, energy, fullAtMs) => ({ id, name, energy, isFull: energy >= 840, fullAtMs });
+const prow = (id, name, energy, fullAtMs) => ({ id, name, energy, isFull: energy >= 840, fullAtMs, regen: 15, max: 840 });
 
 test('planRows: mazmorras posibles hoy por preset, contando las recargas hasta medianoche', () => {
   // ancla en 0: recargas a las 3, 6 ... 24 h (8) → +120 OD; 300 + 120 = 420
@@ -111,4 +111,11 @@ test('planRows: un gasto con coste 0 no produce NaN ni Infinity', () => {
   const [r] = planRows([prow('a', 'Ana', 300, 20 * H)], [{ id: 'z', name: 'Cero', cost: 0 }], { anchorMs: 0, now: 0, endOfDayMs: eod });
   assert.equal(r.runs.z, 0);
   assert.equal(r.next.text, 'Lleno en 20h 0m');
+});
+
+test('banda urgente: personaje normal al tope de 560', () => {
+  const n = { id: 'n', name: 'Norma', account: 'normal', max: 560, regen: 15, energy: 560, isFull: true, fullAtMs: null };
+  const b = decisionBand([n], 0, { quiet, tzOffsetMin: 0 });
+  assert.equal(b.tone, 'urgent');
+  assert.equal(b.targetId, 'n');
 });
