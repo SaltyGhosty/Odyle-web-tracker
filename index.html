@@ -183,6 +183,9 @@
   .star-orb.full .so-star.lit { fill: var(--urgent); }
   .star-orb.full .so-rim { stroke: var(--urgent); }
   .orb-slot .star-orb { position: absolute; inset: 0; }
+  /* 3D orb (orb3d.js): drawn into a canvas in the same box; the SVG stays in the DOM, hidden, as the fallback. */
+  .orb-slot canvas.orb3d { position: absolute; inset: 0; display: block; width: 100%; height: 100%; pointer-events: none; }
+  .orb-slot.has-3d .star-orb { visibility: hidden; }
   .cls-icon { width: 26px; height: 26px; flex: none; fill: none; stroke: color-mix(in srgb, var(--c, var(--gold)) 55%, var(--fg)); stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; }
   .name { min-width: 0; overflow-wrap: anywhere; }
   .energy { display: flex; align-items: baseline; gap: 6px; font-variant-numeric: tabular-nums; }
@@ -1048,6 +1051,9 @@
   import { makeCode, normalizeCode, hashCode, roomName, parseLegionName, parseProfile, legionOf, sameLegion, legionTitle, proofFor, pickLegion, legionKey } from './legion.js';
   import { formatClock, detectGains, rollValue, becameFull } from './motion.js';
   import { buildStarOrb, updateStarOrb, markGain, syncOrbMotion } from './starorb.js';
+  // The 3D orb loads on its own: without WebGL, or if Three.js cannot load, every orb stays the SVG one.
+  let orbs3d = null;
+  import('./orb3d.js').then(m => { orbs3d = m.createOrbs3D(); if (orbs3d) render(); }).catch(() => {});
 
   // Data comes only from db snapshots. Writes happen only after a user action.
   const state = { characters: [], memberData: new Map(), stats: null, tasks: DEFAULT_TASKS, progress: new Map(), cpHist: new Map(), hiddenMembers: 0, others: new Map(), names: {}, schedule: null, presets: [], events: [], timers: [], calendar: [], wall: [], legions: new Map(), prefs: { quietStart: '00:00', quietEnd: '08:00', favEvents: [] } };
@@ -1060,7 +1066,7 @@
   let my = null; // paths(myUid): this viewer's own part of the db
   let myUid = null;
 
-  // ---- Motion setup: orbs are drawn SVG; «Reducir animaciones» (body.calm) and the system setting switch the motion off ----
+  // ---- Motion setup: orbs are drawn SVG (or 3D, orb3d.js); «Reducir animaciones» (body.calm) and the system setting switch the motion off ----
   const reduceMotion = matchMedia('(prefers-reduced-motion: reduce)').matches;
   let lite = false; // «Reducir animaciones» (key odyle-lite kept from the old «Modo ligero»)
   try { lite = localStorage.getItem('odyle-lite') === '1'; } catch {}
@@ -1353,13 +1359,17 @@
   const seen = new Set();
 
   // One SVG orb per character, reused across repaints (updateStarOrb only changes attributes, so nothing restarts).
+  // With WebGL, the 3D canvas (also one per character) sits over it in the same slot.
   const orbNodes = new Map();
   function orbFor(row) {
     const stateOf = row.isFull ? 'full' : row.nearFull ? 'near' : 'normal';
     let svg = orbNodes.get(row.id);
     if (svg) updateStarOrb(svg, { energy: row.energy, state: stateOf });
     else { svg = buildStarOrb(document, { energy: row.energy, state: stateOf, id: row.id }); orbNodes.set(row.id, svg); }
-    return svg;
+    if (!orbs3d?.ok) return [svg];
+    const canvas = orbs3d.canvas(row.id);
+    orbs3d.update(row.id, { energy: row.energy, state: stateOf });
+    return [svg, canvas];
   }
   function cardNode(row, index, readonly = false) {
     const editing = ui.editingId === row.id;
@@ -1373,8 +1383,8 @@
       style: `--c:${row.color};--i:${index}` });
 
     const orb = el('div', { class: 'r-orb orb-col' },
-      el('div', { class: 'orb-slot', 'data-orb': row.id, role: 'img', 'aria-label': `${row.percent}% de energía` },
-        orbFor(row)));
+      el('div', { class: orbs3d?.ok ? 'orb-slot has-3d' : 'orb-slot', 'data-orb': row.id, role: 'img', 'aria-label': `${row.percent}% de energía` },
+        ...orbFor(row)));
 
     const text = el('div', { class: 'r-text' });
     text.append(el('div', { class: 'who' }, el('h2', { class: 'name', title: row.name }, row.name), cls ? el('p', { class: 'cls-name' }, cls.name) : null));
@@ -2155,13 +2165,14 @@
         if (card) card.append(el('span', { class: 'gain', 'aria-hidden': 'true' }, `+${g.gain}`));
         const orb = orbNodes.get(g.id);
         if (orb) markGain(orb);
+        orbs3d?.gain(g.id);
         sound.chime();
       }
       if (anchor === lastAnchor) for (const id of becameFull(lastEnergy, now, MAX)) sound.fanfare();
     }
     // Drop the orbs of characters that are gone; resume the motion of the rest after their cards were re-inserted.
     const liveIds = new Set([...view.rows, ...otherRows].map(r => r.id));
-    for (const [id, svg] of orbNodes) { if (liveIds.has(id)) syncOrbMotion(svg); else orbNodes.delete(id); }
+    for (const [id, svg] of orbNodes) { if (liveIds.has(id)) syncOrbMotion(svg); else { orbNodes.delete(id); orbs3d?.drop(id); } }
     if (!keepBaseline) lastEnergy = new Map(now.map(r => [r.id, r]));
     lastAnchor = anchor;
 
