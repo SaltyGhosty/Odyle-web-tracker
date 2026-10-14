@@ -1,8 +1,7 @@
 // Smoke test for orb.js: serve repo root on :8123, then `node dev/orb-smoke.mjs`.
-import { createRequire } from 'node:module';
 import { readFileSync } from 'node:fs';
-const require = createRequire('/opt/npm-tools/node_modules/');
-const { chromium } = require('playwright');
+import { loadChromium } from './pw.mjs';
+const chromium = await loadChromium();
 const THREE_URL = 'https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js';
 const browser = await chromium.launch({ args: ['--use-angle=swiftshader', '--enable-unsafe-swiftshader'] });
 const page = await browser.newPage({ viewport: { width: 640, height: 400 } });

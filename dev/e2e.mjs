@@ -1,11 +1,10 @@
 // End-to-end check of the page through its own UI, with an in-memory stand-in for window.claude
 // (db, user, room, sample, downloads). Usage: node dev/e2e.mjs   (serves the repo itself)
-import { createRequire } from 'node:module';
 import { readFileSync } from 'node:fs';
 import http from 'node:http';
 import path from 'node:path';
-const require = createRequire('/opt/npm-tools/node_modules/');
-const { chromium } = require('playwright');
+import { loadChromium } from './pw.mjs';
+const chromium = await loadChromium();
 
 const ROOT = new URL('..', import.meta.url).pathname;
 const THREE_URL = 'https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js';

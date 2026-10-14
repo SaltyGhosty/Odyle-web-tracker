@@ -5,6 +5,7 @@ import { wrapY, orientationTilt, pointerTilt } from './motion.js';
 
 const GOLD = new THREE.Color('#e8b85a');
 const SKY = new THREE.Color('#7cc8ff');
+const URGENT = new THREE.Color('#E0455A');
 
 const PARTICLE_VS = `
   attribute float seed;
@@ -459,14 +460,20 @@ export function createScene(canvas, { particles = 300, feathers = 20, clouds = 5
   function pause() { cancelAnimationFrame(raf); raf = 0; }
   document.addEventListener('visibilitychange', onVisibility);
 
+  // Every material drawn with additive blending; setPalette flips them to normal blending in the light theme.
+  let lightMode = false;
+  const glowMats = [pMat, cloudMat, shell.material, halo.material, runes.material, burst.material, beamMesh.material];
   return {
     setOrbs(list) { orbs = list.slice(); },
     ripple(id) { ripples.set(id, clock.getElapsedTime()); },
     beam(id) { beams.set(id, clock.getElapsedTime()); },
-    // Faction colours: every material shares GOLD/SKY by reference, so updating them recolours
-    // orbs, runes, feathers, clouds and the beam; particle tints are rewritten.
-    setPalette({ primary, secondary }) {
-      GOLD.set(primary); SKY.set(secondary);
+    // Faction colours: every material shares GOLD/SKY/URGENT by reference, so updating them recolours
+    // orbs, runes, feathers, clouds and the beam; particle tints are rewritten. `light` is the light
+    // theme: additive glow vanishes on a pale background, so the glow materials switch to normal blending.
+    setPalette({ primary, secondary, urgent, light }) {
+      GOLD.set(primary); SKY.set(secondary); URGENT.set(urgent || primary);
+      lightMode = !!light;
+      for (const mat of glowMats) { mat.blending = lightMode ? THREE.NormalBlending : THREE.AdditiveBlending; mat.needsUpdate = true; }
       const attr = pGeo.getAttribute('tint');
       for (let i = 0; i < particles; i++) { const c = isSky[i] ? SKY : GOLD; attr.setXYZ(i, c.r, c.g, c.b); }
       attr.needsUpdate = true;

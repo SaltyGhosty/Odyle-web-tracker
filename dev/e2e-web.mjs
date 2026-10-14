@@ -1,14 +1,13 @@
 // End-to-end check of the WEB build (server/public served by the real Fastify app over pg-mem).
 // Usage: node dev/e2e-web.mjs   (builds first; needs Playwright + chromium from /opt/npm-tools)
-import { createRequire } from 'node:module';
 import { execFileSync } from 'node:child_process';
 import { readFileSync } from 'node:fs';
 import net from 'node:net';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { randomBytes } from 'node:crypto';
-const require = createRequire('/opt/npm-tools/node_modules/');
-const { chromium } = require('playwright');
+import { loadChromium } from './pw.mjs';
+const chromium = await loadChromium();
 
 const ROOT = fileURLToPath(new URL('..', import.meta.url));
 execFileSync(process.execPath, [path.join(ROOT, 'scripts/build-web.mjs')], { cwd: ROOT, stdio: 'inherit' });

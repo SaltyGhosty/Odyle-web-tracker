@@ -1,8 +1,7 @@
 // Test-only: drives index.html through its own UI with sample data and takes screenshots.
 // Usage: serve the repo root (python3 -m http.server 8123) then: node dev/preview.mjs
-import { createRequire } from 'node:module';
-const require = createRequire('/opt/npm-tools/node_modules/');
-const { chromium } = require('playwright');
+import { loadChromium } from './pw.mjs';
+const chromium = await loadChromium();
 import { readFileSync } from 'node:fs';
 const THREE_URL = 'https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js';
 const THREE_SRC = readFileSync(new URL('../node_modules/three/build/three.module.js', import.meta.url));
@@ -52,6 +51,34 @@ const browser = await chromium.launch({ args: ['--use-angle=swiftshader', '--ena
 const checks = [];
 const check = (name, ok) => { checks.push([name, ok]); if (!ok) console.log('CHECK FAILED:', name); };
 const errors = [];
+// Theme screenshots: THEME_SHOTS=1 node dev/preview.mjs → dev/screens/tema-{elyos,asmodian}-{desktop,mobile}.png
+if (process.env.THEME_SHOTS) {
+  for (const theme of ['elyos', 'asmodian']) {
+    for (const [label, width, height] of [['desktop', 1280, 900], ['mobile', 390, 844]]) {
+      const ctx = await browser.newContext({ viewport: { width, height }, colorScheme: theme === 'asmodian' ? 'dark' : 'light' });
+      const page = await ctx.newPage();
+      await page.route(THREE_URL, r => r.fulfill({ contentType: 'text/javascript', body: THREE_SRC }));
+      page.on('pageerror', e => errors.push(`theme ${theme}/${label}: ${e.message}`));
+      await page.addInitScript(t => { try { localStorage.setItem('odyle-theme', t); } catch {} }, theme);
+      await page.addInitScript(() => {
+        const now = Date.now();
+        window.__SEED = { characters: {
+          s1: { name: 'Semilla', classId: 'gladiador', energy: 380, recordedAt: now - 1000, order: 1 },
+          s2: { name: 'Casi', classId: 'clerigo', energy: 825, recordedAt: now - 1000, order: 2 },
+          s3: { name: 'Lleno', classId: 'asesino', energy: 840, recordedAt: now - 1000, order: 3 } },
+          schedule: { anchorMs: now + 9000 } };
+      });
+      await page.addInitScript(STUB);
+      await page.goto(BASE);
+      await page.waitForTimeout(2500); await page.keyboard.press('Escape'); await page.waitForTimeout(400);
+      await page.screenshot({ path: `dev/screens/tema-${theme}-${label}.png` });
+      await ctx.close();
+    }
+  }
+  await browser.close();
+  console.log('theme errors:', errors.length ? errors : 'none');
+  process.exit(0);
+}
 for (const [label, width, height] of [['mobile', 390, 844], ['desktop', 1280, 800]]) {
   for (const scheme of ['dark', 'reduce']) {
     const ctx = await browser.newContext({ viewport: { width, height }, colorScheme: 'dark', reducedMotion: scheme === 'reduce' ? 'reduce' : 'no-preference' });

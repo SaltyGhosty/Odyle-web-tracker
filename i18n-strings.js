@@ -622,3 +622,11 @@ const SESSION = {
   pt: { 'Cerrar sesión': 'Sair', 'Cerrar todas mis sesiones': 'Sair de todas as minhas sessões' },
 };
 for (const l of Object.keys(SESSION)) Object.assign(STRINGS[l], SESSION[l]);
+
+// Theme switch (2026-10-14).
+const THEME = {
+  en: { Luz: 'Light', Sombra: 'Shadow', Tema: 'Theme', 'Daevas de Elyos': 'Daevas of Elyos', 'Daevas de Asmodae': 'Daevas of Asmodae' },
+  it: { Luz: 'Luce', Sombra: 'Ombra', Tema: 'Tema', 'Daevas de Elyos': 'Daeva di Elyos', 'Daevas de Asmodae': 'Daeva di Asmodae' },
+  pt: { Luz: 'Luz', Sombra: 'Sombra', Tema: 'Tema', 'Daevas de Elyos': 'Daevas de Elyos', 'Daevas de Asmodae': 'Daevas de Asmodae' },
+};
+for (const l of Object.keys(THEME)) for (const [k, v] of Object.entries(THEME[l])) if (!(k in STRINGS[l])) STRINGS[l][k] = v;
