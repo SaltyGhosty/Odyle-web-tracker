@@ -26,8 +26,8 @@ test('otherTheme y themeOf', () => {
   assert.equal(themeOf('zzz'), THEMES.elyos);
 });
 test('colores de la spec', () => {
-  assert.equal(THEMES.elyos.light, true);
+  assert.equal(THEMES.elyos.light, false);
   assert.equal(THEMES.asmodian.light, false);
-  assert.equal(THEMES.elyos.themeColor, '#EEF3F8');
-  assert.equal(THEMES.asmodian.themeColor, '#120D17');
+  assert.equal(THEMES.elyos.themeColor, '#2F3B55');
+  assert.equal(THEMES.asmodian.themeColor, '#1B1530');
 });

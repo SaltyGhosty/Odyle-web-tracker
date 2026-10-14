@@ -1,11 +1,11 @@
-// Faction themes: Elyos (light) and Asmodian (dark). The colours themselves live in CSS variables
+// Faction themes: Elyos (golden dusk) and Asmodian (the Abyss); both are dark worlds. The colours themselves live in CSS variables
 // (index.html, :root[data-faction=…]); this module decides which theme applies.
 export const THEMES = {
   elyos: {
-    id: 'elyos', label: 'Luz', subtitle: 'Daevas de Elyos', themeColor: '#EEF3F8', light: true,
+    id: 'elyos', label: 'Luz', subtitle: 'Daevas de Elyos', themeColor: '#2F3B55', light: false,
   },
   asmodian: {
-    id: 'asmodian', label: 'Sombra', subtitle: 'Daevas de Asmodae', themeColor: '#120D17', light: false,
+    id: 'asmodian', label: 'Sombra', subtitle: 'Daevas de Asmodae', themeColor: '#1B1530', light: false,
   },
 };
 

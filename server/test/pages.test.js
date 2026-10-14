@@ -58,8 +58,8 @@ test('fuentes propias: fonts.css con @font-face locales y woff2 servidos (SR-5)'
   const css = (await app.inject({ method: 'GET', url: '/fonts.css' })).body;
   assert.ok(!/https?:\/\//.test(css));
   const urls = [...css.matchAll(/url\(([^)]+)\)/g)].map((m) => m[1].replace(/['"]/g, ''));
-  assert.ok(urls.length >= 10, 'latin + latin-ext de 5 pesos');
-  for (const fam of ['Cinzel', 'Figtree']) assert.match(css, new RegExp(`font-family: '${fam}'`));
+  assert.ok(urls.length >= 10, 'latin + latin-ext de 5 pesos (Marcellus 400, Gothic A1 400/500/700/800)');
+  for (const fam of ['Marcellus', 'Gothic A1']) assert.match(css, new RegExp(`font-family: '${fam}'`));
   assert.match(css, /font-display: swap/);
   for (const u of urls) {
     const r = await app.inject({ method: 'GET', url: '/' + u });

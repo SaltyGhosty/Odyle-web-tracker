@@ -50,8 +50,8 @@ for (const f of readdirSync(WEB_DIR)) {
 
 // ---- fuentes propias (@fontsource): latin + latin-ext ----
 const FONTS = [
-  ['cinzel', 'Cinzel', [600, 700]],
-  ['figtree', 'Figtree', [400, 500, 600]],
+  ['marcellus', 'Marcellus', [400]],
+  ['gothic-a1', 'Gothic A1', [400, 500, 700, 800]],
 ];
 let fontsCss = '';
 for (const [pkg, family, weights] of FONTS) {
