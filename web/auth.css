@@ -107,4 +107,12 @@ button.link { background: none; border: 0; padding: 0; min-height: 0; color: var
 .lang-list button:hover, .lang-list button:focus-visible { background: var(--hover); }
 .lang-list button[aria-checked="true"] { color: var(--gold-bright); }
 .lang-list button[aria-checked="true"]::after { content: "✓"; margin-left: auto; color: var(--gold); }
+/* Política de privacidad (/privacidad): columna de lectura más ancha que las páginas de cuenta. */
+.auth.privacy { max-width: 720px; }
+.privacy article { display: flex; flex-direction: column; gap: 10px; line-height: 1.65; }
+.privacy article h2 { font-family: var(--font-display); color: var(--gold-bright); margin-top: 18px; }
+.privacy article h2:first-child { margin-top: 0; }
+.privacy article p { color: var(--fg); max-width: 68ch; }
+.privacy .back { margin-top: 24px; }
+.privacy .back a { display: inline-flex; align-items: center; min-height: 44px; }
 @media (max-width: 480px) { .auth { padding-top: 72px; } }

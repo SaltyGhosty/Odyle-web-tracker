@@ -622,6 +622,11 @@ check('legión: B ve a A entre los miembros', /AnaDaeva/.test(await text(pb, '#l
   await page.click('.lang-toggle');
   await page.keyboard.press('Escape');
   check('idioma: Escape cierra el menú', !(await visible(page, '#lang-list')));
+  check('privacidad: el registro enlaza a la política', (await page.locator('.panel a[href="/privacidad"]').count()) === 1);
+  await page.goto(`${ORIGIN}/privacidad`);
+  check('privacidad: se ve sin sesión, en el idioma elegido, con 11 secciones y el responsable',
+    (await page.locator('#policy h2').count()) === 11 && /Privacy policy/.test(await text(page, 'h1')) &&
+    (await text(page, '#policy')).includes('Luciano Labbozzetta'));
   // El 401 del login fallido provocado arriba es esperado; cualquier otro error cuenta.
   const realErrs = errs.filter((e) => !/status of 401/.test(e));
   check('idioma: sin errores de consola ni violaciones de CSP', realErrs.length === 0, realErrs.join(' | '));

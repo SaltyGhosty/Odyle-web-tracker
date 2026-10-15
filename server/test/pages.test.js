@@ -89,6 +89,25 @@ test('páginas de cuenta: auth.html con no-referrer y no-store (SR-19)', async (
   await app.close();
 });
 
+test('política de privacidad: /privacidad pública, no-referrer, CSP exacta y sin código en línea', async () => {
+  const { app } = await makeTestApp();
+  const r = await app.inject({ method: 'GET', url: '/privacidad' });
+  assert.equal(r.statusCode, 200);
+  assert.match(r.headers['content-type'], /^text\/html/);
+  assert.equal(r.headers['referrer-policy'], 'no-referrer');
+  assert.equal(r.headers['cache-control'], 'no-cache');
+  assert.equal(r.headers['content-security-policy'], CSP);
+  assert.match(r.body, /<script src="privacy-text.js"><\/script>/);
+  assert.match(r.body, /<script src="privacy.js"><\/script>/);
+  assert.ok(!/<style[\s>]/i.test(r.body));
+  for (const m of r.body.matchAll(/<script\b[^>]*>/gi)) assert.match(m[0], /\ssrc="/);
+  assert.ok(!/https?:\/\//.test(r.body));
+  const text = (await app.inject({ method: 'GET', url: '/privacy-text.js' })).body;
+  assert.ok(text.includes('Luciano Labbozzetta') && text.includes('odyletracker@gmail.com'));
+  assert.equal((await app.inject({ method: 'GET', url: '/privacidad.html' })).statusCode, 404);
+  await app.close();
+});
+
 test('estáticos: sin dotfiles, sin listado, sin *.map, nada fuera de public (SR-34)', async () => {
   // Copia privada: la prueba escribe .env y .map sin tocar el server/public compartido con otras pruebas.
   const dir = mkdtempSync(path.join(tmpdir(), 'odyle-public-'));
@@ -99,7 +118,7 @@ test('estáticos: sin dotfiles, sin listado, sin *.map, nada fuera de public (SR
     const { app } = await makeTestApp({ __buildApp: { publicDir: dir } });
     assert.equal((await app.inject({ method: 'GET', url: '/app.js' })).statusCode, 200);
     for (const url of ['/.env', '/app.js.map', '/vendor/', '/vendor', '/fonts/', '/package.json', '/server/src/app.js',
-      '/../package.json', '/%2e%2e/package.json', '/index.html/', '/.%65nv', '/auth.html', '/index.html', '/AUTH.HTML']) {
+      '/../package.json', '/%2e%2e/package.json', '/index.html/', '/.%65nv', '/auth.html', '/index.html', '/AUTH.HTML', '/privacidad.html']) {
       const r = await app.inject({ method: 'GET', url });
       assert.equal(r.statusCode, 404, `${url} -> ${r.statusCode}`);
       assert.ok(!r.body.includes('SECRET'));
@@ -112,7 +131,7 @@ test('estáticos: sin dotfiles, sin listado, sin *.map, nada fuera de public (SR
 
 test('sin compilar: el servidor arranca y las páginas dan 503; la API sigue viva', async () => {
   const { app } = await makeTestApp({ __buildApp: { publicDir: path.join(ROOT, 'server/no-existe') } });
-  for (const url of ['/', '/login', '/registro', '/verificar', '/restablecer']) {
+  for (const url of ['/', '/login', '/registro', '/verificar', '/restablecer', '/privacidad']) {
     const r = await app.inject({ method: 'GET', url });
     assert.equal(r.statusCode, 503, url);
     assert.deepEqual(r.json(), { error: 'La web aún no está compilada' });

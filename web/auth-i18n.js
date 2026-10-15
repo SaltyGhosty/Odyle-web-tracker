@@ -15,6 +15,11 @@
   // Claves = texto en español (el de la página y el que devuelve el servidor).
   const S = {
     en: {
+      'Privacidad': 'Privacy',
+      'Al crear la cuenta aceptas la': 'By creating the account you accept the',
+      'política de privacidad': 'privacy policy',
+      'Política de privacidad': 'Privacy policy',
+      'Volver a Odyle Tracker': 'Back to Odyle Tracker',
       'Cuenta': 'Account',
       'Idioma': 'Language',
       'Esta página necesita JavaScript.': 'This page needs JavaScript.',
@@ -71,6 +76,11 @@
       'El cuerpo debe ser un objeto JSON': 'The body must be a JSON object',
     },
     it: {
+      'Privacidad': 'Privacy',
+      'Al crear la cuenta aceptas la': 'Creando l’account accetti la',
+      'política de privacidad': 'politica sulla privacy',
+      'Política de privacidad': 'Informativa sulla privacy',
+      'Volver a Odyle Tracker': 'Torna a Odyle Tracker',
       'Cuenta': 'Account',
       'Idioma': 'Lingua',
       'Esta página necesita JavaScript.': 'Questa pagina richiede JavaScript.',
@@ -126,6 +136,11 @@
       'El cuerpo debe ser un objeto JSON': 'Il corpo deve essere un oggetto JSON',
     },
     pt: {
+      'Privacidad': 'Privacidade',
+      'Al crear la cuenta aceptas la': 'Ao criar a conta, você aceita a',
+      'política de privacidad': 'política de privacidade',
+      'Política de privacidad': 'Política de privacidade',
+      'Volver a Odyle Tracker': 'Voltar ao Odyle Tracker',
       'Cuenta': 'Conta',
       'Idioma': 'Idioma',
       'Esta página necesita JavaScript.': 'Esta página precisa de JavaScript.',
