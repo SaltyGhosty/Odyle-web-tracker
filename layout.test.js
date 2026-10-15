@@ -6,7 +6,7 @@ test('secciones: Energía primero, ids estables y etiqueta nueva', () => {
   assert.equal(SECTIONS[0].id, 'personajes');
   assert.equal(SECTIONS[0].label, 'Energía');
   assert.deepEqual(SECTIONS.map((s) => s.id),
-    ['personajes', 'eventos', 'amigos', 'chat', 'buscar', 'legion', 'estadisticas', 'ajustes', 'novedades']);
+    ['personajes', 'eventos', 'amigos', 'chat', 'buscar', 'legion', 'estadisticas', 'ajustes', 'novedades', 'acerca']);
   assert.ok(SECTIONS.every((s) => typeof s.icon === 'string'));
 });
 
@@ -14,14 +14,14 @@ test('web: rail con todo, barra Energía·Eventos·Amigos·Chat, el resto en Má
   const m = navModel({ social: true });
   assert.deepEqual(m.rail, SECTIONS.map((s) => s.id));
   assert.deepEqual(m.bar, ['personajes', 'eventos', 'amigos', 'chat']);
-  assert.deepEqual(m.more, ['buscar', 'legion', 'estadisticas', 'ajustes', 'novedades']);
+  assert.deepEqual(m.more, ['buscar', 'legion', 'estadisticas', 'ajustes', 'novedades', 'acerca']);
 });
 
 test('artifact: sin secciones sociales; barra Energía·Eventos·Legión·Estadísticas', () => {
   const m = navModel({ social: false });
   assert.ok(!m.rail.includes('amigos') && !m.rail.includes('chat') && !m.rail.includes('buscar'));
   assert.deepEqual(m.bar, ['personajes', 'eventos', 'legion', 'estadisticas']);
-  assert.deepEqual(m.more, ['ajustes', 'novedades']);
+  assert.deepEqual(m.more, ['ajustes', 'novedades', 'acerca']);
 });
 
 test('resolveTab: válido se respeta; desconocido o social en artifact → Energía', () => {
@@ -139,4 +139,13 @@ test('cabecera: cifras solo si todas las cuentas coinciden', () => {
   assert.deepEqual(headerRule([{ regen: 30, max: 840 }]), { regen: 30, max: 840 });
   assert.equal(headerRule([{ regen: 15, max: 560 }, { regen: 30, max: 840 }]), null);
   assert.equal(headerRule([]), null);
+});
+
+test('Acerca de: último del rail y en Más, web y artifact', () => {
+  for (const social of [true, false]) {
+    const m = navModel({ social });
+    assert.equal(m.rail.at(-1), 'acerca');
+    assert.ok(m.more.includes('acerca'));
+  }
+  assert.equal(resolveTab('acerca', { social: false }), 'acerca');
 });

@@ -940,3 +940,35 @@ const ACCOUNT = {
   pt: { Cuenta: 'Conta', Normal: 'Normal', Premium: 'Premium', 'Normal: +15 cada 3 h, tope 560 · Premium: +30 cada 3 h, tope 840': 'Normal: +15 a cada 3 h, limite 560 · Premium: +30 a cada 3 h, limite 840' },
 };
 for (const l of Object.keys(ACCOUNT)) for (const [k, v] of Object.entries(ACCOUNT[l])) if (!(k in STRINGS[l])) STRINGS[l][k] = v;
+
+// Acerca de (2026-10-15).
+const ACERCA = {
+  en: { 'Acerca de': 'About', 'Acerca de Odyle Tracker': 'About Odyle Tracker',
+    'Odyle Tracker lleva la cuenta de la energía Odyle de tus personajes de Aion 2 y te avisa antes de que se desperdicie. Es gratis y sin anuncios.': 'Odyle Tracker keeps count of your Aion 2 characters\' Odyle energy and warns you before it goes to waste. It is free and has no ads.',
+    'Sitio de fans no oficial, no afiliado a NCSOFT. Aion 2 es una marca de NCSOFT.': 'Unofficial fan site, not affiliated with NCSOFT. Aion 2 is a trademark of NCSOFT.',
+    'Apoyar el proyecto': 'Support the project', 'Donar con PayPal': 'Donate with PayPal',
+    'Las donaciones ayudan a pagar el servidor. No dan ventajas ni funciones extra.': 'Donations help pay for the server. They give no advantages or extra features.',
+    Privacidad: 'Privacy', 'Política de privacidad': 'Privacy policy', 'Contacto:': 'Contact:',
+    'En esta versión los datos los guarda claude.ai.': 'In this version your data is stored by claude.ai.',
+    Créditos: 'Credits', 'Letras Marcellus y Gothic A1 (SIL Open Font License)': 'Marcellus and Gothic A1 fonts (SIL Open Font License)',
+    'three.js (licencia MIT)': 'three.js (MIT license)', 'Iconos y runas originales de Odyle Tracker': 'Icons and runes original to Odyle Tracker' },
+  it: { 'Acerca de': 'Informazioni', 'Acerca de Odyle Tracker': 'Informazioni su Odyle Tracker',
+    'Odyle Tracker lleva la cuenta de la energía Odyle de tus personajes de Aion 2 y te avisa antes de que se desperdicie. Es gratis y sin anuncios.': 'Odyle Tracker tiene il conto dell\'energia Odyle dei tuoi personaggi di Aion 2 e ti avvisa prima che vada sprecata. È gratuito e senza pubblicità.',
+    'Sitio de fans no oficial, no afiliado a NCSOFT. Aion 2 es una marca de NCSOFT.': 'Sito di fan non ufficiale, non affiliato a NCSOFT. Aion 2 è un marchio di NCSOFT.',
+    'Apoyar el proyecto': 'Sostieni il progetto', 'Donar con PayPal': 'Dona con PayPal',
+    'Las donaciones ayudan a pagar el servidor. No dan ventajas ni funciones extra.': 'Le donazioni aiutano a pagare il server. Non danno vantaggi né funzioni extra.',
+    Privacidad: 'Privacy', 'Política de privacidad': 'Informativa sulla privacy', 'Contacto:': 'Contatto:',
+    'En esta versión los datos los guarda claude.ai.': 'In questa versione i dati sono conservati da claude.ai.',
+    Créditos: 'Crediti', 'Letras Marcellus y Gothic A1 (SIL Open Font License)': 'Caratteri Marcellus e Gothic A1 (SIL Open Font License)',
+    'three.js (licencia MIT)': 'three.js (licenza MIT)', 'Iconos y runas originales de Odyle Tracker': 'Icone e rune originali di Odyle Tracker' },
+  pt: { 'Acerca de': 'Sobre', 'Acerca de Odyle Tracker': 'Sobre o Odyle Tracker',
+    'Odyle Tracker lleva la cuenta de la energía Odyle de tus personajes de Aion 2 y te avisa antes de que se desperdicie. Es gratis y sin anuncios.': 'O Odyle Tracker acompanha a energia Odyle dos seus personagens de Aion 2 e avisa antes que ela seja desperdiçada. É gratuito e sem anúncios.',
+    'Sitio de fans no oficial, no afiliado a NCSOFT. Aion 2 es una marca de NCSOFT.': 'Site de fãs não oficial, não afiliado à NCSOFT. Aion 2 é uma marca da NCSOFT.',
+    'Apoyar el proyecto': 'Apoie o projeto', 'Donar con PayPal': 'Doar com PayPal',
+    'Las donaciones ayudan a pagar el servidor. No dan ventajas ni funciones extra.': 'As doações ajudam a pagar o servidor. Não dão vantagens nem funções extras.',
+    Privacidad: 'Privacidade', 'Política de privacidad': 'Política de privacidade', 'Contacto:': 'Contato:',
+    'En esta versión los datos los guarda claude.ai.': 'Nesta versão os dados são guardados pelo claude.ai.',
+    Créditos: 'Créditos', 'Letras Marcellus y Gothic A1 (SIL Open Font License)': 'Fontes Marcellus e Gothic A1 (SIL Open Font License)',
+    'three.js (licencia MIT)': 'three.js (licença MIT)', 'Iconos y runas originales de Odyle Tracker': 'Ícones e runas originais do Odyle Tracker' },
+};
+for (const l of Object.keys(ACERCA)) for (const [k, v] of Object.entries(ACERCA[l])) if (!(k in STRINGS[l])) STRINGS[l][k] = v;

@@ -19,7 +19,7 @@ mkdirSync(path.join(OUT, 'vendor'), { recursive: true });
 // ---- módulos del repositorio (sin pruebas) ----
 const modules = readdirSync(ROOT).filter((f) => f.endsWith('.js') && !f.endsWith('.test.js'));
 const EXPECTED = ['i18n.js', 'i18n-strings.js', 'view.js', 'energy.js', 'classes.js', 'store.js', 'spend.js', 'events.js', 'planner.js',
-  'charts.js', 'sound.js', 'tasks.js', 'achievements.js', 'motion.js', 'starorb.js', 'orb3d.js', 'legion.js', 'theme.js', 'social.js', 'runes.js', 'layout.js', 'icons.js'];
+  'charts.js', 'sound.js', 'tasks.js', 'achievements.js', 'motion.js', 'starorb.js', 'orb3d.js', 'legion.js', 'theme.js', 'social.js', 'runes.js', 'layout.js', 'icons.js', 'about.js'];
 for (const m of EXPECTED) if (!modules.includes(m)) fail(`falta el módulo ${m}`);
 for (const m of modules) {
   let src = read(path.join(ROOT, m));

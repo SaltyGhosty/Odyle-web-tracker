@@ -408,6 +408,12 @@
   .topnav .badge, .more-grid .badge { min-width: 18px; height: 18px; padding: 0 5px; display: inline-grid; place-items: center; font-size: .7rem; font-weight: 700; background: var(--gold); color: var(--on-gold); font-variant-numeric: tabular-nums; letter-spacing: 0; }
   .fan-note { margin: 0; font-size: .75rem; line-height: 1.4; color: var(--muted); }
   .more-sheet .fan-note { margin-top: 12px; text-align: center; }
+  .about-panel .fan-note { font-size: .8125rem; }
+  .about-panel h3 { font-size: 1rem; margin: 0; }
+  .about-panel ul { margin: 0; padding-left: 1.2em; }
+  a.btn.primary { display: inline-flex; align-items: center; justify-content: center; align-self: flex-start; min-height: 44px; padding: 8px 16px; background: var(--gold); color: var(--on-gold); border: 1px solid var(--gold); text-decoration: none; }
+  @media (hover: hover) and (pointer: fine) { a.btn.primary:hover { background: var(--gold-bright); } }
+  .about-panel a:not(.btn) { display: inline-flex; align-items: center; min-height: 44px; }
   .rail-brand, .rail-foot { display: none; }
   @media (min-width: 900px) {
     .topnav { top: 0; bottom: 0; left: 0; width: 232px; flex-direction: column; gap: 2px; padding: 24px 16px 16px; border-right: 1px solid var(--gold); overflow-y: auto; }
@@ -1051,6 +1057,7 @@
 <script type="module">
   import { SECTIONS, navModel, resolveTab, decisionBand, planRows, headerRule } from './layout.js';
   import { iconSvg } from './icons.js';
+  import { ABOUT, aboutModel } from './about.js';
   import { startI18n, tr, LOCALE, LANG, LANGS, setLang, onLangChange } from './i18n.js';
   startI18n();
   import { buildView, parseEnergyInput, parseMinutesInput, parseNameInput, parseClassInput } from './view.js';
@@ -1794,6 +1801,24 @@
   const drawerOrder = [...$('drawer').children];
   const drawerPanels = drawerOrder.filter(n => !n.classList.contains('drawer-head'));
   const isNews = n => n.querySelector && (n.querySelector('#news') || n.querySelector('#feedback-form'));
+  // «Acerca de»: built once; the artifact (no server) links to the web policy and says where its data lives.
+  const about = aboutModel({ social: SOCIAL });
+  const aboutPanel = el('div', { class: 'panel about-panel' },
+    el('h2', {}, 'Acerca de Odyle Tracker'),
+    el('p', {}, 'Odyle Tracker lleva la cuenta de la energía Odyle de tus personajes de Aion 2 y te avisa antes de que se desperdicie. Es gratis y sin anuncios.'),
+    el('p', { class: 'fan-note' }, 'Sitio de fans no oficial, no afiliado a NCSOFT. Aion 2 es una marca de NCSOFT.'),
+    el('h3', {}, 'Apoyar el proyecto'),
+    el('a', { class: 'btn primary', href: ABOUT.paypal, target: '_blank', rel: 'noopener noreferrer' }, 'Donar con PayPal'),
+    el('p', { class: 'hint' }, 'Las donaciones ayudan a pagar el servidor. No dan ventajas ni funciones extra.'),
+    el('h3', {}, 'Privacidad'),
+    about.artifactNote === null
+      ? el('p', {}, el('a', { href: about.privacyHref }, 'Política de privacidad'), el('br'), 'Contacto: ',
+          el('a', { href: 'mailto:' + ABOUT.contact, translate: 'no' }, ABOUT.contact))
+      : el('p', {}, about.artifactNote, el('br'),
+          el('a', { href: about.privacyHref, target: '_blank', rel: 'noopener noreferrer' }, 'Política de privacidad')),
+    el('h3', {}, 'Créditos'),
+    el('ul', {}, el('li', {}, 'Letras Marcellus y Gothic A1 (SIL Open Font License)'), el('li', {}, 'three.js (licencia MIT)'),
+      el('li', {}, 'Iconos y runas originales de Odyle Tracker')));
   const PLACE = {
     personajes: () => ['guide', 'summary', 'empty', 'chars-bar', 'cards', 'quick', 'plan'].map(id => $(id)),
     eventos: () => [$('events'), $('timers-panel')],
@@ -1801,6 +1826,7 @@
     legion: () => ['legion-panel', 'online-panel', 'calendar-panel', 'rank-panel', 'wall-panel', 'legion', 'legion-empty'].map(id => $(id)),
     ajustes: () => drawerPanels.filter(n => n.id !== 'add-form' && n.id !== 'presets-panel' && !isNews(n)),
     novedades: () => drawerPanels.filter(isNews),
+    acerca: () => [aboutPanel],
     ...(SOCIAL ? { amigos: () => [socialPanels.amigos], chat: () => [socialPanels.chat], buscar: () => [socialPanels.buscar] } : {}),
   };
   const navButton = id => el('button', { type: 'button', 'data-tab': id, onclick: () => setTab(id) },

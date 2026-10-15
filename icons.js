@@ -10,6 +10,7 @@ export const ICONS = {
   estadisticas: ['M4 20V10', 'M10 20V4', 'M16 20v-7', 'M3 20h18'],
   ajustes: ['M12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6z', 'M12 2v3', 'M12 19v3', 'M2 12h3', 'M19 12h3', 'M5 5l2 2', 'M17 17l2 2', 'M19 5l-2 2', 'M7 17l-2 2'],
   novedades: ['M6 4h12v16l-6-4-6 4z', 'M9 8h6'],
+  acerca: ['M12 3 A9 9 0 1 1 11.99 3 M12 10.5 V17 M12 7 V7.5'],
   mas: ['M5 12h.01', 'M12 12h.01', 'M19 12h.01'],
   rayo: ['M13 3L5 14h6l-1 7 8-11h-6z'],
   anadir: ['M12 5v14', 'M5 12h14'],

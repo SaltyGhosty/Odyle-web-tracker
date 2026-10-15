@@ -14,6 +14,7 @@ export const SECTIONS = [
   { id: 'estadisticas', label: 'Estadísticas', icon: 'estadisticas', social: false },
   { id: 'ajustes', label: 'Ajustes', icon: 'ajustes', social: false },
   { id: 'novedades', label: 'Novedades', icon: 'novedades', social: false },
+  { id: 'acerca', label: 'Acerca de', icon: 'acerca', social: false },
 ];
 
 const BAR = { web: ['personajes', 'eventos', 'amigos', 'chat'], artifact: ['personajes', 'eventos', 'legion', 'estadisticas'] };

@@ -269,6 +269,14 @@ check('legión: el código solo vive en el servidor (cifrado, sin código ni has
     && (await p.getAttribute('#topnav [data-tab="personajes"]', 'aria-current')) === 'page');
   await p.click('#topnav [data-tab="legion"]');
   check('rail: navega a Legión', !(await p.locator('#tab-legion').isHidden()));
+  await p.click('#topnav [data-tab="acerca"]');
+  const donate = p.locator('#tab-acerca a.btn.primary');
+  check('acerca: donación a PayPal en pestaña nueva, sin opener, 44 px',
+    (await donate.getAttribute('href')) === 'https://www.paypal.com/donate/?hosted_button_id=TDCGD3C8KHRAS'
+    && (await donate.getAttribute('target')) === '_blank' && (await donate.getAttribute('rel')) === 'noopener noreferrer'
+    && (await donate.boundingBox()).height >= 43.5);
+  check('acerca: enlace a /privacidad y correo de contacto', (await p.locator('#tab-acerca a[href="/privacidad"]').count()) === 1
+    && (await p.locator('#tab-acerca a[href="mailto:odyletracker@gmail.com"]').count()) === 1);
 
   await p.setViewportSize({ width: 390, height: 844 });
   await p.waitForTimeout(300);
