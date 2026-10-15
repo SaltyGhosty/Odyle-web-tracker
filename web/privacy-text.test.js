@@ -33,3 +33,6 @@ test('la fecha es el primer párrafo de la primera sección', () => {
   assert.equal(T.es[0].p[0], 'Última actualización: 15 de octubre de 2026');
   for (const l of ['en', 'it', 'pt']) assert.match(T[l][0].p[0], /15.*2026|2026.*15/, l);
 });
+test('la contraseña se describe como hash argon2 en cada idioma', () => {
+  for (const [l, secs] of Object.entries(T)) assert.ok(secs[1].p[0].includes('argon2'), l);
+});
