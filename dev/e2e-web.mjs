@@ -123,7 +123,7 @@ check('personaje: aparece la tarjeta y se guarda', (await pa.locator('article.ca
 const charId = await pa.locator('article.card').first().getAttribute('data-id');
 
 // energía y gasto
-await pa.click(`article[data-id="${charId}"] button.primary`);
+await pa.click(`article[data-id="${charId}"] button.more-actions`); await pa.click(`article[data-id="${charId}"] .menu button.update`);
 await pa.fill(`#energy-${charId}`, '300');
 await pa.press(`#energy-${charId}`, 'Enter');
 await pa.waitForTimeout(600);
@@ -144,10 +144,10 @@ check('gasto: resta 40 de 300 en el servidor', (await energyOf()) === 260, Strin
 const rowSel = `article[data-id="${charId}"]`;
 await pa.click(`${rowSel} button.more-actions`);
 await pa.waitForSelector(`${rowSel} .menu [role="menuitem"]`);
-check('⋯: se abre con sus opciones', (await pa.locator(`${rowSel} .menu [role="menuitem"]`).count()) === 4);
+check('⋯: se abre con sus opciones (Actualizar primero)', (await pa.locator(`${rowSel} .menu [role="menuitem"]`).count()) === 5 && await pa.locator(`${rowSel} .menu [role="menuitem"]`).first().evaluate((b) => b.classList.contains('update')));
 check('⋯: el foco pasa a la primera opción', await pa.evaluate(() => document.activeElement?.getAttribute('role') === 'menuitem'));
 await pa.keyboard.press('ArrowDown');
-check('⋯: la flecha abajo mueve el foco a la segunda opción', await pa.evaluate(() => document.activeElement?.classList.contains('tasks')));
+check('⋯: la flecha abajo mueve el foco a la segunda opción', await pa.evaluate(() => document.activeElement?.classList.contains('extra')));
 // Repintado seguro: el cambio del modo compacto llama a render() (un evento «focus» no repinta; un clic fuera cerraría el menú a propósito). La marca en el nodo
 // del botón demuestra que la fila se reconstruyó de verdad; el menú debe seguir abierto y con el foco dentro.
 await pa.evaluate((sel) => { document.querySelector(sel + ' button.more-actions').dataset.old = '1'; (() => { const c = document.getElementById('compact-toggle'); c.checked = !c.checked; c.dispatchEvent(new Event('change')); })(); }, rowSel);
@@ -176,8 +176,10 @@ check('⋯: Escape (tras flecha abajo) cierra y devuelve el foco', !(await pa.lo
 await pa.focus(`${rowSel} button.more-actions`);
 await pa.keyboard.press('ArrowDown');
 await pa.keyboard.press('ArrowDown');
+await pa.keyboard.press('ArrowDown');
 await pa.keyboard.press('Enter');
 check('⋯: tras elegir «Tareas» el foco vuelve al botón ⋯', await pa.evaluate(() => document.activeElement?.classList.contains('more-actions')));
+await pa.keyboard.press('ArrowDown');
 await pa.keyboard.press('ArrowDown');
 await pa.keyboard.press('ArrowDown');
 await pa.keyboard.press('Enter'); // vuelve a plegar las tareas
@@ -264,7 +266,7 @@ check('legión: el código solo vive en el servidor (cifrado, sin código ni has
   await p.setViewportSize({ width: 1280, height: 900 });
   await p.click('#topnav [data-tab="personajes"]');
   // banda carmesí: un personaje al tope (840)
-  await p.click('article[data-id="imp1"] button.primary');
+  await p.click('article[data-id="imp1"] button.more-actions'); await p.click('article[data-id="imp1"] .menu button.update');
   await p.fill('#energy-imp1', '840');
   await p.press('#energy-imp1', 'Enter');
   await p.waitForSelector('#stage.tone-urgent', { timeout: 5000 }).catch(() => {});
@@ -317,12 +319,12 @@ check('legión: el código solo vive en el servidor (cifrado, sin código ni has
   check('375 px: sin scroll horizontal en Energía con nombre largo y varios personajes',
     (await p.locator('article.card').count()) >= 3 && await p.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth));
   await p.waitForSelector('#toast', { state: 'hidden', timeout: 12000 }); // el aviso temporal de «añadido» (8 s) tapa a propósito la parte baja
-  const lastBtn = p.locator('article.card button.primary').last();
+  const lastBtn = p.locator('article.card button.more-actions').last();
   await lastBtn.scrollIntoViewIfNeeded();
   const box = await lastBtn.boundingBox();
   const barTop = await p.locator('#topnav').evaluate((n) => n.getBoundingClientRect().top);
   check('375 px: el último botón no queda tapado por la barra', !!box && box.y + box.height <= barTop, JSON.stringify({ box, barTop }));
-  const topEl = await p.evaluate(({ x, y }) => { const e = document.elementFromPoint(x, y); return { ok: !!e?.closest('article.card button.primary'), tag: e?.tagName + '.' + e?.className + '#' + e?.id }; }, { x: box.x + box.width / 2, y: box.y + box.height / 2 });
+  const topEl = await p.evaluate(({ x, y }) => { const e = document.elementFromPoint(x, y); return { ok: !!e?.closest('article.card button.more-actions'), tag: e?.tagName + '.' + e?.className + '#' + e?.id }; }, { x: box.x + box.width / 2, y: box.y + box.height / 2 });
   check('375 px: el último botón recibe el clic (no hay nada encima)', topEl.ok, JSON.stringify(topEl));
   // cabecera de 375 px con «en línea» forzado visible: una línea y la marca no pisa el reloj
   await p.evaluate(() => { document.getElementById('online-pill').hidden = false; });
@@ -471,7 +473,7 @@ check('legión: el código solo vive en el servidor (cifrado, sin código ni has
   const wId = await wRow.getAttribute('data-id');
   const classOf = async () => (await dbRows('members/')).find((r) => r.path.endsWith('/characters/' + wId))?.data.classId;
   const classBefore = await classOf();
-  await wRow.locator('button.primary').click();
+  await wRow.locator('button.more-actions').click(); await wRow.locator('.menu button.update').click();
   await p.selectOption(`#class-${wId}`, '');
   await wRow.locator('form button[type=submit]').click();
   await p.waitForTimeout(900);
@@ -964,11 +966,11 @@ check('cerrar todas: la cookie de renovación vieja de B no renueva', (await rep
   check('cuentas mezcladas: el reloj de recarga dice «Recarga en»', (await subG()) === 'Recarga en', await subG());
   const gId = await rowG('CuentaPremium').getAttribute('data-id');
   const gEnergy = async () => (await dbRows('members/')).find((r) => r.path.endsWith('/characters/' + gId))?.data;
-  await rowG('CuentaPremium').locator('button.primary').click();
+  await rowG('CuentaPremium').locator('button.more-actions').click(); await rowG('CuentaPremium').locator('.menu button.update').click();
   await pg.fill(`#energy-${gId}`, '700');
   await rowG('CuentaPremium').locator('form button[type=submit]').click();
   await pg.waitForTimeout(900);
-  await rowG('CuentaPremium').locator('button.primary').click();
+  await rowG('CuentaPremium').locator('button.more-actions').click(); await rowG('CuentaPremium').locator('.menu button.update').click();
   const shown = await pg.inputValue(`#energy-${gId}`);
   await pg.check(`input[name="account-${gId}"][value=normal]`);
   await rowG('CuentaPremium').locator('form button[type=submit]').click();

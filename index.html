@@ -68,7 +68,7 @@
      with the clocks in a sticky strip right under it. All bar controls share one height per row (40 px menu, 48 px clocks). ---- */
   header.topbar { position: relative; z-index: 15; display: flex; align-items: center; gap: 10px; padding: 10px 16px;
     background: var(--bg-2); border-bottom: 1px solid color-mix(in srgb, var(--gold) 18%, transparent); }
-  .subtitle { display: none; }
+  .subtitle { display: none; color: var(--muted); }
   .page-title { margin: 0; font: 800 1.625rem/1.1 var(--font-body); letter-spacing: 0; column-span: all; }
   .bar-right { display: flex; align-items: center; gap: 8px; min-width: 0; }
   .clocks { display: flex; gap: 8px; align-items: center; }
@@ -78,15 +78,18 @@
     font-size: 11px; line-height: 1.2; letter-spacing: .12em; font-weight: 800; color: var(--muted); text-transform: uppercase; }
   .ck .v { display: block; white-space: nowrap; font-size: 18px; line-height: 1.2; font-weight: 700; color: var(--sky); font-variant-numeric: tabular-nums; }
   .ck .v .live { margin-right: 6px; font-size: 11px; letter-spacing: .08em; font-weight: 800; text-transform: uppercase; color: var(--gold-bright); }
-  .ck.reset { background: color-mix(in srgb, var(--gold) 16%, var(--bg)); }
+  /* daily reset: the clock fill, a hairline and numerals in the faction accent (oro en Luz, violeta en Sombra) */
+  .ck.reset { box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--gold) 75%, transparent); }
+  .ck.reset .k { color: var(--gold); }
   .ck.reset .v { color: var(--gold-bright); }
   @media (hover: hover) and (pointer: fine) {
     .ck:hover { background: color-mix(in srgb, var(--fg) 7%, var(--bg)); }
-    .ck.reset:hover { background: color-mix(in srgb, var(--gold) 24%, var(--bg)); }
+    .ck.reset:hover { background: color-mix(in srgb, var(--gold) 8%, var(--bg)); }
   }
   .clocks-btn { display: none; height: 48px; min-height: 48px; align-items: center; gap: 6px; padding: 0 14px; border: none; border-radius: 10px;
     background: var(--bg); color: var(--fg); white-space: nowrap; }
-  .caret { font-size: .75em; color: var(--muted); }
+  .caret { display: inline-flex; align-items: center; color: var(--muted); }
+  .caret .i { width: 14px; height: 14px; stroke-width: 2.25; }
   /* Popovers of the bar («Más ▾», «Relojes ▾»): placed under their button by JS (positionPop). */
   .bar-pop { position: fixed; inset: auto; margin: 0; padding: 6px; min-width: 200px; border: 1px solid var(--line-strong); border-radius: 12px;
     background: var(--glass-strong); color: var(--fg); }
@@ -101,9 +104,16 @@
   .clock-strip { position: sticky; top: 0; z-index: 14; display: flex; overflow-x: auto; overscroll-behavior-x: contain; scrollbar-width: none;
     padding: 8px 16px; background: var(--bg-2); border-bottom: 1px solid color-mix(in srgb, var(--gold) 18%, transparent); }
   .clock-strip::-webkit-scrollbar { display: none; }
-  .clock-strip .clocks { flex: none; }
+  /* all three clocks fit at 390 px: they share the width (112 px at least), labels may truncate, values never clip */
+  .clock-strip .clocks { flex: 1 1 auto; min-width: 0; gap: 6px; }
+  .clock-strip .ck { flex: 1 1 112px; min-width: 112px; padding: 0 10px; }
+  .clock-strip .ck .k { max-width: 100%; letter-spacing: .08em; }
+  .clock-strip .ck .v { font-size: 17px; }
+  /* «En curso» stays for screen readers; on the strip the value turns to the accent instead */
+  .clock-strip .ck .v .live { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+  .clock-strip .ck:has(.live:not([hidden])) .v { color: var(--gold-bright); }
   .clock-strip [data-clock="daily"] { order: -1; }
-  .fan-foot { position: relative; z-index: 1; padding: 14px 16px; text-align: center; border-top: 1px solid color-mix(in srgb, var(--gold) 12%, transparent); }
+  .fan-foot { position: relative; z-index: 1; padding: 14px 16px; text-align: center; background: var(--bg-2); border-top: 1px solid color-mix(in srgb, var(--gold) 12%, transparent); }
   @media (min-width: 900px) {
     header.topbar { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; height: 72px; gap: 32px; padding: 0 36px; }
     .page-title { font-size: 1.875rem; }
@@ -180,13 +190,15 @@
   section.energy.no-stage { grid-template-columns: minmax(0, 1fr); }
   @media (max-width: 1199.98px) { section.energy { grid-template-columns: minmax(420px, 40%) minmax(0, 1fr); } }
   @media (max-width: 899.98px) { section.energy { grid-template-columns: minmax(0, 1fr); gap: 20px; } }
-  .stage { --orb: 250px; position: relative; border-radius: 18px; background: var(--field); padding: 40px 28px 36px;
+  /* --orb is the slot: the 3D sphere (glass radius 1 in a 3-unit view, seen from 6 units) fills ~64 % of it, so 390 px
+     gives a 250 px sphere inside its ~370 px ring of 56 runes; 10 px out, the gold hairline (the setting) at 410 px. */
+  .stage { --orb: 390px; position: relative; border-radius: 18px; background: var(--field); padding: 40px 28px 36px;
     min-height: 560px; display: grid; place-items: center; text-align: center; }
   @media (min-width: 900px) { .stage { position: sticky; top: 16px; min-height: min(720px, calc(100vh - 32px)); } }
   /* the glow: red only when someone is at the cap */
   .stage.tone-urgent { background: radial-gradient(55% 42% at 50% 34%, color-mix(in srgb, var(--urgent) 26%, transparent), transparent 70%), var(--field); }
   .stage-card, .stage-empty { width: 100%; display: flex; flex-direction: column; align-items: center; gap: 22px; min-width: 0; }
-  .stage-orb { position: relative; display: grid; place-items: center; padding: 30px; }
+  .stage-orb { position: relative; display: grid; place-items: center; padding: 10px; }
   /* thin outer circle around the orb's own rune ring */
   .stage-orb::before { content: ""; position: absolute; inset: 0; border-radius: 50%; border: 1px solid color-mix(in srgb, var(--gold) 40%, transparent); pointer-events: none; }
   .stage.tone-urgent .stage-orb::before { border-color: color-mix(in srgb, var(--urgent) 55%, transparent); }
@@ -200,6 +212,8 @@
   .stage-why::before { content: "·"; margin-right: 8px; color: var(--muted); }
   .stage-why.lost { color: var(--danger); font-weight: 700; }
   .stage-card .r-meta { align-items: center; }
+  .stage-acts { display: flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: 8px; }
+  .stage-acts:empty { display: none; }
   .stage-card .r-act { justify-content: center; }
   .stage-card .r-act button { border-radius: 10px; }
   .stage-card .r-below { width: min(100%, 420px); text-align: left; }
@@ -208,7 +222,8 @@
   button.stage-go { min-height: 48px; padding: 0 28px; border-radius: 10px; font-weight: 800; font-size: 1rem; border: 1px solid var(--line-strong); background: transparent; color: var(--fg); }
   button.stage-go.urgent { background: var(--urgent-strong); border-color: var(--urgent-strong); color: var(--fg); }
   @media (hover: hover) and (pointer: fine) { button.stage-go:hover { background: var(--hover); } button.stage-go.urgent:hover { background: var(--urgent); border-color: var(--urgent); } button.stage-go.primary:hover { background: var(--gold-bright); } }
-  @media (max-width: 899.98px) { .stage { --orb: 180px; min-height: 0; padding: 28px 16px; } .stage-orb { padding: 20px; } .stage-card .name { font-size: 2.5rem; } .stage-card, .stage-empty { gap: 16px; } }
+  @media (min-width: 900px) and (max-width: 1199.98px) { .stage { --orb: 320px; padding-inline: 20px; } .stage-orb { padding: 8px; } }
+  @media (max-width: 899.98px) { .stage { --orb: min(280px, calc(100vw - 96px)); min-height: 0; padding: 28px 16px; } .stage-orb { padding: 7px; } .stage-card .name { font-size: 2.5rem; } .stage-card, .stage-empty { gap: 16px; } }
 
   .case { min-width: 0; border-radius: 18px; background: var(--glass); padding: 28px 32px 32px; display: flex; flex-direction: column; gap: 28px; }
   @media (max-width: 899.98px) { .case { padding: 20px 16px 24px; gap: 24px; } }
@@ -221,7 +236,7 @@
 
   /* Character cards: vertical tiles (orb on top) on the case. */
   .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 224px), 1fr)); gap: 18px; }
-  .card.tile { --orb: 108px; position: relative; min-width: 0; display: flex; flex-direction: column; align-items: center; gap: 6px; text-align: center;
+  .card.tile { --orb: 136px; position: relative; min-width: 0; display: flex; flex-direction: column; align-items: center; gap: 6px; text-align: center;
     padding: 22px 12px 14px; border-radius: 18px; background: var(--bg); cursor: pointer; }
   .legion .card.tile { cursor: default; }
   .card.tile .r-orb { margin-bottom: 8px; }
@@ -241,9 +256,10 @@
   .card.tile .r-act button.more-actions { min-width: 44px; padding: 0 10px; }
   .card.tile .r-below { width: 100%; text-align: left; }
   /* quiet keyboard control: same as clicking the card */
-  button.to-stage { min-height: 44px; padding: 0 10px; margin-top: -4px; border: none; background: none; color: var(--muted); font-size: .8125rem; font-weight: 500;
-    text-decoration: underline; text-underline-offset: 3px; text-decoration-color: color-mix(in srgb, var(--muted) 45%, transparent); }
-  @media (hover: hover) and (pointer: fine) { button.to-stage:hover { color: var(--fg); background: none; } }
+  /* the card's orb is a button: same as clicking the card (keyboard reachable, focus lands on the stage name) */
+  button.to-stage { display: block; min-height: 0; padding: 0; margin: 0; border: none; border-radius: 50%; background: none; overflow: visible; }
+  button.to-stage:focus-visible { outline-offset: 4px; }
+  @media (hover: hover) and (pointer: fine) { button.to-stage:hover { background: none; } }
   #stage-name:focus { outline: none; }
   #stage-name:focus-visible { outline: 2px solid var(--sky); outline-offset: 4px; }
   @media (hover: hover) and (pointer: fine) { .card.tile:hover { background: color-mix(in srgb, var(--fg) 5%, var(--bg)); } }
@@ -413,12 +429,15 @@
   .guide-steps li { display: flex; align-items: center; gap: 10px; counter-increment: step; }
   .guide-steps li::before { content: counter(step); width: 26px; height: 26px; flex: none; display: grid; place-items: center;
     border: 1px solid var(--gold); color: var(--gold-bright); font-weight: 700; font-size: .8125rem; }
-  .guide-steps li.done::before { content: "✓"; background: var(--gold); color: var(--on-gold); }
+  .guide-steps li .step-done { display: none; }
+  .guide-steps li.done::before { display: none; }
+  .guide-steps li.done .step-done { display: grid; place-items: center; width: 26px; height: 26px; flex: none; background: var(--gold); color: var(--on-gold); }
+  .guide-steps li.done .step-done .i { width: 18px; height: 18px; stroke-width: 2.5; }
   .guide-steps li.done button { text-decoration: line-through; opacity: .6; }
 
   .privacy { border: 1px solid var(--line); padding: 10px 12px; display: flex; flex-direction: column; gap: 6px; }
   .privacy legend { font-family: var(--font-display); padding: 0 6px; }
-  .legion-empty { display: none; }
+  .legion-empty { display: none; padding: 22px; border-radius: 18px; background: var(--glass); } /* on a card: never text on the sky */
   @media all { /* sections at every width */
     .tab-panel { display: flex; flex-direction: column; gap: 24px; }
     .tab-panel[hidden] { display: none !important; }
@@ -445,7 +464,11 @@
   .note-count { color: var(--muted); font-size: .75rem; margin: 0; text-align: right; }
   .event-row .fav { grid-column: 2; grid-row: 1; align-self: start; justify-self: end; background: none; border: none; min-height: 44px; min-width: 44px; margin: -10px -12px 0 0; padding: 4px 6px; font-size: 1.25rem; color: var(--muted); }
   .event-row .fav[aria-pressed="true"] { color: var(--gold-bright); }
+  .event-row .fav .i { width: 22px; height: 22px; }
+  .event-row .fav[aria-pressed="true"] .i { fill: currentColor; }
   .event-row.favorite .ev-name { color: var(--gold-bright); }
+  #alert-text { display: inline-flex; align-items: center; gap: 8px; }
+  #alert-text > .i { width: 18px; height: 18px; fill: currentColor; color: var(--gold-bright); }
   .alert { position: fixed; z-index: 41; top: 12px; left: 50%; transform: translate(-50%, -20px); opacity: 0;
     display: flex; align-items: center; gap: 12px; max-width: calc(100vw - 32px);
     background: var(--glass-strong); border: 1px solid var(--gold-bright); padding: 10px 12px 10px 16px;
@@ -488,10 +511,11 @@
   /* ---- Event timers ---- */
   .events summary { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 12px; cursor: pointer; list-style: none; }
   .events summary::-webkit-details-marker { display: none; }
-  .events summary::after { content: "▾"; margin-left: auto; color: var(--muted); transition: transform .25s ease; }
-  .events[open] summary::after { transform: rotate(180deg); }
+  .events summary .caret { margin-left: auto; align-self: center; transition: transform .25s ease; }
+  .events summary .caret .i { width: 20px; height: 20px; }
+  .events[open] summary .caret { transform: rotate(180deg); }
   .events { overflow: hidden; }
-  .events-next { color: var(--sky); font-size: .875rem; font-variant-numeric: tabular-nums; }
+  .events-next { color: var(--sky); font-size: 1rem; font-weight: 700; font-variant-numeric: tabular-nums; }
   /* Each event is a card on the deep ground (like the Energía tiles) with its countdown big; the resets lead, gold like the daily clock. */
   .event-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 12px; grid-template-columns: repeat(auto-fill, minmax(min(100%, 260px), 1fr)); }
   .event-row { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-content: start; gap: 2px 12px; padding: 18px 20px 20px; border-radius: 14px; background: var(--bg); min-width: 0; }
@@ -500,7 +524,7 @@
   .event-row .ev-when { grid-column: 1 / -1; grid-row: 3; margin-top: 12px; display: flex; flex-direction: column; gap: 2px; min-width: 0; font-variant-numeric: tabular-nums; }
   .event-row .ev-when small { display: block; color: var(--muted); font-size: .8125rem; }
   .event-row .ev-count { font-size: 32px; font-weight: 700; line-height: 1.1; color: var(--sky); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-  .event-row.reset { background: color-mix(in srgb, var(--gold) 16%, var(--bg)); }
+  .event-row.reset { box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--gold) 75%, transparent); }
   .event-row.reset .ev-count, .event-row.active .ev-count, .event-row.active .ev-name { color: var(--gold-bright); }
   .event-row.active { box-shadow: inset 0 0 0 2px var(--gold); }
 
@@ -529,7 +553,8 @@
     .topbar .topnav button.in-drop { display: none; }
     .topbar .topnav button[aria-current="page"] { background: color-mix(in srgb, var(--gold) 14%, transparent); color: var(--gold-bright); }
     .topbar .topnav .badge { min-width: 22px; height: 22px; padding: 0 7px; border-radius: 11px; font-size: 11px; }
-    .topnav .caret { display: inline; }
+    .topnav .caret { display: inline-flex; }
+    .topbar .topnav button .caret .i { display: block; }
     .topbar .theme-switch { border-radius: 10px; overflow: hidden; }
     .topbar .theme-switch button { height: 46px; min-height: 46px; padding: 0 12px; }
     .topbar .profile-chip { min-height: 48px; height: 48px; border-radius: 10px; margin-left: 0; }
@@ -584,7 +609,7 @@
   .pop { animation: pop .22s ease-out both; }
   @keyframes pop { from { opacity: 0; transform: translateY(-4px); } to { opacity: 1; transform: none; } }
   @media (prefers-reduced-motion: reduce) {
-    .toast, .events summary::after { transition: none; }
+    .toast, .events summary .caret { transition: none; }
     .pop { animation: none; }
   }
 
@@ -771,7 +796,7 @@
   /* ---- Compact mode: small orb beside a short panel, no charts or extra panels ---- */
   body.compact .card.tile { --orb: 72px; padding: 14px 12px 12px; }
   body.compact .card.tile .r-num .num { font-size: 1.5rem; }
-  body.compact .stage { --orb: 160px; }
+  body.compact .stage { --orb: 250px; }
   body.compact .note-preview, body.compact .goal-text, body.compact .cls-name, body.compact .acct-mark, body.compact .guide, body.compact #plan { display: none; }
   body.compact .chart-panel, body.compact #week-panel, body.compact #sim-panel { display: none !important; }
 
@@ -809,7 +834,7 @@
       <button type="button" class="ck reset" data-clock="daily"><small class="k">Reinicio diario</small><b class="v">—</b></button>
       <button type="button" class="ck" data-clock="event"><small class="k">Próximo evento</small><b class="v"><span class="live" hidden>En curso</span><span class="t">—</span></b></button>
     </div>
-    <button type="button" class="clocks-btn" id="clocks-btn">Relojes <span class="caret" aria-hidden="true">▾</span></button>
+    <button type="button" class="clocks-btn" id="clocks-btn">Relojes <span class="caret" data-icon="desplegar" aria-hidden="true"></span></button>
     <button type="button" id="profile-chip" class="profile-chip" aria-haspopup="dialog" hidden>
       <span class="pc-icon" id="pc-icon" aria-hidden="true"></span>
       <span class="pc-text"><b id="pc-name"></b><small id="pc-title"></small></span>
@@ -831,7 +856,7 @@
   <p class="sr-only" id="band-status" role="status"></p>
 
   <details class="panel events" id="events">
-    <summary><h2>Eventos</h2><span class="events-next" id="events-next"></span></summary>
+    <summary><span class="events-next" id="events-next"></span><span class="caret" data-icon="desplegar" aria-hidden="true"></span></summary>
     <ul class="event-list" id="event-list"></ul>
   </details>
 
@@ -951,9 +976,9 @@
   <section class="panel guide" id="guide" aria-labelledby="guide-title" hidden>
     <h2 id="guide-title">Empieza en 3 pasos</h2>
     <ol class="guide-steps">
-      <li id="step-1"><button type="button" data-step="1">Añade tu personaje</button></li>
-      <li id="step-2"><button type="button" data-step="2">Pon su energía actual</button></li>
-      <li id="step-3"><button type="button" data-step="3">Ajusta cuánto falta para la recarga</button></li>
+      <li id="step-1"><span class="step-done" data-icon="hecho" aria-hidden="true"></span><button type="button" data-step="1">Añade tu personaje</button></li>
+      <li id="step-2"><span class="step-done" data-icon="hecho" aria-hidden="true"></span><button type="button" data-step="2">Pon su energía actual</button></li>
+      <li id="step-3"><span class="step-done" data-icon="hecho" aria-hidden="true"></span><button type="button" data-step="3">Ajusta cuánto falta para la recarga</button></li>
     </ol>
   </section>
 
@@ -1711,21 +1736,22 @@
       const ti = tasksInfo(row);
       act.append(
         ...(state.presets[0] && !stage ? [el('button', { type: 'button', class: 'spend', title: `${state.presets[0].name} −${state.presets[0].cost}`, 'aria-label': `Gastar ${state.presets[0].name} −${state.presets[0].cost} en ${row.name}`, disabled: busy.has(row.id), onclick: () => spend(row, state.presets[0]) }, 'Gastar')] : []),
-        el('button', { type: 'button', class: 'primary', onclick: () => { ui.pop = row.id; ui.editingId = row.id; ui.confirmId = ui.extraId = ui.notesId = null; delete ui.errors[row.id]; render(); $('energy-' + row.id)?.select(); } }, 'Actualizar'),
         moreActions(row, [
+          ['Actualizar', 'update', () => { ui.pop = row.id; ui.editingId = row.id; ui.confirmId = ui.extraId = ui.notesId = null; delete ui.errors[row.id]; render(); $('energy-' + row.id)?.select(); }],
           ['+ Extra', 'extra', () => { ui.pop = row.id; ui.extraId = row.id; ui.editingId = ui.confirmId = ui.notesId = null; delete ui.errors[row.id]; render(); $('extra-' + row.id)?.focus(); }, busy.has(row.id)],
           [tasksOpen ? 'Ocultar tareas' : `Tareas ${ti.done}/${ti.total}`, 'tasks', () => { tasksOpen ? ui.tasksOpen.delete(row.id) : ui.tasksOpen.add(row.id); ui.pop = row.id; render(); }],
           ['Notas', 'notes', () => { ui.pop = row.id; ui.notesId = row.id; ui.editingId = ui.extraId = ui.confirmId = null; render(); $('notes-' + row.id)?.focus(); }],
           ['Quitar', 'remove', () => { ui.pop = row.id; ui.confirmId = row.id; ui.editingId = ui.extraId = ui.notesId = null; render(); }],
         ]));
     }
-    // Keyboard way to do what a click on the card does (the article itself is not focusable).
-    const toStageBtn = readonly ? null : el('button', { type: 'button', class: 'to-stage', 'aria-label': `Ver en el escenario: ${row.name}`, onclick: () => toStage(row.id, { focus: true }) }, 'Ver en el escenario');
-    if (!stage) { card.append(...[orb, text, num, meta, act, below, toStageBtn].filter(Boolean)); return card; } // no stray "null" on read-only cards
+    // The card's orb is the keyboard way to do what a click on the card does (the article itself is not focusable).
+    const orbEl = stage || readonly ? orb
+      : el('button', { type: 'button', class: 'to-stage', 'aria-label': `Ver en el escenario: ${row.name}`, onclick: () => toStage(row.id, { focus: true }) }, orb);
+    if (!stage) { card.append(...[orbEl, text, num, meta, act, below].filter(Boolean)); return card; } // no stray "null" on read-only cards
     // Stage: «Gastar ahora» (red when someone is at the cap) leads to the quick spends of this character.
     const go = readonly || ui.readOnly || ui.noDb ? null
       : el('button', { type: 'button', class: `stage-go ${stage.tone === 'urgent' ? 'urgent' : ''}`, onclick: () => goSpend(row.id) }, 'Gastar ahora');
-    card.append(orb, el('div', { class: 'stage-cap' }, text, num, meta, go, act), below);
+    card.append(orb, el('div', { class: 'stage-cap' }, text, num, meta, el('div', { class: 'stage-acts' }, go, act)), below);
     return card;
   }
 
@@ -2048,7 +2074,7 @@
     nav.append(b);
   }
   const moreBtn = el('button', { type: 'button', class: 'more-btn', 'data-more': '', onclick: () => { if (!WIDE.matches) openMore(); } },
-    iconSvg(document, 'mas'), el('span', { class: 'lbl' }, 'Más'), el('span', { class: 'caret', 'aria-hidden': 'true' }, '▾'));
+    iconSvg(document, 'mas'), el('span', { class: 'lbl' }, 'Más'), el('span', { class: 'caret', 'aria-hidden': 'true' }, iconSvg(document, 'desplegar')));
   nav.append(moreBtn);
   const FAN = 'Sitio de fans no oficial · no afiliado a NCSOFT';
   const fanFoot = el('footer', { class: 'fan-foot' }, el('p', { class: 'fan-note' }, FAN));
@@ -2303,8 +2329,8 @@
       const key = e.id + ':' + o.startMs;
       if (left > 0 && left <= ALERT_BEFORE && !alerted.has(key)) {
         alerted.add(key);
-        const text = `★ ${e.name} empieza a las ${timeFmt.format(new Date(o.startMs))}`;
-        $('alert-text').textContent = text;
+        const text = `${e.name} empieza a las ${timeFmt.format(new Date(o.startMs))}`;
+        $('alert-text').replaceChildren(iconSvg(document, 'estrella'), el('span', {}, text));
         alertAction = null; $('alert-action').hidden = true;
         reveal($('alert'), 'show');
         clearTimeout(alertTimer);
@@ -2332,7 +2358,7 @@
     const sameDay = ms => new Date(ms).toDateString() === new Date(now).toDateString();
     // Event cards: the daily and weekly resets first (gold, like the daily clock), then the rest, each with its big countdown.
     $('event-list').replaceChildren(...sortEvents(items).map(({ e, o, f }) => el('li', { class: `event-row ${o.active ? 'active' : ''} ${f ? 'favorite' : ''} ${RESET_IDS.includes(e.id) ? 'reset' : ''}`, 'data-event': e.id },
-      el('button', { type: 'button', class: 'fav', 'data-fav': e.id, 'aria-pressed': String(f), 'aria-label': f ? `Quitar de favoritos: ${e.name}` : `Añadir a favoritos: ${e.name}`, disabled: !my || ui.readOnly }, f ? '★' : '☆'),
+      el('button', { type: 'button', class: 'fav', 'data-fav': e.id, 'aria-pressed': String(f), 'aria-label': f ? `Quitar de favoritos: ${e.name}` : `Añadir a favoritos: ${e.name}`, disabled: !my || ui.readOnly }, iconSvg(document, 'estrella')),
       el('span', { class: 'ev-name' }, e.name),
       el('span', { class: 'ev-when' },
         el('small', { class: 'ev-lead' }, o.active ? 'En curso · termina en' : 'Empieza en'),

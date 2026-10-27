@@ -179,7 +179,7 @@ export const STRINGS = {
   "· +{0} esta semana": "· +{0} this week",
   "¿Quitar a {0}?": "Remove {0}?",
   "¿Qué mejorarías o qué te gustaría ver?": "What would you improve or like to see?",
-  "★ {0} empieza a las {1}": "★ {0} starts at {1}",
+  "{0} empieza a las {1}": "{0} starts at {1}",
   "🏅 {0} de {1} logros": "🏅 {0} of {1} achievements"
  },
  "it": {
@@ -362,7 +362,7 @@ export const STRINGS = {
   "· +{0} esta semana": "· +{0} questa settimana",
   "¿Quitar a {0}?": "Rimuovere {0}?",
   "¿Qué mejorarías o qué te gustaría ver?": "Cosa miglioreresti o cosa vorresti vedere?",
-  "★ {0} empieza a las {1}": "★ {0} inizia alle {1}",
+  "{0} empieza a las {1}": "{0} inizia alle {1}",
   "🏅 {0} de {1} logros": "🏅 {0} di {1} obiettivi"
  },
  "pt": {
@@ -545,7 +545,7 @@ export const STRINGS = {
   "· +{0} esta semana": "· +{0} esta semana",
   "¿Quitar a {0}?": "Remover {0}?",
   "¿Qué mejorarías o qué te gustaría ver?": "O que você melhoraria ou gostaria de ver?",
-  "★ {0} empieza a las {1}": "★ {0} começa às {1}",
+  "{0} empieza a las {1}": "{0} começa às {1}",
   "🏅 {0} de {1} logros": "🏅 {0} de {1} conquistas"
  }
 };

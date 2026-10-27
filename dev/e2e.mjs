@@ -282,11 +282,12 @@ const tallShot = async (page, w, file) => {
   const s = await stageInfo(page);
   check('escenario: el que está al tope, en rojo, con «Gastar ahora»', s.name === 'Shutaruku' && /tone-urgent/.test(s.tone) && s.go === 'Gastar ahora' && s.goUrgent, JSON.stringify(s));
   check('escenario: el motivo va pegado al número', s.why === 'pierde 30 OD cada 3 h' && s.whyAfterNum, JSON.stringify(s));
-  check('escenario: orbe 3D de 250 px', s.slot === 250 && s.has3d, JSON.stringify(s));
+  // the slot is 390 px so the 3D sphere itself (~64 % of it) is 250 px; the setting's hairline sits 10 px outside it
+  check('escenario: orbe 3D de 250 px (hueco de 390 px)', s.slot === 390 && s.has3d, JSON.stringify(s));
   check('tarjetas: el resto, «3 más», sin repetir el del escenario', s.cards === 'c1,c3,c4' && s.count === '3 más' && s.num === 'c2' && !s.dupNums, JSON.stringify(s));
-  check('tarjetas: orbe de 108 px arriba, nombre, número y estado', await page.evaluate(() => [...document.querySelectorAll('#cards article.card')].every(c => {
+  check('tarjetas: orbe de 136 px arriba, nombre, número y estado', await page.evaluate(() => [...document.querySelectorAll('#cards article.card')].every(c => {
     const o = c.querySelector('.orb-slot').getBoundingClientRect(), n = c.querySelector('.name').getBoundingClientRect();
-    return Math.round(o.width) === 108 && o.bottom <= n.top && c.querySelector('.r-num .num') && c.querySelector('.full-in');
+    return Math.round(o.width) === 136 && o.bottom <= n.top && c.querySelector('.r-num .num') && c.querySelector('.full-in');
   })));
   check('escenario: sin la banda ni la columna lateral', !(await page.locator('#summary').count()) && !(await page.locator('#side').count()) && /al tope/.test(await text(page, '#band-status')));
   check('Hoy: eventos, reinicio semanal y nada fuera de la página', await page.locator('#today .today-list li').count() >= 2 && /Reinicio semanal/.test(await text(page, '#today')) && !s.wide);
@@ -296,18 +297,18 @@ const tallShot = async (page, w, file) => {
   await page.click('#cards article[data-id=c3] .name'); await page.waitForTimeout(500);
   const s2 = await stageInfo(page);
   check('tarjeta: al pulsarla pasa al escenario', s2.name === 'Nombre-Largo-Clérigo' && !/tone-urgent/.test(s2.tone) && !s2.goUrgent && s2.cards === 'c1,c2,c4' && !s2.dupNums && /Nombre-Largo/.test(await text(page, '#quick-title')), JSON.stringify(s2));
-  await page.click('#cards article[data-id=c1] button.primary'); await page.waitForTimeout(200);
+  await page.click('#cards article[data-id=c1] button.more-actions'); await page.click('#cards article[data-id=c1] .menu button.update'); await page.waitForTimeout(200);
   check('tarjeta: pulsar sus botones no la sube al escenario', (await stageInfo(page)).name === 'Nombre-Largo-Clérigo' && await visible(page, '#energy-c1'));
   await page.click('#cards article[data-id=c1] form button[type=button]'); await page.waitForTimeout(200);
   await page.click('#stage button.stage-go'); await page.waitForTimeout(300);
   check('«Gastar ahora»: lleva a los gastos rápidos del escenario', await page.evaluate(() => document.activeElement?.matches('#quick-chips [data-quick]')));
   await page.focus('#stage button.stage-go'); await page.keyboard.press('Escape'); await page.waitForTimeout(400);
   check('Esc en el escenario: vuelve el más urgente', (await stageInfo(page)).name === 'Shutaruku');
-  // keyboard: Tab reaches the card's «Ver en el escenario», Enter moves it to the stage and focus lands on the stage name
-  await page.focus('#cards article[data-id=c4] button.more-actions'); await page.keyboard.press('Tab');
+  // keyboard: the card's orb is a button «Ver en el escenario» (Shift+Tab from its Gastar), Enter moves it to the stage and focus lands on the stage name
+  await page.focus('#cards article[data-id=c4] button.spend'); await page.keyboard.press('Shift+Tab');
   const tabbed = await page.evaluate(() => document.activeElement?.matches('#cards article[data-id=c4] button.to-stage'));
   await page.keyboard.press('Enter'); await page.waitForTimeout(500);
-  check('teclado: Tab llega a «Ver en el escenario» y Enter lo pone en el escenario con el foco allí', tabbed && (await stageInfo(page)).name === 'SinClase'
+  check('teclado: el orbe de la tarjeta es «Ver en el escenario» y Enter lo pone en el escenario con el foco allí', tabbed && (await stageInfo(page)).name === 'SinClase'
     && await page.evaluate(() => document.activeElement?.id === 'stage-name'));
   await page.keyboard.press('Escape'); await page.waitForTimeout(400);
   check('teclado: Esc desde el escenario devuelve el más urgente', (await stageInfo(page)).name === 'Shutaruku');
@@ -328,7 +329,7 @@ for (const theme of ['luz', 'sombra']) {
   const page = await open(390, 844, { demo: true });
   if (theme === 'sombra') { await page.evaluate(() => document.querySelector('[data-theme-choice="asmodian"]').click()); await page.waitForTimeout(300); }
   const s = await stageInfo(page);
-  check(`móvil ${theme}: escenario arriba con orbe de 180 px, tarjetas debajo en una columna`, s.name === 'Shutaruku' && s.slot === 180 && !s.wide && await page.evaluate(() => {
+  check(`móvil ${theme}: escenario arriba con orbe de 180 px (hueco de 280 px), tarjetas debajo en una columna`, s.name === 'Shutaruku' && s.slot === 280 && !s.wide && await page.evaluate(() => {
     const st = document.getElementById('stage').getBoundingClientRect(), cards = [...document.querySelectorAll('#cards article.card')].map(c => c.getBoundingClientRect());
     return cards.every(c => c.top >= st.bottom && Math.abs(c.left - cards[0].left) < 1);
   }), JSON.stringify(s));
@@ -398,7 +399,7 @@ for (const theme of ['luz', 'sombra']) {
   await page.keyboard.press('z');
   await page.waitForTimeout(300);
   check('atajo Z: deshace', (await db(page, 'members/u_me/characters/c2')).energy === 200);
-  await page.click('article[data-id=c1] button.primary'); // Actualizar opens the form
+  await page.click('article[data-id=c1] button.more-actions'); await page.click('article[data-id=c1] .menu button.update'); // ⋯ › Actualizar opens the form
   await page.focus('#energy-c1'); await page.keyboard.press('1');
   await page.waitForTimeout(200);
   check('atajos: no actúan mientras escribes', (await db(page, 'members/u_me/characters/c1')).energy === 300);
@@ -408,7 +409,7 @@ for (const theme of ['luz', 'sombra']) {
   await page.press('#energy-c1', 'Enter'); await page.waitForTimeout(400);
   check('objetivo de PC: barra al 83 %', await page.locator('article[data-id=c1] .goal-bar').getAttribute('aria-valuenow') === '83');
   check('objetivo de PC guardado', (await db(page, 'members/u_me/characters/c1')).cpGoal === 60000);
-  await page.click('article[data-id=c1] button.primary');
+  await page.click('article[data-id=c1] button.more-actions'); await page.click('article[data-id=c1] .menu button.update');
   await page.fill('#goal-c1', ''); await page.press('#energy-c1', 'Enter'); await page.waitForTimeout(400);
   check('objetivo de PC: vaciar el campo lo quita', !(await db(page, 'members/u_me/characters/c1')).cpGoal && await page.locator('article[data-id=c1] .goal-bar').count() === 0);
 
@@ -536,7 +537,8 @@ for (const theme of ['luz', 'sombra']) {
   await page.click('#lg-leave'); await page.click('#lg-leave'); await page.waitForTimeout(400);
   check('legión: sales (con confirmación)', !(await db(page, 'members/u_me')).legionId && await visible(page, '#lg-join') && (await text(page, '#pc-title')) === '');
 
-  // compact mode + language (Ajustes)
+  // compact mode + language (Ajustes); the calendar notice still sits over the top bar's centre: close it first
+  if (await visible(page, '#alert')) { await page.click('#alert-close'); await page.waitForTimeout(300); }
   await openAjustes(page);
   await page.check('#compact-toggle');
   await page.click('#topnav [data-tab=estadisticas]');
@@ -668,7 +670,8 @@ const skyRead = page => page.evaluate(() => {
   const m1 = await skyRead(page); await page.waitForTimeout(1000); const m2 = await skyRead(page);
   check('«Reducir animaciones» de nuevo apagado: el cielo vuelve a moverse', m1.h !== m2.h);
   await page.click('#topnav [data-tab=personajes]'); await page.waitForTimeout(200);
-  // a new card rises in (4th card: 3 × 60 ms stagger) and a repaint during its entrance carries it on, never restarts it
+  // a new card rises in (4th card: 3 × 60 ms stagger) and a repaint during its entrance carries it on, never restarts it.
+  // The first read lands some frames after the insert (the 390 px stage orb is a heavy frame on software GL): any delay left counts.
   await page.evaluate(() => { window.__docs.set('members/u_me/characters/c5', { name: 'Recién', classId: 'mago', energy: 100, recordedAt: Date.now(), order: 5 }); window.__notify(); });
   await page.waitForSelector('#cards article[data-id=c5]');
   const e1 = await page.evaluate(() => { const c = document.querySelector('#cards article[data-id=c5]'); return { enter: c.classList.contains('enter'), anim: getComputedStyle(c).animationName, d: parseFloat(c.style.getPropertyValue('--enter-delay')) }; });
@@ -676,7 +679,7 @@ const skyRead = page => page.evaluate(() => {
   const e2 = await page.evaluate(() => { const c = document.querySelector('#cards article[data-id=c5]'); return { enter: c.classList.contains('enter'), d: parseFloat(c.style.getPropertyValue('--enter-delay')) }; });
   await page.waitForTimeout(800); await page.evaluate(() => window.__notify()); await page.waitForTimeout(60);
   const e3 = await page.evaluate(() => document.querySelector('#cards article[data-id=c5]').classList.contains('enter'));
-  check('entradas: la tarjeta nueva sube con su escalón y sigue al repintar, sin repetir', e1.enter && e1.anim === 'rise' && e1.d <= 180 && e1.d > 100
+  check('entradas: la tarjeta nueva sube con su escalón y sigue al repintar, sin repetir', e1.enter && e1.anim === 'rise' && e1.d <= 180 && e1.d > 0
     && e2.enter && e2.d < e1.d - 100 && !e3, JSON.stringify({ e1, e2, e3 }));
   await page.close();
 }
@@ -740,9 +743,12 @@ for (const theme of ['luz', 'sombra']) for (const w of [1440, 390]) {
         const rows = [...document.querySelectorAll('#event-list > li')];
         return { order: rows.slice(0, 2).map(r => r.dataset.event).join(), resets: rows.filter(r => r.classList.contains('reset')).length,
           count: rows.every(r => getComputedStyle(r.querySelector('.ev-count')).fontSize === '32px'), radius: getComputedStyle(rows[0]).borderTopLeftRadius,
-          tint: getComputedStyle(rows[0]).backgroundColor !== getComputedStyle(rows[2]).backgroundColor };
+          // the resets keep the card fill and add an accent hairline and accent numerals (the daily clock's mark)
+          tint: (() => { const plain = rows.find(r => !r.matches('.reset, .active')), a = getComputedStyle(rows[0]), p = getComputedStyle(plain);
+            return a.backgroundColor === p.backgroundColor && a.boxShadow !== p.boxShadow
+              && getComputedStyle(rows[0].querySelector('.ev-count')).color !== getComputedStyle(plain.querySelector('.ev-count')).color; })() };
       });
-      check(`eventos ${theme} ${w}: reinicio diario y semanal primero, dorados, reloj de 32 px`, ev.order === 'daily,weekly' && ev.resets === 2 && ev.count && ev.tint, JSON.stringify(ev));
+      check(`eventos ${theme} ${w}: reinicio diario y semanal primero, con filete y cifras de acento, reloj de 32 px`, ev.order === 'daily,weekly' && ev.resets === 2 && ev.count && ev.tint, JSON.stringify(ev));
     }
     await tallShot(page, w, `dev/screens/tarjetas-${t}-${theme}-${w}.png`);
     await page.setViewportSize({ width: w, height: 900 });

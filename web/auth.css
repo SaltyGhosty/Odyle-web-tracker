@@ -1,18 +1,18 @@
 :root {
-  /* Neutral, sin facción: noche de grafito de Atreia y tinta de luz de estrella.
-     El oro (Luz) y la plata (Sombra) solo aparecen juntos en el emblema partido. */
-  --bg: #262A36;
-  --glass: #1B1E28;
-  --field: #151821;
-  --hover: rgba(236, 230, 217, .07);
-  --fg: #ECE6D9;
-  --muted: #B4B6C0;
-  --line: rgba(216, 206, 184, .28);
-  --line-strong: rgba(216, 206, 184, .55);
-  --gold: #D8CEB8;
-  --gold-bright: #F1E9D6;
-  --sky: #A9C4E0;
-  --on-gold: #1B1E28;
+  /* El mundo del tracker (tokens de Luz de index.html): pizarra, tarjeta de 18 px y oro. El oro (Luz) y la plata
+     (Sombra) aparecen juntos solo en el emblema partido. */
+  --bg: #2F3B55;
+  --glass: #1F2840;
+  --field: #18203A;
+  --hover: rgba(244, 231, 200, .07);
+  --fg: #F4E7C8;
+  --muted: #B9C2D6;
+  --line: rgba(227, 168, 83, .32);
+  --line-strong: rgba(227, 168, 83, .6);
+  --gold: #E3A853;
+  --gold-bright: #F2C77E;
+  --sky: #9CC3E6;
+  --on-gold: #1F2840;
   --danger: #FF9A8E;
   --ok: #8FD9A8;
   --sky-1: #E3A853; --sky-2: #9CC3E6; --sky-3: #5C8DC2; /* cielo vivo (sky.js) */
@@ -40,7 +40,7 @@ body {
 .auth { max-width: 420px; margin-inline: auto; padding: 48px 16px 56px; display: flex; flex-direction: column; gap: 12px; }
 h1 {
   font-family: var(--font-display); font-weight: 400; font-size: clamp(1.9rem, 7vw, 2.4rem); line-height: 1.05; margin: 0;
-  letter-spacing: .06em; color: var(--fg); text-align: center;
+  letter-spacing: 0; color: var(--fg); text-align: center;
 }
 /* Emblema: el cielo partido de Atreia, mitad oro y mitad plata, con su anillo de estrellas. */
 .emblem { display: block; width: 76px; height: 76px; margin: 0 auto 4px; }
@@ -49,15 +49,10 @@ h1 {
 .emblem .half-r { fill: var(--asmo); opacity: .85; }
 .emblem .star { fill: var(--gold-bright); }
 .emblem .meridian { stroke: var(--bg); stroke-width: 2; }
-/* Regla de ticks de la carta celeste, como la cabecera de la app. */
-.meridian-rule {
-  height: 9px; margin: 0 0 6px; border-top: 1px solid var(--line-strong);
-  background: repeating-linear-gradient(90deg, var(--line-strong) 0 1px, transparent 1px 12px) top / 100% 6px no-repeat;
-}
-.subtitle { margin: 0 0 8px; text-align: center; color: var(--muted); font-family: var(--font-display); font-weight: 400; letter-spacing: .03em; }
+.subtitle { margin: 0 0 12px; text-align: center; color: var(--muted); font-family: var(--font-display); font-weight: 400; letter-spacing: .03em; }
 .panel {
-  background: var(--glass); border: 1px solid var(--line); border-radius: 18px; padding: 20px;
-  display: flex; flex-direction: column; gap: 14px;
+  background: var(--glass); border: none; border-radius: 18px; padding: 22px;
+  display: flex; flex-direction: column; gap: 16px;
 }
 form { display: flex; flex-direction: column; gap: 14px; }
 .field { display: flex; flex-direction: column; gap: 6px; }
@@ -65,17 +60,18 @@ label { font-size: .8125rem; font-weight: 500; color: var(--muted); }
 input, button { font: inherit; color: inherit; }
 input {
   background: var(--field); border: 1px solid var(--line-strong);
-  padding: 9px 12px; min-height: 44px; min-width: 0; width: 100%;
+  padding: 9px 12px; min-height: 44px; min-width: 0; width: 100%; border-radius: 10px;
 }
 input[aria-invalid="true"] { border-color: var(--danger); }
 button {
   cursor: pointer; padding: 9px 16px; font-weight: 700; font-size: .9375rem;
-  border: 1px solid var(--gold); background: transparent; min-height: 44px;
+  border: 1px solid var(--gold); background: transparent; min-height: 44px; border-radius: 10px;
 }
 button:hover { background: var(--hover); }
 button.primary {
-  background: var(--gold); color: var(--on-gold); border-color: var(--gold);
+  background: var(--gold); color: var(--on-gold); border-color: var(--gold); font-weight: 800;
 }
+button.primary:hover { background: var(--gold-bright); border-color: var(--gold-bright); }
 button:disabled { opacity: .6; cursor: progress; }
 button:focus-visible, input:focus-visible, a:focus-visible { outline: 2px solid var(--sky); outline-offset: 2px; }
 h2 { font-family: var(--font-display); font-weight: 400; font-size: 1.2rem; margin: 0; letter-spacing: .03em; }
@@ -101,7 +97,7 @@ button.link { background: none; border: 0; padding: 0; min-height: 0; color: var
 .current-flag { display: inline-flex; }
 .lang-list {
   position: absolute; top: calc(100% + 6px); right: 0; margin: 0; padding: 6px; list-style: none; min-width: 170px;
-  background: var(--glass); border: 1px solid var(--gold);
+  background: var(--glass); border: 1px solid var(--gold); border-radius: 12px;
 }
 .lang-list button {
   display: flex; align-items: center; gap: 10px; width: 100%; border: 0;
@@ -112,7 +108,7 @@ button.link { background: none; border: 0; padding: 0; min-height: 0; color: var
 .lang-list button[aria-checked="true"]::after { content: "✓"; margin-left: auto; color: var(--gold); }
 /* Política de privacidad (/privacidad): columna de lectura más ancha que las páginas de cuenta. */
 .auth.privacy { max-width: 720px; }
-.privacy article { background: var(--glass); border: 1px solid var(--line); border-radius: 18px; padding: 24px 22px; display: flex; flex-direction: column; gap: 10px; line-height: 1.65; }
+.privacy article { background: var(--glass); border: none; border-radius: 18px; padding: 24px 22px; display: flex; flex-direction: column; gap: 10px; line-height: 1.65; }
 .privacy article h2 { font-family: var(--font-display); color: var(--gold-bright); margin-top: 18px; }
 .privacy article h2:first-child { margin-top: 0; }
 .privacy article p { color: var(--fg); max-width: 68ch; }
