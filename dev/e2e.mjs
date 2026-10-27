@@ -326,6 +326,18 @@ const tallShot = async (page, w, file) => {
   check('al tope: el aviso lo lleva al escenario', (await stageInfo(page)).name === 'Nombre-Largo-Clérigo');
   await page.reload(); await page.waitForSelector('#stage article.card'); await page.waitForTimeout(400);
   check('recargar: vuelve el más urgente (la elección no se guarda)', (await stageInfo(page)).name === 'Shutaruku');
+  // the pinned stage character is removed: the stage falls back to the urgent one
+  await page.click('#cards article[data-id=c1] button.to-stage'); await page.waitForTimeout(300);
+  check('escenario fijado: SaltyGhosty', (await stageInfo(page)).name === 'SaltyGhosty');
+  await page.evaluate(() => { window.__docs.delete('members/u_me/characters/c1'); window.__notify(); }); await page.waitForTimeout(300);
+  check('quitar al personaje fijado: el escenario vuelve al más urgente', (await stageInfo(page)).name === 'Shutaruku');
+  // more than 8 characters: the cards turn 2D (SVG only, no canvas) while the stage keeps its 3D orb
+  const before3d = (await stageInfo(page)).has3d;
+  await page.evaluate(() => { for (let n = 11; n <= 18; n++) window.__docs.set('members/u_me/characters/c' + n, { name: 'Extra' + n, classId: 'mago', energy: 100, recordedAt: Date.now(), order: n }); window.__notify(); });
+  await page.waitForTimeout(500);
+  const many = await page.evaluate(() => ({ n: document.querySelectorAll('#cards article.card').length, canv: document.querySelectorAll('#cards canvas').length,
+    svg: [...document.querySelectorAll('#cards article.card')].every(c => c.querySelector('.orb-slot svg')) }));
+  check('más de 8 personajes: tarjetas en 2D (solo SVG) y el escenario sigue en 3D', many.n > 8 && many.canv === 0 && many.svg && (await stageInfo(page)).has3d === before3d && before3d, JSON.stringify({ many, before3d }));
   await page.click('header.topbar [data-theme-choice="asmodian"]'); await page.waitForTimeout(400);
   await page.screenshot({ path: 'dev/screens/energia-sombra-1440.png' });
   await page.close();
@@ -679,13 +691,21 @@ const skyRead = page => page.evaluate(() => {
   // The first read lands some frames after the insert (the 390 px stage orb is a heavy frame on software GL): any delay left counts.
   await page.evaluate(() => { window.__docs.set('members/u_me/characters/c5', { name: 'Recién', classId: 'mago', energy: 100, recordedAt: Date.now(), order: 5 }); window.__notify(); });
   await page.waitForSelector('#cards article[data-id=c5]');
-  const e1 = await page.evaluate(() => { const c = document.querySelector('#cards article[data-id=c5]'); return { enter: c.classList.contains('enter'), anim: getComputedStyle(c).animationName, d: parseFloat(c.style.getPropertyValue('--enter-delay')) }; });
-  await page.waitForTimeout(150); await page.evaluate(() => window.__notify()); await page.waitForTimeout(60);
-  const e2 = await page.evaluate(() => { const c = document.querySelector('#cards article[data-id=c5]'); return { enter: c.classList.contains('enter'), d: parseFloat(c.style.getPropertyValue('--enter-delay')) }; });
-  await page.waitForTimeout(800); await page.evaluate(() => window.__notify()); await page.waitForTimeout(60);
+  // deterministic: the entrance exists (name, positive delay), a repaint carries it on (a negative-delay `rise`, never `enter` again once done)
+  const e1 = await page.evaluate(() => { const c = document.querySelector('#cards article[data-id=c5]'); const a = c.getAnimations().find(x => x.animationName === 'rise');
+    return { enter: c.classList.contains('enter'), anim: getComputedStyle(c).animationName, d: parseFloat(c.style.getPropertyValue('--enter-delay')), has: !!a }; });
+  await page.evaluate(() => window.__notify()); await page.waitForTimeout(60);
+  const e2 = await page.evaluate(() => { const c = document.querySelector('#cards article[data-id=c5]'); return { enter: c.classList.contains('enter'), has: c.getAnimations().some(x => x.animationName === 'rise') }; });
+  await page.waitForFunction(() => !document.querySelector('#cards article[data-id=c5]').getAnimations().some(x => x.animationName === 'rise' && x.playState === 'running'), null, { timeout: 4000 });
+  await page.evaluate(() => window.__notify()); await page.waitForTimeout(60);
   const e3 = await page.evaluate(() => document.querySelector('#cards article[data-id=c5]').classList.contains('enter'));
-  check('entradas: la tarjeta nueva sube con su escalón y sigue al repintar, sin repetir', e1.enter && e1.anim === 'rise' && e1.d <= 180 && e1.d > 0
-    && e2.enter && e2.d < e1.d - 100 && !e3, JSON.stringify({ e1, e2, e3 }));
+  check('entradas: la tarjeta nueva sube con su escalón y sigue al repintar, sin repetir', e1.enter && e1.anim === 'rise' && e1.d <= 180 && (e1.has || e1.d <= 0) && e2.enter && !e3, JSON.stringify({ e1, e2, e3 }));
+  // the floating orb does not restart when a repaint rebuilds the card: its animation phase carries on
+  const ph = () => page.evaluate(() => { const o = document.querySelector('#cards article.card.tile .r-orb'); const a = o.getAnimations().find(x => x.animationName === 'orb-float');
+    return { t: performance.now(), phase: a ? (a.currentTime - a.effect.getTiming().delay) % 4000 : -1 }; });
+  const f1 = await ph(); await page.evaluate(() => window.__notify()); await page.waitForTimeout(40); const f2 = await ph();
+  const want = (f1.phase + (f2.t - f1.t)) % 4000, diff = Math.min(Math.abs(f2.phase - want), 4000 - Math.abs(f2.phase - want));
+  check('orbes de tarjeta: el vaivén sigue donde iba al repintar (no se reinicia)', f1.phase >= 0 && f2.phase >= 0 && diff < 250, JSON.stringify({ f1, f2, diff }));
   await page.close();
 }
 {

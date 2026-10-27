@@ -659,6 +659,14 @@ check('legión: B ve a A entre los miembros', /AnaDaeva/.test(await text(pb, '#l
   const fp = await fanAt();
   check('privacidad: aviso de fans al final, traducido', !!fp && fp.text === 'Unofficial fan site · not affiliated with NCSOFT' && fp.bottom === fp.doc && fp.h > 20, JSON.stringify(fp));
   await page.screenshot({ path: 'dev/screens/privacidad-1440.png' });
+  // 390 px: the language button scrolls away with the page instead of covering the policy text
+  await page.setViewportSize({ width: 390, height: 844 }); await page.waitForTimeout(300);
+  await page.evaluate(() => scrollTo(0, 600)); await page.waitForTimeout(150);
+  const top390 = await page.evaluate(() => { const t = document.querySelector('.auth-top'); return { pos: getComputedStyle(t).position, y: Math.round(t.getBoundingClientRect().top), sy: scrollY }; });
+  check('privacidad 390: el selector de idioma no tapa el texto al desplazar', top390.pos === 'absolute' && top390.sy > 0 && top390.y < 0, JSON.stringify(top390));
+  await page.evaluate(() => scrollTo(0, 0));
+  await page.screenshot({ path: '.superpowers/sdd/2026-10-27-rediseno-engaste/privacidad-390-scrolled.png' });
+  await page.setViewportSize({ width: 1440, height: 900 });
   await page.goto(`${ORIGIN}/login`);
   await page.waitForTimeout(300);
   const fa = await fanAt();

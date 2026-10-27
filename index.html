@@ -69,7 +69,7 @@
   header.topbar { position: relative; z-index: 15; display: flex; align-items: center; gap: 10px; padding: 10px 16px;
     background: var(--bg-2); border-bottom: 1px solid color-mix(in srgb, var(--gold) 18%, transparent); }
   .subtitle { display: none; color: var(--muted); }
-  .page-title { margin: 0; font: 800 1.625rem/1.1 var(--font-body); letter-spacing: 0; column-span: all; }
+  .page-title { margin: 0; font: 800 1.625rem/1.1 var(--font-body); letter-spacing: 0; }
   .bar-right { display: flex; align-items: center; gap: 8px; min-width: 0; }
   .clocks { display: flex; gap: 8px; align-items: center; }
   .ck { height: 48px; min-height: 48px; min-width: 138px; flex: none; display: flex; flex-direction: column; justify-content: center; align-items: flex-start;
@@ -819,7 +819,7 @@
     /* Entrances: only the first time a section is shown in the session (the script adds .enter), 60 ms steps, at most 6. */
     body:not(.calm) .enter { animation: rise .45s var(--ease-out) var(--enter-delay, calc(min(var(--i, 0), 6) * 60ms)) both; }
     /* Card orbs float slowly, each out of step with the next. The number below them never moves. */
-    body:not(.calm) .card.tile .r-orb { animation: orb-float 4s ease-in-out calc(var(--i, 0) * -700ms) infinite; }
+    body:not(.calm) .card.tile .r-orb { animation: orb-float 4s ease-in-out var(--float-delay, calc(var(--i, 0) * -700ms)) infinite; }
     @keyframes orb-float { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-6px); } }
     .gain { animation: float 1.6s ease-out forwards; }
     @keyframes float {
@@ -1267,7 +1267,8 @@
   let myUid = null;
 
   // ---- Motion setup: orbs are drawn SVG (or 3D, orb3d.js); «Reducir animaciones» (body.calm) and the system setting switch the motion off ----
-  const reduceMotion = matchMedia('(prefers-reduced-motion: reduce)').matches;
+  const reduceMq = matchMedia('(prefers-reduced-motion: reduce)');
+  let reduceMotion = reduceMq.matches;
   let lite = false; // «Reducir animaciones» (key odyle-lite kept from the old «Modo ligero»)
   try { lite = localStorage.getItem('odyle-lite') === '1'; } catch {}
   let animate = !reduceMotion && !lite;
@@ -1619,7 +1620,7 @@
     if (en && !fresh) entering.delete(row.id);
     const kind = stage ? `stage-card tone-${stage.tone}` : 'tile';
     const card = el('article', { class: `card ${kind} ${mood} ${fresh && animate && !stage ? 'enter' : ''} ${!readonly && !stage && ui.selectedId === row.id ? 'selected' : ''}`, 'data-id': row.id,
-      style: `--c:${row.color};--i:${index}${fresh ? `;--enter-delay:${Math.round(en.i * 60 - since)}ms` : ''}` });
+      style: `--c:${row.color};--i:${index};--float-delay:${Math.round(-(performance.now() % 4000) - index * 700)}ms${fresh ? `;--enter-delay:${Math.round(en.i * 60 - since)}ms` : ''}` });
 
     const flatOrb = flat && !stage;
     const orb = el('div', { class: stage ? 'r-orb stage-orb' : 'r-orb' },
@@ -2327,6 +2328,7 @@
   const ALERT_BEFORE = 5 * 60_000;
   const alerted = new Set();
   let alertTimer = 0;
+  let alertToken = 0; // bumped whenever a notice is put up, so a stale one is never closed by mistake
   function checkFavAlerts(items, now) {
     for (const { e, o, f } of items) {
       if (!f || o.active) continue;
@@ -2336,7 +2338,7 @@
         alerted.add(key);
         const text = `${e.name} empieza a las ${timeFmt.format(new Date(o.startMs))}`;
         $('alert-text').replaceChildren(iconSvg(document, 'estrella'), el('span', {}, text));
-        alertAction = null; $('alert-action').hidden = true;
+        alertAction = null; $('alert-action').hidden = true; alertToken++;
         reveal($('alert'), 'show');
         clearTimeout(alertTimer);
         alertTimer = setTimeout(() => conceal($('alert'), 'show'), Math.max(left, 60_000));
@@ -2408,7 +2410,7 @@
       if (!timersPrimed || now - t.endsAt > 5000) continue;
       const text = `⏰ ${t.name}: ¡tiempo!`;
       $('alert-text').textContent = text;
-      alertAction = null; $('alert-action').hidden = true;
+      alertAction = null; $('alert-action').hidden = true; alertToken++;
       reveal($('alert'), 'show');
       clearTimeout(alertTimer);
       alertTimer = setTimeout(() => conceal($('alert'), 'show'), 60_000);
@@ -2463,6 +2465,7 @@
   let lastEnergy = new Map();
   let lastAnchor;
   let stageNow = null; // { id, tone } of the character on the stage in the last paint
+  let capAlertToken = 0; // alertToken of that notice: only it may be closed by the stage change
   let capAlertId = null; // the character named by the last «está al tope» notice
   // Stage with nobody yet: an empty orb and the way to add the first character (or a plain line for read-only viewers).
   let emptyOrb = null;
@@ -2516,7 +2519,7 @@
     const pick = ui.loaded && !ui.noDb ? pickStage(view.rows, { pinnedId: ui.stageId ?? keep }) : null;
     stageNow = pick;
     // the «X está al tope» notice is done once X is on the stage
-    if (capAlertId && capAlertId === pick?.id) { capAlertId = null; if (!$('alert').hidden) $('alert-close').click(); }
+    if (capAlertId && capAlertId === pick?.id) { const mine = capAlertToken === alertToken; capAlertId = null; if (mine && !$('alert').hidden) $('alert-close').click(); }
     const stageRow = pick ? view.rows.find(r => r.id === pick.id) : null;
     const rest = view.rows.filter(r => r !== stageRow);
     const flat = cardOrbMode(view.rows.length) === '2d';
@@ -2588,6 +2591,7 @@
         if (!r || id === pick?.id) continue;
         capAlertId = id;
         showAlert(`${r.name} está al tope`, () => { ui.stageId = id; ui.selectedId = id; render(); }, 'Ver');
+        capAlertToken = alertToken;
       }
     }
     // Drop the orbs of characters that are gone; resume the motion of the rest after their cards were re-inserted.
@@ -2616,7 +2620,7 @@
   if (matchMedia('(min-width: 860px)').matches) $('events').open = true;
   // Show/hide with a CSS transition: unhide, then add the class next frame; on hide, remove the
   // class and hide once the transition is over (immediately with reduced motion).
-  const ANIM_MS = reduceMotion ? 0 : 300;
+  const animMs = () => reduceMotion ? 0 : 300;
   const hideTimers = new WeakMap();
   function reveal(node, cls) {
     clearTimeout(hideTimers.get(node));
@@ -2626,7 +2630,7 @@
   }
   function conceal(node, cls) {
     node.classList.remove(cls);
-    hideTimers.set(node, setTimeout(() => { node.hidden = true; }, ANIM_MS));
+    hideTimers.set(node, setTimeout(() => { node.hidden = true; }, animMs()));
   }
 
   // Events panel: animate the height when opening/closing instead of jumping.
@@ -3308,7 +3312,7 @@
   $('alert-action').addEventListener('click', () => { const f = alertAction; alertAction = null; $('alert-action').hidden = true; clearTimeout(alertTimer); conceal($('alert'), 'show'); if (f) f(); });
   function showAlert(text, action = null, label = '') {
     $('alert-text').textContent = text;
-    alertAction = action;
+    alertAction = action; alertToken++;
     $('alert-action').hidden = !action;
     $('alert-action').textContent = label;
     reveal($('alert'), 'show');
@@ -3522,6 +3526,7 @@
     }
   }, 1000);
   setInterval(() => { render(); paintOnline(); }, 30_000);
+  reduceMq.addEventListener?.('change', () => { reduceMotion = reduceMq.matches; animate = !reduceMotion && !lite; syncSky(); render(); });
   document.addEventListener('visibilitychange', () => { syncSky(); if (!document.hidden) render(); });
 
   // ---- Living sky behind the whole page (after the first render) ----

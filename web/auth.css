@@ -86,6 +86,7 @@ button.link { background: none; border: 0; padding: 0; min-height: 0; color: var
 
 /* Selector de idioma: botón hamburguesa con la bandera actual, arriba a la derecha. */
 .auth-top { position: fixed; top: 12px; right: 12px; z-index: 10; }
+@media (max-width: 480px) { .auth-top { position: absolute; } }
 .lang-menu { position: relative; }
 .lang-toggle {
   display: inline-flex; align-items: center; gap: 10px; padding: 8px 12px;
