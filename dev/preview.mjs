@@ -230,7 +230,7 @@ for (const [label, width, height] of [['mobile', 390, 844], ['desktop', 1280, 80
   check('waste: full card says it is losing energy', (await page.locator('article[data-id=s3]').textContent()).includes('Lleno · perdiendo energía'));
   // seeded characters have no account: Premium, +30 per recharge
   check('waste: card filling during rest hours warns', (await page.locator('article[data-id=s2]').textContent()).includes('Perderás 30 de OD'));
-  check('header: every character Premium shows +30 and cap 840', (await page.locator('#sub-regen').textContent()) === '+30 OD en' && (await page.locator('#sub-cap').textContent()) === 'tope 840' && await page.locator('#sub-cap').isVisible());
+  check('header: every character Premium, the refill clock reads +30 OD en', (await page.locator('#clocks [data-clock="refill"] .k').textContent()) === '+30 OD en');
   await page.evaluate(() => document.querySelector('[data-tab="ajustes"]')?.click());
   check('settings: rest hours fields', await page.locator('#quiet-start').isVisible() && await page.locator('#quiet-end').isVisible());
   await page.evaluate(() => document.querySelector('[data-tab="personajes"]')?.click());

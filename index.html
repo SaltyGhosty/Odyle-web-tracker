@@ -721,7 +721,7 @@
       <button type="button" class="ck reset" data-clock="daily"><small class="k">Reinicio diario</small><b class="v">—</b></button>
       <button type="button" class="ck" data-clock="event"><small class="k">Próximo evento</small><b class="v"><span class="live" hidden>En curso</span><span class="t">—</span></b></button>
     </div>
-    <button type="button" class="clocks-btn" id="clocks-btn" aria-haspopup="true" aria-expanded="false" aria-controls="clocks-menu">Relojes <span class="caret" aria-hidden="true">▾</span></button>
+    <button type="button" class="clocks-btn" id="clocks-btn">Relojes <span class="caret" aria-hidden="true">▾</span></button>
     <button type="button" id="profile-chip" class="profile-chip" aria-haspopup="dialog" hidden>
       <span class="pc-icon" id="pc-icon" aria-hidden="true"></span>
       <span class="pc-text"><b id="pc-name"></b><small id="pc-title"></small></span>
@@ -2001,7 +2001,7 @@
       $('bar-right').prepend($('clocks'));
       $('clock-strip').hidden = true;
       moreBtn.setAttribute('popovertarget', 'more-menu');
-      moreBtn.setAttribute('aria-haspopup', 'true');
+      moreBtn.removeAttribute('aria-haspopup');
       document.body.append($('ai-fab'));
     } else {
       pageEl.before(nav);
@@ -2257,6 +2257,7 @@
     const anchor = state.schedule && Number.isFinite(state.schedule.anchorMs) ? state.schedule.anchorMs : null;
     // A schedule change (incl. first load) moves computed energy without a recharge: re-baseline, no roll.
     if (anchor !== lastAnchor) { shown.clear(); rolls.clear(); }
+    paintHeaderRule(headerRule(view.rows)); // before the clock, so a rule change shows in this paint
     paintClock();
     const locked = ui.noDb || ui.readOnly;
     $('nodata').hidden = !ui.noDb;
@@ -2266,7 +2267,6 @@
     if ($('add-btn').hidden && !$('add-modal').hidden) closeAdd();
     paintPresets();
     paintTaskList();
-    paintHeaderRule(headerRule(view.rows));
 
     // Keep focus and caret across repaints (timers repaint too).
     const active = document.activeElement;

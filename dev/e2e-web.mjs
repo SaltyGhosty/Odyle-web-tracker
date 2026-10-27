@@ -58,6 +58,13 @@ async function newUser(label) {
 }
 const collectCsp = async (page, label) => { for (const v of await page.evaluate(() => window.__csp).catch(() => [])) violations.push(`${label}: ${v}`); };
 const text = (page, sel) => page.evaluate((s) => document.querySelector(s)?.textContent ?? '', sel);
+// Sections behind «Más» (desktop «Más ▾» dropdown or phone sheet) are reached through it.
+async function tab(page, id) {
+  const b = page.locator('#topnav [data-tab="' + id + '"]');
+  if (await b.isVisible()) return b.click();
+  await page.click('#topnav [data-more]');
+  await page.locator('#more-menu [data-tab="' + id + '"], #more-sheet [data-tab="' + id + '"]').locator('visible=true').first().click();
+}
 const visible = (page, sel) => page.locator(sel).first().isVisible();
 const dbRows = async (prefix) => (await db.query('select path, data from docs where path like $1 order by path', [prefix + '%'])).rows;
 
@@ -215,7 +222,7 @@ check('recarga: el personaje sigue ahí con su energía', (await pa.locator('art
 check('recarga: no vuelve a pedir el perfil', !(await visible(pa, '#profile-modal')));
 
 // exportar (descarga real) -> importar
-await pa.click('#topnav [data-tab=ajustes]');
+await tab(pa, 'ajustes');
 const [download] = await Promise.all([pa.waitForEvent('download'), pa.click('#export-btn')]);
 const exported = JSON.parse(readFileSync(await download.path(), 'utf8'));
 check('exportar: descarga un JSON del formato de la página', exported.app === 'energia-odyle' && exported.characters.length === 1, JSON.stringify(Object.keys(exported)));
@@ -264,12 +271,12 @@ check('legión: el código solo vive en el servidor (cifrado, sin código ni has
   check('banda: sin aria-live; solo anuncia el cambio por una región de estado aparte',
     (await p.getAttribute('#summary', 'aria-live')) === null && (await p.getAttribute('#band-status', 'role')) === 'status' && /al tope/.test(await text(p, '#band-status')), await text(p, '#band-status'));
   check('banda: «Gastar» mide 44 px', (await p.locator('#band-go').boundingBox())?.height >= 43.5);
-  check('rail: columna a 1280 px con Energía activa',
-    (await p.locator('#topnav').evaluate((n) => getComputedStyle(n).flexDirection === 'column'))
+  check('barra superior: menú en fila dentro de la cabecera a 1280 px con Energía activa',
+    (await p.locator('#topnav').evaluate((n) => !!n.closest('header.topbar') && getComputedStyle(n).flexDirection === 'row'))
     && (await p.getAttribute('#topnav [data-tab="personajes"]', 'aria-current')) === 'page');
   await p.click('#topnav [data-tab="legion"]');
-  check('rail: navega a Legión', !(await p.locator('#tab-legion').isHidden()));
-  await p.click('#topnav [data-tab="acerca"]');
+  check('barra superior: navega a Legión', !(await p.locator('#tab-legion').isHidden()));
+  await tab(p, 'acerca');
   const donate = p.locator('#tab-acerca a.btn.primary');
   check('acerca: donación a PayPal en pestaña nueva, sin opener, 44 px',
     (await donate.getAttribute('href')) === 'https://www.paypal.com/donate/?hosted_button_id=TDCGD3C8KHRAS'
@@ -372,8 +379,15 @@ check('legión: el código solo vive en el servidor (cifrado, sin código ni has
   check('Más: un toque en la cortina la cierra', (await p.locator('#more-sheet[open]').count()) === 0);
   await p.setViewportSize({ width: 1280, height: 900 });
   check('un único h1 visible en escritorio', (await p.locator('h1:visible').count()) === 1);
-  const railTh = await p.evaluate(() => Math.min(...[...document.querySelectorAll('.rail-foot .theme-switch button')].map((b) => b.getBoundingClientRect().height)));
-  check('rail: los botones de tema miden 44 px', railTh >= 43.5, String(railTh));
+  // Luz/Sombra: in the top bar from 1440 px; below that, inside «Más ▾».
+  await p.setViewportSize({ width: 1440, height: 900 });
+  const barTh = await p.evaluate(() => Math.min(...[...document.querySelectorAll('header.topbar .theme-switch button')].map((b) => b.getBoundingClientRect().height)));
+  check('barra superior: los botones de tema miden 44 px o más', barTh >= 43.5 && barTh !== Infinity, String(barTh));
+  await p.setViewportSize({ width: 1280, height: 900 });
+  await p.click('#topnav [data-more]');
+  const popTh = await p.evaluate(() => Math.min(...[...document.querySelectorAll('#more-menu .theme-switch button')].map((b) => b.getBoundingClientRect().height)));
+  check('Más ▾ (< 1440 px): el selector de tema está dentro y mide 44 px', popTh >= 43.5 && popTh !== Infinity, String(popTh));
+  await p.keyboard.press('Escape');
 
   // Carta celeste, Energía: todas las filas con el orbe y el nombre en la misma x (incluido un nombre de 24 caracteres
   // y un personaje sin clase), gasto rápido que resta energía y Plan de hoy con una fila por personaje.
@@ -733,7 +747,7 @@ check('cerrar todas: la cookie de renovación vieja de B no renueva', (await rep
   await register(pd, 'dani@example.com', PW); await login(pd, 'dani@example.com', PW); await fillProfile(pd, 'DaniSombra');
 
   // buscar y pedir amistad
-  await pc.click('#topnav [data-tab="buscar"]');
+  await tab(pc, 'buscar');
   await pc.fill('#search-q', 'Dani');
   await pc.waitForSelector('#social-buscar .social-list li');
   check('buscar: encuentra a DaniSombra', /DaniSombra/.test(await text(pc, '#social-buscar')));
@@ -806,7 +820,8 @@ check('cerrar todas: la cookie de renovación vieja de B no renueva', (await rep
   await pd.setViewportSize({ width: 1280, height: 900 });
 
   // tema: Sombra se guarda en prefs.theme, sobrevive a recargar y guardar el perfil no lo cambia
-  await pc.click('#topnav [data-theme-choice="asmodian"]');
+  // below 1440 px the Luz/Sombra switch lives in «Más ▾»
+  await pc.click('#topnav [data-more]'); await pc.click('#more-menu [data-theme-choice="asmodian"]'); await pc.keyboard.press('Escape');
   const cUid = (await dbRows('members/')).find((r) => r.data.profile?.nick === 'CarlaLuz')?.path.split('/')[1];
   let themeSaved = false;
   for (let i = 0; i < 50 && !themeSaved; i++) {
@@ -828,7 +843,7 @@ check('cerrar todas: la cookie de renovación vieja de B no renueva', (await rep
   await pd.uncheck('#profile-searchable');
   await pd.click('#profile-form button[type=submit]');
   await pd.waitForSelector('#profile-modal', { state: 'hidden' });
-  await pc.click('#topnav [data-tab="buscar"]');
+  await tab(pc, 'buscar');
   await pc.fill('#search-q', '');
   await pc.fill('#search-q', 'Dani');
   await pc.waitForSelector('#social-buscar >> text=Nadie se llama así');
@@ -874,7 +889,7 @@ check('cerrar todas: la cookie de renovación vieja de B no renueva', (await rep
     if (!fSaved) await new Promise((r) => setTimeout(r, 100));
   }
   check('tema primera vez: prefs.theme se guarda con la facción del perfil', fSaved);
-  await pf.click('#topnav [data-tab="ajustes"]').catch(() => {});
+  await tab(pf, 'ajustes').catch(() => {});
   await pf.fill('#quiet-start', '01:00');
   await pf.click('#prefs-form button[type=submit]');
   await new Promise((r) => setTimeout(r, 600));
@@ -882,7 +897,7 @@ check('cerrar todas: la cookie de renovación vieja de B no renueva', (await rep
 
   // cuentas Normal y Premium (usuario sin personajes: la cabecera se comprueba contra la mezcla real)
   const pg = pf; // misma sesión de F: sin personajes, el inicio de sesión también tiene tope
-  await pg.click('#topnav [data-tab="ajustes"]').catch(() => {});
+  await tab(pg, 'ajustes').catch(() => {});
   await pg.fill('#adjust-minutes', '90'); // sin hora de recarga la cabecera no muestra el contador
   await pg.click('#adjust-form button[type=submit]');
   await pg.waitForTimeout(600);
@@ -896,14 +911,15 @@ check('cerrar todas: la cookie de renovación vieja de B no renueva', (await rep
     await pg.waitForSelector(`article.card:has-text("${name}")`);
   };
   const rowG = (name) => pg.locator('article.card', { hasText: name });
-  const subG = () => pg.evaluate(() => document.getElementById('page-sub').innerText);
+  // the account rule now shows in the refill clock's label (textContent: the label is uppercased by CSS)
+  const subG = () => pg.evaluate(() => document.querySelector('#clocks [data-clock="refill"] .k').textContent);
   check('cuenta: el formulario de alta empieza en Normal', await pg.evaluate(() => { const r = document.querySelector('input[name=add-account]:checked'); return r?.value === 'normal'; }));
   await addChar('CuentaNormal');
   check('cuenta normal (por defecto): la fila muestra «/ 560» y no tiene marca Premium', /\/ 560/.test(await rowG('CuentaNormal').textContent()) && (await rowG('CuentaNormal').locator('.acct-mark').count()) === 0);
-  check('cuenta normal: la cabecera muestra «+15 OD» y «tope 560»', /\+15 OD/.test(await subG()) && /tope 560/.test(await subG()), await subG());
+  check('cuenta normal: el reloj de recarga dice «+15 OD en»', (await subG()) === '+15 OD en', await subG());
   await addChar('CuentaPremium', 'premium');
   check('cuenta premium: la fila muestra «/ 840» y la marca Premium', /\/ 840/.test(await rowG('CuentaPremium').textContent()) && (await rowG('CuentaPremium').locator('.acct-mark').textContent()) === 'Premium');
-  check('cabecera con cuentas mezcladas: «Recarga en» y sin «tope»', /Recarga en/.test(await subG()) && !/tope/.test(await subG()) && await pg.locator('#sub-cap').isHidden(), await subG());
+  check('cuentas mezcladas: el reloj de recarga dice «Recarga en»', (await subG()) === 'Recarga en', await subG());
   const gId = await rowG('CuentaPremium').getAttribute('data-id');
   const gEnergy = async () => (await dbRows('members/')).find((r) => r.path.endsWith('/characters/' + gId))?.data;
   await rowG('CuentaPremium').locator('button.primary').click();
@@ -918,7 +934,7 @@ check('cerrar todas: la cookie de renovación vieja de B no renueva', (await rep
   const gd = await gEnergy();
   check('editar Premium a Normal sin tocar la energía: se guarda «normal» y la energía no cambia', gd?.account === 'normal' && gd.energy === 700 && shown === '700', JSON.stringify({ gd, shown }));
   check('editar a Normal: la fila muestra «/ 560» y pierde la marca', /\/ 560/.test(await rowG('CuentaPremium').textContent()) && (await rowG('CuentaPremium').locator('.acct-mark').count()) === 0);
-  check('ambas Normal: la cabecera vuelve a «tope 560»', /tope 560/.test(await subG()), await subG());
+  check('ambas Normal: el reloj de recarga vuelve a «+15 OD en»', (await subG()) === '+15 OD en', await subG());
   // PATCH con la misma forma que usa la página (un parche de campos válidos); solo cambia el valor de account
   const gPath = (await dbRows('members/')).find((r) => r.path.endsWith('/characters/' + gId)).path;
   const patchAccount = (account) => pg.evaluate(async ([p, a]) => { const r = await fetch('/api/docs/' + p, { method: 'PATCH', credentials: 'same-origin', headers: { 'content-type': 'application/json', 'x-odyle-csrf': '1' }, body: JSON.stringify({ name: 'CuentaPremium', energy: 700, account: a }) }); return { status: r.status, body: await r.text() }; }, [gPath, account]);
