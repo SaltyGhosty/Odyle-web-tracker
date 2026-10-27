@@ -254,6 +254,11 @@ const barFits = page => page.evaluate(() => {
       wide: document.documentElement.scrollWidth > innerWidth, bottomBar: getComputedStyle(document.getElementById('topnav')).position === 'fixed' };
   });
   check('móvil: tira fija de relojes bajo la cabecera, el diario primero', m.inStrip && m.first === 'daily' && m.sticky && m.under && m.head && !m.wide && m.bottomBar, JSON.stringify(m));
+  const fit = await page.evaluate(() => { const s = document.querySelector('.clock-strip');
+    return { all3: s.scrollWidth <= s.clientWidth, daily: s.querySelector('[data-clock="daily"] .k').innerText.trim(),
+      ck: [...s.querySelectorAll('.ck')].map((c) => { const k = c.querySelector('.k'), v = c.querySelector('.v');
+        return k.scrollWidth <= k.clientWidth + 0.5 && getComputedStyle(k).textOverflow !== 'ellipsis' && v.getBoundingClientRect().right <= c.getBoundingClientRect().right; }) }; });
+  check('móvil: los tres relojes caben, «Diario» corto y ninguna etiqueta ni valor recortados', fit.all3 && /^diario$/i.test(fit.daily) && fit.ck.every(Boolean), JSON.stringify(fit));
   await page.screenshot({ path: 'dev/screens/topbar-390.png' });
   await page.evaluate(() => scrollTo(0, 600)); await page.waitForTimeout(100);
   check('móvil: al bajar, la tira de relojes sigue arriba', await page.evaluate(() => Math.abs(document.querySelector('.clock-strip').getBoundingClientRect().top) < 1));

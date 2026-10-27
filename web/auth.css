@@ -31,13 +31,14 @@ html { font-synthesis: none; }
 body {
   margin: 0;
   min-height: 100vh;
+  display: flex; flex-direction: column;
   background: var(--bg);
   color: var(--fg);
   font-family: var(--font-body);
   font-size: 15px;
   line-height: 1.45;
 }
-.auth { max-width: 420px; margin-inline: auto; padding: 48px 16px 56px; display: flex; flex-direction: column; gap: 12px; }
+.auth { flex: 1 0 auto; width: 100%; max-width: 420px; margin-inline: auto; padding: 48px 16px 56px; display: flex; flex-direction: column; gap: 12px; }
 h1 {
   font-family: var(--font-display); font-weight: 400; font-size: clamp(1.9rem, 7vw, 2.4rem); line-height: 1.05; margin: 0;
   letter-spacing: 0; color: var(--fg); text-align: center;
@@ -105,7 +106,8 @@ button.link { background: none; border: 0; padding: 0; min-height: 0; color: var
 }
 .lang-list button:hover, .lang-list button:focus-visible { background: var(--hover); }
 .lang-list button[aria-checked="true"] { color: var(--gold-bright); }
-.lang-list button[aria-checked="true"]::after { content: "✓"; margin-left: auto; color: var(--gold); }
+.lang-list .check { margin-left: auto; width: 18px; height: 18px; flex: none; fill: none; stroke: var(--gold); stroke-width: 2.25; stroke-linecap: round; stroke-linejoin: round; visibility: hidden; }
+.lang-list button[aria-checked="true"] .check { visibility: visible; }
 /* Política de privacidad (/privacidad): columna de lectura más ancha que las páginas de cuenta. */
 .auth.privacy { max-width: 720px; }
 .privacy article { background: var(--glass); border: none; border-radius: 18px; padding: 24px 22px; display: flex; flex-direction: column; gap: 10px; line-height: 1.65; }
@@ -115,3 +117,6 @@ button.link { background: none; border: 0; padding: 0; min-height: 0; color: var
 .privacy .back { margin-top: 24px; }
 .privacy .back a { display: inline-flex; align-items: center; min-height: 44px; }
 @media (max-width: 480px) { .auth { padding-top: 72px; } }
+/* Aviso de fans: la misma franja que el pie de la página principal, siempre visible. */
+.fan-foot { position: relative; z-index: 1; padding: 14px 16px; text-align: center; background: var(--glass); border-top: 1px solid color-mix(in srgb, var(--gold) 12%, transparent); }
+.fan-note { margin: 0; font-size: .75rem; line-height: 1.4; color: var(--muted); }

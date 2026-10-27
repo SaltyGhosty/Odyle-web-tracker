@@ -999,3 +999,11 @@ const EVENTOS = {
   pt: { 'Empieza en': 'Começa em', 'En curso · termina en': 'Em andamento · termina em' },
 };
 for (const l of Object.keys(EVENTOS)) for (const [k, v] of Object.entries(EVENTOS[l])) if (!(k in STRINGS[l])) STRINGS[l][k] = v;
+
+// Phone clock strip: the daily reset's short label, so no clock label is cut (2026-10-28).
+const STRIP = {
+  en: { Diario: 'Daily' },
+  it: { Diario: 'Giornaliero' },
+  pt: { Diario: 'Diário' },
+};
+for (const l of Object.keys(STRIP)) for (const [k, v] of Object.entries(STRIP[l])) if (!(k in STRINGS[l])) STRINGS[l][k] = v;

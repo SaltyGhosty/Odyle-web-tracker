@@ -629,6 +629,9 @@ check('legión: B ve a A entre los miembros', /AnaDaeva/.test(await text(pb, '#l
   await page.click('.lang-toggle');
   const opts = await page.locator('#lang-list [role=menuitemradio]').evaluateAll((bs) => bs.map((b) => b.dataset.lang + ':' + !!b.querySelector('svg.flag')));
   check('idioma: el menú muestra las 4 lenguas con su bandera', opts.join(',') === 'es:true,en:true,it:true,pt:true', opts.join(','));
+  const marks = await page.locator('#lang-list [role=menuitemradio]').evaluateAll((bs) => bs.map((b) => { const c = b.querySelector('svg.check'); return b.getAttribute('aria-checked') + ':' + (c ? getComputedStyle(c).visibility : 'none'); }));
+  check('idioma: la elegida lleva una marca SVG (no un glifo), solo ella', marks.filter((m) => m === 'true:visible').length === 1 && marks.every((m) => m === 'true:visible' || m === 'false:hidden')
+    && await page.evaluate(() => [...document.querySelectorAll('#lang-list button')].every((b) => getComputedStyle(b, '::after').content === 'none' || getComputedStyle(b, '::after').content === 'normal')), marks.join(','));
   await page.fill('#email', 'algo@example.com');
   await page.click('#lang-list [data-lang=en]');
   check('idioma: inglés traduce la vista, conserva lo escrito y cierra el menú',
@@ -650,12 +653,21 @@ check('legión: B ve a A entre los miembros', /AnaDaeva/.test(await text(pb, '#l
     (await text(page, '#policy')).includes('Luciano Labbozzetta'));
   check('cuenta: el cielo vivo se dibuja (canvas#sky con tamaño)', await page.evaluate(() => { const c = document.getElementById('sky'); return !!c && c.width > 0 && c.height > 0; }));
   await page.setViewportSize({ width: 1440, height: 900 });
+  // aviso de fans: la franja del pie, traducida, al final de la página (la política es larga: tras el texto)
+  const fanAt = () => page.evaluate(() => { const f = document.querySelector('footer.fan-foot'), r = f?.getBoundingClientRect();
+    return f ? { text: f.textContent.trim(), bottom: Math.round(r.bottom + scrollY), doc: document.documentElement.scrollHeight, inView: r.bottom <= innerHeight + 0.5, h: Math.round(r.height) } : null; });
+  const fp = await fanAt();
+  check('privacidad: aviso de fans al final, traducido', !!fp && fp.text === 'Unofficial fan site · not affiliated with NCSOFT' && fp.bottom === fp.doc && fp.h > 20, JSON.stringify(fp));
   await page.screenshot({ path: 'dev/screens/privacidad-1440.png' });
   await page.goto(`${ORIGIN}/login`);
   await page.waitForTimeout(300);
+  const fa = await fanAt();
+  check('cuenta 1440: aviso de fans visible abajo sin desplazar, traducido', !!fa && fa.inView && fa.bottom === fa.doc && /Unofficial fan site/.test(fa.text), JSON.stringify(fa));
   await page.screenshot({ path: 'dev/screens/auth-1440.png' });
   await page.setViewportSize({ width: 390, height: 844 });
   await page.waitForTimeout(400);
+  const fm = await fanAt();
+  check('cuenta 390: aviso de fans visible abajo sin desplazar', !!fm && fm.inView && fm.bottom === fm.doc, JSON.stringify(fm));
   await page.screenshot({ path: 'dev/screens/auth-390.png' });
   // El 401 del login fallido provocado arriba es esperado; cualquier otro error cuenta.
   const realErrs = errs.filter((e) => !/status of 401/.test(e));

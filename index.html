@@ -104,10 +104,15 @@
   .clock-strip { position: sticky; top: 0; z-index: 14; display: flex; overflow-x: auto; overscroll-behavior-x: contain; scrollbar-width: none;
     padding: 8px 16px; background: var(--bg-2); border-bottom: 1px solid color-mix(in srgb, var(--gold) 18%, transparent); }
   .clock-strip::-webkit-scrollbar { display: none; }
-  /* all three clocks fit at 390 px: they share the width (112 px at least), labels may truncate, values never clip */
-  .clock-strip .clocks { flex: 1 1 auto; min-width: 0; gap: 6px; }
-  .clock-strip .ck { flex: 1 1 112px; min-width: 112px; padding: 0 10px; }
-  .clock-strip .ck .k { max-width: 100%; letter-spacing: .08em; }
+  .ck .k-short { display: none; }
+  /* all three clocks fit at 390 px and no label is cut: the daily reset says «Diario», the event clock takes the room
+     left by the other two and its name may wrap onto a second line; values never clip */
+  .clock-strip .clocks { flex: 1 1 auto; min-width: 0; gap: 6px; align-items: stretch; }
+  .clock-strip .ck { flex: 0 0 auto; min-width: 0; height: auto; padding: 4px 10px; }
+  .clock-strip .ck[data-clock="event"] { flex: 1 1 0; }
+  .clock-strip .ck .k { max-width: none; overflow: visible; white-space: normal; text-overflow: clip; overflow-wrap: anywhere; line-height: 1.1; letter-spacing: .06em; }
+  .clock-strip .ck .k-long { display: none; }
+  .clock-strip .ck .k-short { display: inline; }
   .clock-strip .ck .v { font-size: 17px; }
   /* «En curso» stays for screen readers; on the strip the value turns to the accent instead */
   .clock-strip .ck .v .live { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
@@ -831,7 +836,7 @@
   <div class="bar-right" id="bar-right">
     <div class="clocks" id="clocks">
       <button type="button" class="ck" data-clock="refill"><small class="k" id="ck-refill-k">+30 OD en</small><b class="v" id="next-tick">—</b></button>
-      <button type="button" class="ck reset" data-clock="daily"><small class="k">Reinicio diario</small><b class="v">—</b></button>
+      <button type="button" class="ck reset" data-clock="daily"><small class="k"><span class="k-long">Reinicio diario</span><span class="k-short">Diario</span></small><b class="v">—</b></button>
       <button type="button" class="ck" data-clock="event"><small class="k">Próximo evento</small><b class="v"><span class="live" hidden>En curso</span><span class="t">—</span></b></button>
     </div>
     <button type="button" class="clocks-btn" id="clocks-btn">Relojes <span class="caret" data-icon="desplegar" aria-hidden="true"></span></button>
