@@ -983,3 +983,11 @@ const TOPBAR = {
   pt: { 'Más': 'Mais', 'Relojes': 'Relógios', '+{0} OD en': '+{0} OD em', 'En curso': 'Em andamento', 'Próximo evento': 'Próximo evento' },
 };
 for (const l of Object.keys(TOPBAR)) for (const [k, v] of Object.entries(TOPBAR[l])) if (!(k in STRINGS[l])) STRINGS[l][k] = v;
+
+// Energía «Engaste»: the stage and the character cards (2026-10-27).
+const ENERGIA = {
+  en: { '{0} más': '{0} more', '{0} está al tope': '{0} is at the cap', 'Gastar ahora': 'Spend now', Hoy: 'Today', 'Reinicio semanal': 'Weekly reset' },
+  it: { '{0} más': 'altri {0}', '{0} está al tope': '{0} è al limite', 'Gastar ahora': 'Spendi ora', Hoy: 'Oggi', 'Reinicio semanal': 'Reset settimanale' },
+  pt: { '{0} más': 'mais {0}', '{0} está al tope': '{0} está no limite', 'Gastar ahora': 'Gastar agora', Hoy: 'Hoje', 'Reinicio semanal': 'Reinício semanal' },
+};
+for (const l of Object.keys(ENERGIA)) for (const [k, v] of Object.entries(ENERGIA[l])) if (!(k in STRINGS[l])) STRINGS[l][k] = v;

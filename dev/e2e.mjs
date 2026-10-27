@@ -22,8 +22,16 @@ const STUB = () => {
     'settings/schedule': { anchorMs: now - 60 * 60_000 },
     'members/u_me': window.__noProfile ? { joinedAt: now - 86_400_000 }
       : { joinedAt: now - 86_400_000, profile: { nick: 'SaltyMain', server: 'Israphel', bio: '', faction: 'elyos', mainCharId: 'c1' } },
-    'members/u_me/characters/c1': { name: 'SaltyGhosty', classId: 'asesino', energy: 300, recordedAt: now, order: 1 },
-    'members/u_me/characters/c2': { name: 'Shutaruku', classId: 'gladiador', energy: 200, recordedAt: now, order: 2 },
+    // __empty: no characters; __demo: the Energía screenshots (one at the cap, three not)
+    ...(window.__empty ? {} : {
+      'members/u_me/characters/c1': { name: 'SaltyGhosty', classId: 'asesino', energy: 300, recordedAt: now, order: 1 },
+      'members/u_me/characters/c2': { name: 'Shutaruku', classId: 'gladiador', energy: 200, recordedAt: now, order: 2 },
+    }),
+    ...(window.__demo ? {
+      'members/u_me/characters/c2': { name: 'Shutaruku', classId: 'gladiador', energy: 840, recordedAt: now, order: 2 },
+      'members/u_me/characters/c3': { name: 'Nombre-Largo-Clérigo', classId: 'clerigo', energy: 615, recordedAt: now, order: 3 },
+      'members/u_me/characters/c4': { name: 'SinClase', energy: 120, recordedAt: now, order: 4 },
+    } : {}),
     'members/u_me/settings/presets': { items: [{ id: 'p1', name: 'Mazmorra', cost: 40 }] },
     // Ana leads "Guardianes" (code K7Q2XM9P); in the leader scenario she is a member of my legion instead
     ...(window.__leader ? { 'members/u_ana_x': {} } : {
@@ -74,7 +82,7 @@ const STUB = () => {
   });
   const names = { u_me: 'Salty', u_ana: 'Ana', u_bob: 'Bob' };
   const user = {
-    id: async () => 'u_me', isOwner: async () => true, can: async () => true, canEdit: async () => true,
+    id: async () => 'u_me', isOwner: async () => true, can: async () => !window.__readOnly, canEdit: async () => true,
     profiles: async ids => Object.fromEntries(ids.map(i => [i, { id: i, name: names[i] || '' }])),
   };
   // room: two people here (me + Ana); tests inject Ana's messages with __room.receive
@@ -140,16 +148,21 @@ async function open(width, height = 900, opts = {}) {
   if (opts.noProfile) await page.addInitScript(() => { window.__noProfile = true; });
   if (opts.leader) await page.addInitScript(() => { window.__leader = true; });
   if (opts.prefsAsmodian) await page.addInitScript(() => { window.__prefsAsmodian = true; });
+  if (opts.demo) await page.addInitScript(() => { window.__demo = true; });
+  if (opts.empty) await page.addInitScript(() => { window.__empty = true; });
+  if (opts.readOnly) await page.addInitScript(() => { window.__readOnly = true; });
   await page.addInitScript(STUB);
   await page.addInitScript(l => { try { localStorage.setItem('odyle-lang', l); localStorage.removeItem('odyle-tab'); } catch {} }, opts.lang || 'es');
   await page.goto(BASE);
-  await page.waitForSelector('article.card');
+  await page.waitForSelector(opts.empty ? '#stage .stage-empty' : 'article.card');
   await page.waitForTimeout(400);
   return page;
 }
 const db = (page, p) => page.evaluate(k => window.__docs.get(k) ?? null, p);
 const text = (page, sel) => page.evaluate(s => document.querySelector(s)?.textContent ?? '', sel);
 const visible = (page, sel) => page.locator(sel).first().isVisible();
+// Ajustes lives in «Más ▾» on desktop (top bar menu).
+const openAjustes = async page => { await page.click('#topnav [data-more]'); await page.click('#more-menu [data-tab=ajustes]'); await page.waitForTimeout(150); };
 
 // ================= Top bar «Engaste» (one line, three clocks) =================
 // Bar contract: header.topbar (≤ 72 px tall, one line) with .brand, nav#topnav and .clocks (refill · daily · event).
@@ -245,6 +258,87 @@ const barFits = page => page.evaluate(() => {
   await page.close();
 }
 
+// ================= Energía «Engaste»: stage + cards =================
+// Demo data: Shutaruku at the cap, three others not. The stage holds the most urgent; the cards hold everyone else.
+const stageInfo = page => page.evaluate(() => {
+  const st = document.getElementById('stage'), slot = st.querySelector('.stage-orb .orb-slot');
+  const ids = [...document.querySelectorAll('[data-num]')].map(n => n.dataset.num);
+  return { name: st.querySelector('h2')?.textContent, tone: st.className, go: st.querySelector('button.stage-go')?.textContent ?? null,
+    goUrgent: !!st.querySelector('button.stage-go.urgent'), why: st.querySelector('.r-num .stage-why')?.textContent,
+    whyAfterNum: st.querySelector('.r-num .num')?.parentElement === st.querySelector('.stage-why')?.parentElement,
+    slot: slot ? Math.round(slot.getBoundingClientRect().width) : 0, has3d: !!slot?.querySelector('canvas.orb3d'), num: st.querySelector('[data-num]')?.dataset.num,
+    dupNums: ids.length !== new Set(ids).size, cards: [...document.querySelectorAll('#cards article.card')].map(c => c.dataset.id).join(),
+    count: document.querySelector('#chars-bar h2 .count')?.textContent, wide: document.documentElement.scrollWidth > innerWidth };
+});
+const tallShot = async (page, w, file) => {
+  const h = await page.evaluate(() => document.documentElement.scrollHeight);
+  await page.setViewportSize({ width: w, height: h }); await page.waitForTimeout(700); // every orb on screen, so every 3D orb is drawn
+  await page.screenshot({ path: file });
+};
+{
+  const page = await open(1440, 900, { demo: true });
+  const s = await stageInfo(page);
+  check('escenario: el que está al tope, en rojo, con «Gastar ahora»', s.name === 'Shutaruku' && /tone-urgent/.test(s.tone) && s.go === 'Gastar ahora' && s.goUrgent, JSON.stringify(s));
+  check('escenario: el motivo va pegado al número', s.why === 'pierde 30 OD cada 3 h' && s.whyAfterNum, JSON.stringify(s));
+  check('escenario: orbe 3D de 250 px', s.slot === 250 && s.has3d, JSON.stringify(s));
+  check('tarjetas: el resto, «3 más», sin repetir el del escenario', s.cards === 'c1,c3,c4' && s.count === '3 más' && s.num === 'c2' && !s.dupNums, JSON.stringify(s));
+  check('tarjetas: orbe de 108 px arriba, nombre, número y estado', await page.evaluate(() => [...document.querySelectorAll('#cards article.card')].every(c => {
+    const o = c.querySelector('.orb-slot').getBoundingClientRect(), n = c.querySelector('.name').getBoundingClientRect();
+    return Math.round(o.width) === 108 && o.bottom <= n.top && c.querySelector('.r-num .num') && c.querySelector('.full-in');
+  })));
+  check('escenario: sin la banda ni la columna lateral', !(await page.locator('#summary').count()) && !(await page.locator('#side').count()) && /al tope/.test(await text(page, '#band-status')));
+  check('Hoy: eventos, reinicio semanal y nada fuera de la página', await page.locator('#today .today-list li').count() >= 2 && /Reinicio semanal/.test(await text(page, '#today')) && !s.wide);
+  check('gastos rápidos: del personaje del escenario', /Shutaruku/.test(await text(page, '#quick-title')));
+  await page.screenshot({ path: 'dev/screens/energia-luz-1440.png' });
+  // a click on a card brings it to the stage; Escape on the stage gives it back to the most urgent
+  await page.click('#cards article[data-id=c3] .name'); await page.waitForTimeout(500);
+  const s2 = await stageInfo(page);
+  check('tarjeta: al pulsarla pasa al escenario', s2.name === 'Nombre-Largo-Clérigo' && !/tone-urgent/.test(s2.tone) && !s2.goUrgent && s2.cards === 'c1,c2,c4' && !s2.dupNums && /Nombre-Largo/.test(await text(page, '#quick-title')), JSON.stringify(s2));
+  await page.click('#cards article[data-id=c1] button.primary'); await page.waitForTimeout(200);
+  check('tarjeta: pulsar sus botones no la sube al escenario', (await stageInfo(page)).name === 'Nombre-Largo-Clérigo' && await visible(page, '#energy-c1'));
+  await page.click('#cards article[data-id=c1] form button[type=button]'); await page.waitForTimeout(200);
+  await page.click('#stage button.stage-go'); await page.waitForTimeout(300);
+  check('«Gastar ahora»: lleva a los gastos rápidos del escenario', await page.evaluate(() => document.activeElement?.matches('#quick-chips [data-quick]')));
+  await page.focus('#stage button.stage-go'); await page.keyboard.press('Escape'); await page.waitForTimeout(400);
+  check('Esc en el escenario: vuelve el más urgente', (await stageInfo(page)).name === 'Shutaruku');
+  // another character reaches the cap: the stage stays, a short notice offers to bring them
+  await page.evaluate(() => { Object.assign(window.__docs.get('members/u_me/characters/c3'), { energy: 840, recordedAt: Date.now() }); window.__notify(); });
+  await page.waitForTimeout(500);
+  check('al tope: aviso «X está al tope» y el escenario no salta', (await text(page, '#alert-text')) === 'Nombre-Largo-Clérigo está al tope' && await visible(page, '#alert-action')
+    && (await stageInfo(page)).name === 'Shutaruku' && await page.locator('#cards article[data-id=c3].full').count() === 1);
+  await page.click('#alert-action'); await page.waitForTimeout(400);
+  check('al tope: el aviso lo lleva al escenario', (await stageInfo(page)).name === 'Nombre-Largo-Clérigo');
+  await page.reload(); await page.waitForSelector('#stage article.card'); await page.waitForTimeout(400);
+  check('recargar: vuelve el más urgente (la elección no se guarda)', (await stageInfo(page)).name === 'Shutaruku');
+  await page.click('header.topbar [data-theme-choice="asmodian"]'); await page.waitForTimeout(400);
+  await page.screenshot({ path: 'dev/screens/energia-sombra-1440.png' });
+  await page.close();
+}
+for (const theme of ['luz', 'sombra']) {
+  const page = await open(390, 844, { demo: true });
+  if (theme === 'sombra') { await page.evaluate(() => document.querySelector('[data-theme-choice="asmodian"]').click()); await page.waitForTimeout(300); }
+  const s = await stageInfo(page);
+  check(`móvil ${theme}: escenario arriba con orbe de 180 px, tarjetas debajo en una columna`, s.name === 'Shutaruku' && s.slot === 180 && !s.wide && await page.evaluate(() => {
+    const st = document.getElementById('stage').getBoundingClientRect(), cards = [...document.querySelectorAll('#cards article.card')].map(c => c.getBoundingClientRect());
+    return cards.every(c => c.top >= st.bottom && Math.abs(c.left - cards[0].left) < 1);
+  }), JSON.stringify(s));
+  await tallShot(page, 390, `dev/screens/energia-${theme}-390.png`);
+  await page.close();
+}
+{
+  const page = await open(1440, 900, { empty: true });
+  check('sin personajes: el escenario invita a añadir uno', /Añade tu personaje/.test(await text(page, '#stage')) && await visible(page, '#stage button.stage-go'));
+  await page.screenshot({ path: 'dev/screens/energia-empty-1440.png' });
+  await page.click('#stage button.stage-go');
+  check('sin personajes: el botón abre «Añadir personaje»', await visible(page, '#add-modal'));
+  await page.close();
+}
+{
+  const page = await open(1440, 900, { demo: true, readOnly: true });
+  check('solo lectura: sin «Gastar ahora» en el escenario', (await stageInfo(page)).name === 'Shutaruku' && await page.locator('#stage button', { hasText: 'Gastar ahora' }).count() === 0);
+  await page.close();
+}
+
 // ================= Desktop =================
 {
   const page = await open(1280);
@@ -269,7 +363,7 @@ const barFits = page => page.evaluate(() => {
   check('alcance: solo ves a tu legión', !/BobOtro|Bobby/.test(await text(page, '#legion')));
   check('alcance: estás en la sala de tu legión', await page.evaluate(() => window.__joined.length === 1 && /^lg-[0-9a-f]{16}$/.test(window.__joined[0])));
   await page.click('#topnav [data-tab=personajes]');
-  check('tarjetas propias: 2', await page.locator('#cards article.card').count() === 2);
+  check('tarjetas propias: 2 (una en el escenario, una en la vitrina)', await page.locator('#tab-personajes article.card').count() === 2 && await page.locator('#cards article.card').count() === 1);
   check('personajes: sin formulario en medio, con botón +', !(await visible(page, '#add-form')) && await visible(page, '#add-btn'));
   await page.click('#add-btn');
   check('+: abre la ventana con el foco en el nombre', await visible(page, '#add-modal') && await page.evaluate(() => document.activeElement?.id === 'add-name'));
@@ -279,15 +373,15 @@ const barFits = page => page.evaluate(() => {
   await page.click('#presets-btn');
   check('gastos: abre la ventana con tus botones', await visible(page, '#presets-modal') && /Mazmorra · 40/.test(await text(page, '#preset-list')));
   await page.fill('#preset-name', 'Jefe'); await page.fill('#preset-cost', '80'); await page.click('#preset-form button[type=submit]'); await page.waitForTimeout(400);
-  check('gastos: añadir un botón', (await db(page, 'members/u_me/settings/presets')).items.some(p => p.name === 'Jefe' && p.cost === 80) && await page.locator('article[data-id=c1] button.spend').count() === 2);
+  check('gastos: añadir un botón', (await db(page, 'members/u_me/settings/presets')).items.some(p => p.name === 'Jefe' && p.cost === 80) && await page.locator('#quick-chips [data-quick]').count() === 2);
   await page.click('#preset-list li:last-child button'); await page.waitForTimeout(400);
   check('gastos: quitar un botón', (await db(page, 'members/u_me/settings/presets')).items.length === 1);
   await page.keyboard.press('Escape'); await page.waitForTimeout(400);
   check('gastos: Esc cierra la ventana', !(await visible(page, '#presets-modal')) && await page.evaluate(() => document.activeElement?.id === 'presets-btn'));
-  check('tarjeta: mazmorras de hoy', /^Mazmorras \(40\): 7 ahora · \d+ antes de medianoche$/.test(await text(page, 'article[data-id=c1] .runs')), await text(page, 'article[data-id=c1] .runs'));
+  check('plan: mazmorras de hoy del personaje', /Mazmorra ×7 en/.test(await text(page, '#plan [data-plan=c1]')), await text(page, '#plan [data-plan=c1]'));
 
   // keyboard shortcuts
-  await page.click('article[data-id=c2] .card-head'); // select Shutaruku
+  await page.click('article[data-id=c2] .name'); // select Shutaruku (it moves to the stage)
   await page.keyboard.press('1');
   await page.waitForTimeout(300);
   check('atajo 1: gasta 40 en el personaje seleccionado', (await db(page, 'members/u_me/characters/c2')).energy === 160 && (await db(page, 'members/u_me/characters/c1')).energy === 300);
@@ -433,18 +527,18 @@ const barFits = page => page.evaluate(() => {
   check('legión: sales (con confirmación)', !(await db(page, 'members/u_me')).legionId && await visible(page, '#lg-join') && (await text(page, '#pc-title')) === '');
 
   // compact mode + language (Ajustes)
-  await page.click('#topnav [data-tab=ajustes]');
+  await openAjustes(page);
   await page.check('#compact-toggle');
   await page.click('#topnav [data-tab=estadisticas]');
   check('modo compacto: sin gráficos', await page.evaluate(() => document.body.classList.contains('compact')) && !(await visible(page, '#forecast-panel')));
-  await page.click('#topnav [data-tab=ajustes]');
+  await openAjustes(page);
   await page.uncheck('#compact-toggle');
   await page.selectOption('#lang-select', 'en');
   await page.waitForTimeout(300);
-  check('idioma: cambia a inglés al momento', (await text(page, '#topnav [data-tab=personajes]')) === 'Characters' && (await text(page, '#ai-fab')) === '✦ Assistant');
+  check('idioma: cambia a inglés al momento', (await text(page, '#topnav [data-tab=personajes]')) === 'Energy' && (await text(page, '#ai-fab')).trim() === 'Assistant');
   await page.click('#topnav [data-tab=personajes]');
-  check('idioma: los datos siguen ahí', await page.locator('#cards article.card').count() === 2);
-  await page.click('#topnav [data-tab=ajustes]');
+  check('idioma: los datos siguen ahí', await page.locator('#tab-personajes article.card').count() === 2);
+  await openAjustes(page);
   await page.selectOption('#lang-select', 'es');
   await page.close();
 }
@@ -522,8 +616,8 @@ const barFits = page => page.evaluate(() => {
   await page.click('#topnav [data-tab=personajes]');
   await page.click('#add-btn');
   await page.fill('#add-name', 'Nuevo'); await page.press('#add-name', 'Enter'); await page.waitForTimeout(500);
-  check('móvil: + añade un personaje y la ventana se cierra', await page.locator('#cards article.card').count() === 3 && !(await visible(page, '#add-modal')));
-  await page.click('article[data-id=c1] button.spend'); await page.waitForTimeout(300);
+  check('móvil: + añade un personaje y la ventana se cierra', await page.locator('#tab-personajes article.card').count() === 3 && !(await visible(page, '#add-modal')));
+  await page.click('#quick-chips [data-quick]'); await page.waitForTimeout(300);
   await page.waitForTimeout(400);
   const fab = await page.locator('#ai-fab').boundingBox(), toast = await page.locator('#toast').boundingBox();
   check('móvil: el asistente no tapa el aviso de deshacer', fab && toast && (fab.y + fab.height <= toast.y || fab.y >= toast.y + toast.height || fab.x >= toast.x + toast.width));

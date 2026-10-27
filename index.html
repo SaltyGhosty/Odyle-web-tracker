@@ -161,32 +161,103 @@
   .row .field { flex: 1 1 150px; min-width: 0; display: flex; flex-direction: column; gap: 4px; }
   .row .offset { margin-top: 22px; }
 
-  /* ---- Characters: flat rows on ONE orb column, joined by a dotted gold constellation ---- */
-  .grid { display: flex; flex-direction: column; gap: 0; }
-  /* orb | name + class + status | number | actions. --orb sets the column; every row uses the same one, so the orb and the name
-     always sit at the same x. The constellation is one dotted line from each orb's centre down to the next orb's centre. */
-  .card.row { --orb: 104px; --pady: 8px; position: relative; display: grid; grid-template-columns: var(--orb) minmax(0, 1fr) 132px 264px; grid-template-areas: "orb text num act" "below below below below";
-    align-items: center; gap: 4px 20px; padding: var(--pady) 0; border-bottom: 1px solid var(--line); }
-  .card.row:not(:last-child)::before { content: ""; position: absolute; z-index: 1; left: calc(var(--orb) / 2); width: 1px; pointer-events: none; opacity: .75;
-    top: calc(var(--pady) + var(--orb) / 2); bottom: calc(-1px - var(--pady) - var(--orb) / 2);
-    background: repeating-linear-gradient(to bottom, var(--gold) 0 2px, transparent 2px 7px); }
-  .r-orb { grid-area: orb; margin: 0; align-self: start; position: relative; z-index: 2; }
+  /* ---- Energía «Engaste de orbes»: the stage (most urgent character) beside the case (the other cards, quick spends, Hoy, plan) ---- */
+  .page > .tabs:has(> #tab-personajes:not([hidden])) { width: min(100%, 1408px); }
+  section.energy { display: grid; grid-template-columns: 560px minmax(0, 1fr); gap: 24px; align-items: start; }
+  section.energy.no-stage { grid-template-columns: minmax(0, 1fr); }
+  @media (max-width: 1199.98px) { section.energy { grid-template-columns: minmax(420px, 40%) minmax(0, 1fr); } }
+  @media (max-width: 899.98px) { section.energy { grid-template-columns: minmax(0, 1fr); gap: 20px; } }
+  .stage { --orb: 250px; position: relative; border-radius: 18px; background: var(--field); padding: 40px 28px 36px;
+    min-height: 560px; display: grid; place-items: center; text-align: center; }
+  @media (min-width: 900px) { .stage { position: sticky; top: 16px; min-height: min(720px, calc(100vh - 32px)); } }
+  /* the glow: red only when someone is at the cap */
+  .stage.tone-urgent { background: radial-gradient(55% 42% at 50% 34%, color-mix(in srgb, var(--urgent) 26%, transparent), transparent 70%), var(--field); }
+  .stage-card, .stage-empty { width: 100%; display: flex; flex-direction: column; align-items: center; gap: 22px; min-width: 0; }
+  .stage-orb { position: relative; display: grid; place-items: center; padding: 30px; }
+  /* thin outer circle around the orb's own rune ring */
+  .stage-orb::before { content: ""; position: absolute; inset: 0; border-radius: 50%; border: 1px solid color-mix(in srgb, var(--gold) 40%, transparent); pointer-events: none; }
+  .stage.tone-urgent .stage-orb::before { border-color: color-mix(in srgb, var(--urgent) 55%, transparent); }
+  .stage-cap { width: 100%; min-width: 0; display: flex; flex-direction: column; align-items: center; gap: 10px; }
+  .stage-card .who { flex-direction: column; align-items: center; gap: 6px; max-width: 100%; }
+  .stage-card .name { font-family: var(--font-display); font-weight: 400; font-size: 58px; line-height: 1; letter-spacing: 0; max-width: 100%; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .stage-card .r-num { flex-wrap: wrap; justify-content: center; align-items: baseline; gap: 4px 8px; }
+  .stage-card .r-num .num { font-size: 2.5rem; font-weight: 800; line-height: 1; color: var(--gold-bright); }
+  .stage-card.full .r-num .num { color: var(--danger); }
+  .stage-why { color: var(--muted); font-size: 1rem; }
+  .stage-why::before { content: "·"; margin-right: 8px; color: var(--muted); }
+  .stage-why.lost { color: var(--danger); font-weight: 700; }
+  .stage-card .r-meta { align-items: center; }
+  .stage-card .r-act { justify-content: center; }
+  .stage-card .r-act button { border-radius: 10px; }
+  .stage-card .r-below { width: min(100%, 420px); text-align: left; }
+  .stage-empty h2 { font-size: 2rem; }
+  .stage-empty .star-orb { opacity: .55; }
+  button.stage-go { min-height: 48px; padding: 0 28px; border-radius: 10px; font-weight: 800; font-size: 1rem; border: 1px solid var(--line-strong); background: transparent; color: var(--fg); }
+  button.stage-go.urgent { background: var(--urgent-strong); border-color: var(--urgent-strong); color: var(--fg); }
+  @media (hover: hover) and (pointer: fine) { button.stage-go:hover { background: var(--hover); } button.stage-go.urgent:hover { background: var(--urgent); border-color: var(--urgent); } button.stage-go.primary:hover { background: var(--gold-bright); } }
+  @media (max-width: 899.98px) { .stage { --orb: 180px; min-height: 0; padding: 28px 16px; } .stage-orb { padding: 20px; } .stage-card .name { font-size: 2.5rem; } .stage-card, .stage-empty { gap: 16px; } }
+
+  .case { min-width: 0; border-radius: 18px; background: var(--glass); padding: 28px 32px 32px; display: flex; flex-direction: column; gap: 28px; }
+  @media (max-width: 899.98px) { .case { padding: 20px 16px 24px; gap: 24px; } }
+  .case h2 { font-size: 1.625rem; }
+  .chars-bar h2 .count { margin-left: 10px; font: 700 .8125rem var(--font-body); letter-spacing: 0; color: var(--muted); }
+  .case-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+  .case-head .side-link { margin: 0; }
+  .case .panel { border-radius: 14px; }
+  button.stage-go.primary { background: var(--gold); border-color: var(--gold); color: var(--on-gold); }
+
+  /* Character cards: vertical tiles (orb on top) on the case. */
+  .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 224px), 1fr)); gap: 18px; }
+  .card.tile { --orb: 108px; position: relative; min-width: 0; display: flex; flex-direction: column; align-items: center; gap: 6px; text-align: center;
+    padding: 22px 12px 14px; border-radius: 18px; background: var(--bg); cursor: pointer; }
+  .legion .card.tile { cursor: default; }
+  .card.tile .r-orb { margin-bottom: 8px; }
+  .card.tile .who { flex-direction: column; align-items: center; gap: 4px; max-width: 100%; }
+  .card.tile .name { font-family: var(--font-display); font-weight: 400; font-size: 1.25rem; line-height: 1.2; max-width: 100%; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .card.tile .r-num { justify-content: center; margin-top: 4px; }
+  .card.tile .r-num .num { font-size: 1.875rem; font-weight: 800; line-height: 1; color: var(--gold-bright); }
+  .card.tile.full { box-shadow: inset 0 0 0 2px var(--urgent); }
+  .card.tile.full .r-num .num, .r-meta .lost { color: var(--danger); }
+  .card.tile .full-in { font-size: .8125rem; }
+  .card.tile .full-in::before { display: none; }
+  .card.tile.full button.spend { background: var(--urgent-strong); border-color: var(--urgent-strong); color: var(--fg); }
+  .card.tile.selected { box-shadow: inset 0 0 0 2px var(--gold); }
+  .card.tile .r-act { justify-content: center; margin-top: 8px; }
+  .card.tile .r-act { gap: 6px; }
+  .card.tile .r-act button { min-height: 44px; padding: 0 10px; font-size: .8125rem; }
+  .card.tile .r-act button.more-actions { min-width: 44px; padding: 0 10px; }
+  .card.tile .r-below { width: 100%; text-align: left; }
+  @media (hover: hover) and (pointer: fine) { .card.tile:hover { background: color-mix(in srgb, var(--fg) 5%, var(--bg)); } }
+  .who-sub { display: flex; flex-wrap: wrap; justify-content: center; align-items: center; gap: 4px 10px; }
+  .who-sub:empty { display: none; }
+  .case button:not(.icon-only), .stage button, .chip { border-radius: 10px; }
+  .menu li > button { border-radius: 6px; }
+  .r-orb { margin: 0; position: relative; z-index: 2; }
   .orb-slot { width: var(--orb); height: var(--orb); position: relative; }
-  .r-text { grid-area: text; min-width: 0; display: flex; flex-direction: column; gap: 4px; }
+  .r-text { min-width: 0; max-width: 100%; display: flex; flex-direction: column; gap: 4px; }
   .who { display: flex; flex-wrap: wrap; align-items: baseline; gap: 2px 10px; min-width: 0; }
-  .r-text .name { font-family: var(--font-display); font-weight: 400; font-size: 1.5rem; line-height: 1.2; letter-spacing: .01em; max-width: 100%; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-  .cls-name { margin: 0; font-size: .6875rem; font-weight: 700; letter-spacing: .14em; text-transform: uppercase; color: var(--sky); }
-  .acct-mark { display: inline-block; font-size: .6875rem; font-weight: 700; letter-spacing: .14em; text-transform: uppercase; color: var(--gold); border: 1px solid var(--line); border-radius: 0; padding: 2px 6px; }
-  .r-num { grid-area: num; justify-content: flex-end; }
-  .r-num .num { font-size: 3rem; font-weight: 800; line-height: 1; letter-spacing: -.01em; color: var(--fg); }
-  .card.full .r-num .num, .r-text .lost { color: var(--danger); }
-  .card.full button.spend { background: var(--urgent-strong); border-color: var(--urgent-strong); color: var(--fg); }
-  .r-act { grid-area: act; display: flex; flex-wrap: wrap; align-items: center; gap: 8px; justify-content: flex-end; }
+  .cls-name { margin: 0; display: inline-flex; align-items: center; gap: 6px; font-size: .6875rem; font-weight: 700; letter-spacing: .14em; text-transform: uppercase; color: var(--sky); }
+  .cls-name .cls-icon { width: 16px; height: 16px; }
+  .acct-mark { display: inline-block; font-size: .6875rem; font-weight: 700; letter-spacing: .14em; text-transform: uppercase; color: var(--gold); border: 1px solid var(--line); border-radius: 6px; padding: 2px 6px; }
+  .r-meta { min-width: 0; max-width: 100%; display: flex; flex-direction: column; gap: 4px; }
+  .r-meta:empty { display: none; }
+  .r-act { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+  .r-act:empty { display: none; }
   .r-act button, .r-act button.spend, .r-act button.primary { min-height: 44px; }
   .r-act button.primary { background: transparent; color: var(--fg); }
-  .r-below { grid-area: below; min-width: 0; display: flex; flex-direction: column; gap: 10px; }
+  .r-below { min-width: 0; display: flex; flex-direction: column; gap: 10px; }
   .r-below:empty { display: none; }
   .r-below > form, .r-below > .row { padding-top: 6px; }
+
+  /* Hoy: next events, the weekly reset and who is online. */
+  .today { display: flex; flex-direction: column; gap: 12px; }
+  .today-list { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 150px), 1fr)); gap: 12px; }
+  .today-list li { min-width: 0; display: flex; flex-direction: column; gap: 2px; padding: 12px 16px; border-radius: 14px; background: var(--field); color: var(--muted); font-size: .8125rem; }
+  .today-list li > span { overflow-wrap: anywhere; }
+  .today-list li b { font-size: 1.25rem; font-weight: 700; color: var(--sky); }
+  .today-list li.active b, .today-list li.week b { color: var(--gold-bright); }
+  .today-online { display: flex; flex-direction: column; gap: 6px; }
+  .today-online .side-link { align-self: flex-start; }
   .menu-wrap { position: relative; }
   button.more-actions { min-width: 44px; min-height: 44px; padding: 0 12px; line-height: 1; }
   button.more-actions .i { stroke-width: 3; }
@@ -220,9 +291,9 @@
   .orb-slot.has-3d .star-orb { visibility: hidden; }
   .cls-icon { width: 26px; height: 26px; flex: none; fill: none; stroke: color-mix(in srgb, var(--c, var(--gold)) 55%, var(--fg)); stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; }
   .name { min-width: 0; overflow-wrap: anywhere; }
-  .energy { display: flex; align-items: baseline; gap: 6px; font-variant-numeric: tabular-nums; }
-  .energy .num { font-size: 2.1rem; font-weight: 600; line-height: 1; color: var(--gold-bright); }
-  .energy small { color: var(--muted); font-size: .9rem; }
+  .r-num.energy { display: flex; align-items: baseline; gap: 6px; font-variant-numeric: tabular-nums; }
+  .r-num.energy .num { font-size: 2.1rem; font-weight: 600; line-height: 1; color: var(--gold-bright); }
+  .r-num.energy small { color: var(--muted); font-size: .9rem; }
   .badge { margin-left: auto; align-self: center; font-size: .7rem; font-weight: 600; letter-spacing: .12em; text-transform: uppercase;
     color: var(--on-gold); background: var(--gold); padding: 3px 10px; }
   .full-in { margin: 0; font-weight: 500; color: var(--muted); font-variant-numeric: tabular-nums; }
@@ -233,11 +304,10 @@
   .full-in.lost::before { background: var(--urgent); }
   .confirm-text { margin: 0; color: var(--danger); font-size: .875rem; font-weight: 500; }
   .gain {
-    position: absolute; z-index: 3; left: calc(var(--orb) / 2); top: 8px; transform: translateX(-50%);
+    position: absolute; z-index: 3; left: 50%; top: 8px; transform: translateX(-50%);
     font-weight: 700; font-size: 1.1rem; color: var(--gold-bright); pointer-events: none;
   }
-  @media (max-width: 719.98px) { .card.row { --orb: 72px; --pady: 6px; gap: 4px 14px; grid-template-columns: var(--orb) minmax(0, 1fr) auto; grid-template-areas: "orb text num" ". act act" "below below below"; }
-    .r-num .num { font-size: 2rem; } .r-act { justify-content: flex-start; }
+  @media (max-width: 719.98px) {
     /* the menu spans the whole action row so it never leaves the screen */
     .r-act { position: relative; } .menu-wrap { position: static; } .menu { left: 0; right: 0; min-width: 0; transform-origin: top left; } .menu.up { transform-origin: bottom left; } }
 
@@ -452,13 +522,6 @@
     .topnav button { flex: 1 1 0; flex-direction: column; justify-content: center; gap: 2px; padding: 6px 2px; font-size: .7rem; min-width: 0; }
     .topnav button.in-more { display: none; }
     .topnav .badge { position: absolute; top: 2px; left: calc(50% + 6px); }
-  }
-  .side { display: none; }
-  @media (min-width: 1200px) {
-    /* The events column is a square panel, top-aligned with the section title (top bar 72 + page padding 28). */
-    .side { display: flex; flex-direction: column; gap: 20px; position: fixed; top: 100px; right: 16px; width: 248px; max-height: calc(100vh - 100px - 84px); padding: 16px; overflow-y: auto;
-      border: 1px solid var(--line); border-top-color: var(--gold); background: var(--glass); z-index: 10; }
-    .page { margin-right: 280px; }
   }
   .side-h { font-size: .75rem; letter-spacing: .08em; text-transform: uppercase; color: var(--gold); font-family: var(--font-body); font-weight: 700; margin: 0 0 8px; }
   .side-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
@@ -678,7 +741,6 @@
   .row .field.narrow { flex: 0 1 90px; }
 
   /* ---- Keyboard shortcuts ---- */
-  .card.selected { background: var(--hover); }
   kbd { font: 600 .8em var(--font-body); border: 1px solid var(--line); border-bottom-width: 2px; padding: 1px 6px; background: var(--hover); }
   .keys-help { position: fixed; inset: 0; z-index: 39; display: grid; place-items: center; padding: 16px; background: var(--scrim); }
   .keys-help .panel { width: min(440px, 100%); background: var(--glass-strong); }
@@ -688,8 +750,9 @@
   @media (pointer: fine) and (min-width: 700px) { .keys-hint { display: block; } }
 
   /* ---- Compact mode: small orb beside a short panel, no charts or extra panels ---- */
-  body.compact .card.row { --orb: 64px; --pady: 6px; }
-  body.compact .r-num .num { font-size: 2rem; }
+  body.compact .card.tile { --orb: 72px; padding: 14px 12px 12px; }
+  body.compact .card.tile .r-num .num { font-size: 1.5rem; }
+  body.compact .stage { --orb: 160px; }
   body.compact .note-preview, body.compact .goal-text, body.compact .cls-name, body.compact .acct-mark, body.compact .guide, body.compact #plan { display: none; }
   body.compact .chart-panel, body.compact #week-panel, body.compact #sim-panel { display: none !important; }
 
@@ -903,10 +966,16 @@
     <svg id="history" class="chart" role="img" aria-label="OD gastada cada día, últimos 7 días"></svg>
   </section>
 </div>
-<aside id="side" class="side" aria-label="Resumen">
-  <section><h2 class="side-h">Eventos</h2><ul id="side-events" class="side-list"></ul><button type="button" class="side-link" data-go="eventos">Ver todos</button></section>
-  <section id="side-online-box" hidden><h2 class="side-h">En línea</h2><ul id="side-online" class="side-list"></ul><button type="button" class="side-link" id="side-online-go" data-go="amigos">Ver todos</button></section>
-</aside>
+<!-- Energía: the stage (the most urgent character) and the case (the other cards, quick spends, Hoy, plan); PLACE.personajes fills the case. -->
+<section class="energy" id="energy" aria-label="Energía" hidden>
+  <div class="stage" id="stage"></div>
+  <div class="case" id="case"></div>
+</section>
+<section class="today" id="today" aria-labelledby="today-title" hidden>
+  <div class="case-head"><h2 id="today-title">Hoy</h2><button type="button" class="side-link" data-go="eventos">Ver todos</button></div>
+  <ul id="side-events" class="today-list"></ul>
+  <section id="side-online-box" class="today-online" hidden><h3 class="side-h">En línea</h3><ul id="side-online" class="side-list"></ul><button type="button" class="side-link" id="side-online-go" data-go="amigos">Ver todos</button></section>
+</section>
 
 <!-- Almacén oculto: de aquí toman Ajustes y Novedades sus paneles (applyLayout los mueve a su sección). -->
 <aside id="drawer" class="drawer" hidden>
@@ -1103,7 +1172,8 @@
 
 <script type="module">
   import { SECTIONS, navModel, topbarModel, resolveTab, decisionBand, planRows, headerRule } from './layout.js';
-  import { headerClocks } from './clocks.js';
+  import { headerClocks, RESET_IDS } from './clocks.js';
+  import { pickStage, stageCaption, cardOrbMode } from './stage.js';
   import { iconSvg } from './icons.js';
   import { ABOUT, aboutModel } from './about.js';
   import { startI18n, tr, LOCALE, LANG, LANGS, setLang, onLangChange } from './i18n.js';
@@ -1133,7 +1203,7 @@
   const state = { characters: [], memberData: new Map(), stats: null, tasks: DEFAULT_TASKS, progress: new Map(), cpHist: new Map(), hiddenMembers: 0, others: new Map(), names: {}, schedule: null, presets: [], events: [], timers: [], calendar: [], wall: [], legions: new Map(), prefs: { quietStart: '00:00', quietEnd: '08:00', favEvents: [] } };
   // Interface-only state: which card is editing/confirming, validation messages.
   // noDb: no db in this view. readOnly: viewer cannot write (or a write was refused).
-  const ui = { pop: null, notesId: null, tasksOpen: new Set(), editingId: null, extraId: null, confirmId: null, errors: {}, selectedId: null, menuFor: null, noDb: false, readOnly: false, loaded: false };
+  const ui = { pop: null, notesId: null, tasksOpen: new Set(), editingId: null, extraId: null, confirmId: null, errors: {}, selectedId: null, stageId: null, menuFor: null, noDb: false, readOnly: false, loaded: false };
 
   let db = null;
   let user = null;
@@ -1338,7 +1408,14 @@
   const removeCharacter = id => save(() => db.doc(my.characters + '/' + id).delete(), id);
 
   // ---- Rendering ----
-  const $ = id => document.getElementById(id);
+  // Nodes taken out of the page on purpose (Energía no longer shows #summary or #empty) are still reachable by id.
+  const detached = new Map();
+  function $(id) {
+    const n = document.getElementById(id);
+    if (n) return n;
+    for (const d of detached.values()) { if (d.id === id) return d; const f = d.querySelector('#' + CSS.escape(id)); if (f) return f; }
+    return null;
+  }
   let dateFmt = new Intl.DateTimeFormat(LOCALE, { weekday: 'short', day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
   const SVG_NS = 'http://www.w3.org/2000/svg';
 
@@ -1437,17 +1514,19 @@
   // One SVG orb per character, reused across repaints (updateStarOrb only changes attributes, so nothing restarts).
   // With WebGL, the 3D canvas (also one per character) sits over it in the same slot.
   const orbNodes = new Map();
-  function orbFor(row) {
+  // flat: the card shows only the SVG orb (many characters: only the stage keeps the 3D one).
+  function orbFor(row, { flat = false } = {}) {
     const stateOf = row.isFull ? 'full' : row.nearFull ? 'near' : 'normal';
     let svg = orbNodes.get(row.id);
     if (svg) updateStarOrb(svg, { energy: row.energy, state: stateOf, max: row.max });
     else { svg = buildStarOrb(document, { energy: row.energy, max: row.max, state: stateOf, id: row.id }); orbNodes.set(row.id, svg); }
-    if (!orbs3d?.ok) return [svg];
+    if (!orbs3d?.ok || flat) return [svg];
     const canvas = orbs3d.canvas(row.id);
     orbs3d.update(row.id, { energy: row.energy, state: stateOf, max: row.max });
     return [svg, canvas];
   }
-  function cardNode(row, index, readonly = false) {
+  // A character as a vertical tile (the case, legion members) or, with stage: true, as the big stage of the Energía screen.
+  function cardNode(row, index, readonly = false, { stage = null, flat = false } = {}) {
     const editing = ui.editingId === row.id;
     const confirming = ui.confirmId === row.id;
     const err = ui.errors[row.id];
@@ -1455,16 +1534,19 @@
     const mood = row.isFull ? 'full' : row.nearFull ? 'near' : '';
     const fresh = !seen.has(row.id);
     seen.add(row.id);
-    const card = el('article', { class: `card row ${mood} ${fresh && animate ? 'enter' : ''} ${!readonly && ui.selectedId === row.id ? 'selected' : ''}`, 'data-id': row.id,
+    const kind = stage ? `stage-card tone-${stage.tone}` : 'tile';
+    const card = el('article', { class: `card ${kind} ${mood} ${fresh && animate && !stage ? 'enter' : ''} ${!readonly && !stage && ui.selectedId === row.id ? 'selected' : ''}`, 'data-id': row.id,
       style: `--c:${row.color};--i:${index}` });
 
-    const orb = el('div', { class: 'r-orb orb-col' },
-      el('div', { class: orbs3d?.ok ? 'orb-slot has-3d' : 'orb-slot', 'data-orb': row.id, role: 'img', 'aria-label': `${row.percent}% de energía` },
-        ...orbFor(row)));
+    const flatOrb = flat && !stage;
+    const orb = el('div', { class: stage ? 'r-orb stage-orb' : 'r-orb' },
+      el('div', { class: orbs3d?.ok && !flatOrb ? 'orb-slot has-3d' : 'orb-slot', 'data-orb': row.id, role: 'img', 'aria-label': `${row.percent}% de energía` },
+        ...orbFor(row, { flat: flatOrb })));
 
     const text = el('div', { class: 'r-text' });
-    text.append(el('div', { class: 'who' }, el('h2', { class: 'name', title: row.name }, row.name), cls ? el('p', { class: 'cls-name' }, cls.name) : null,
-      row.account === 'premium' ? el('span', { class: 'acct-mark' }, 'Premium') : null));
+    text.append(el('div', { class: 'who' }, el('h2', { class: 'name', title: row.name }, row.name),
+      el('div', { class: 'who-sub' }, cls ? el('p', { class: 'cls-name' }, classIcon(cls), cls.name) : null,
+        row.account === 'premium' ? el('span', { class: 'acct-mark' }, 'Premium') : null)));
 
     const prevShown = shown.get(row.id);
     const rolling = animate && prevShown !== undefined && prevShown !== row.energy;
@@ -1473,13 +1555,18 @@
     const num = el('div', { class: 'r-num energy' },
       el('span', { class: 'num', 'data-num': row.id }, String(display)),
       el('small', {}, `/ ${row.max}`));
+    // Stage: the reason sits right after the number («840 / 840 · pierde 15 OD cada 3 h»).
+    if (stage) num.append(el('span', { class: `stage-why ${row.isFull ? 'lost' : ''}` }, stageCaption(row, Date.now())));
 
-    if (Number.isFinite(row.cp)) text.append(cpLine(row));
-    const statusText = row.isFull ? 'Lleno · perdiendo energía' : (row.fullAtMs === null ? row.fullInText : `Lleno en ${row.fullInText} · ${dateFmt.format(new Date(row.fullAtMs))}`);
-    text.append(el('p', { class: `full-in ${row.isFull ? 'lost' : ''}` }, statusText));
+    const meta = el('div', { class: 'r-meta' });
+    if (!stage) {
+      const statusText = row.isFull ? 'Lleno · perdiendo energía' : (row.fullAtMs === null ? row.fullInText : `Lleno en ${row.fullInText}`);
+      meta.append(el('p', { class: `full-in ${row.isFull ? 'lost' : ''}`, title: row.fullAtMs !== null && !row.isFull ? dateFmt.format(new Date(row.fullAtMs)) : null }, statusText));
+    }
+    if (Number.isFinite(row.cp)) meta.append(cpLine(row));
     const waste = readonly || row.isFull ? '' : wasteText(row);
-    if (waste) text.append(el('p', { class: 'waste' }, waste));
-    if (row.notes && ui.notesId !== row.id) text.append(el('p', { class: 'note-preview', title: row.notes }, '📝 ' + row.notes.split('\n')[0]));
+    if (waste) meta.append(el('p', { class: 'waste' }, waste));
+    if (row.notes && ui.notesId !== row.id) meta.append(el('p', { class: 'note-preview', title: row.notes }, '📝 ' + row.notes.split('\n')[0]));
 
     const act = el('div', { class: 'r-act' });
     const below = el('div', { class: 'r-below' });
@@ -1565,12 +1652,12 @@
     } else {
       if (err) below.append(errorLine(`err-${row.id}`, err));
       const warn = tasksWarn(row);
-      if (warn) text.append(warn);
+      if (warn) meta.append(warn);
       const tasksOpen = ui.tasksOpen.has(row.id);
       if (tasksOpen) below.append(tasksList(row));
       const ti = tasksInfo(row);
       act.append(
-        ...(state.presets[0] ? [el('button', { type: 'button', class: 'spend', title: `${state.presets[0].name} −${state.presets[0].cost}`, 'aria-label': `Gastar ${state.presets[0].name} −${state.presets[0].cost} en ${row.name}`, disabled: busy.has(row.id), onclick: () => spend(row, state.presets[0]) }, 'Gastar')] : []),
+        ...(state.presets[0] && !stage ? [el('button', { type: 'button', class: 'spend', title: `${state.presets[0].name} −${state.presets[0].cost}`, 'aria-label': `Gastar ${state.presets[0].name} −${state.presets[0].cost} en ${row.name}`, disabled: busy.has(row.id), onclick: () => spend(row, state.presets[0]) }, 'Gastar')] : []),
         el('button', { type: 'button', class: 'primary', onclick: () => { ui.pop = row.id; ui.editingId = row.id; ui.confirmId = ui.extraId = ui.notesId = null; delete ui.errors[row.id]; render(); $('energy-' + row.id)?.select(); } }, 'Actualizar'),
         moreActions(row, [
           ['+ Extra', 'extra', () => { ui.pop = row.id; ui.extraId = row.id; ui.editingId = ui.confirmId = ui.notesId = null; delete ui.errors[row.id]; render(); $('extra-' + row.id)?.focus(); }, busy.has(row.id)],
@@ -1579,7 +1666,11 @@
           ['Quitar', 'remove', () => { ui.pop = row.id; ui.confirmId = row.id; ui.editingId = ui.extraId = ui.notesId = null; render(); }],
         ]));
     }
-    card.append(orb, text, num, act, below);
+    if (!stage) { card.append(orb, text, num, meta, act, below); return card; }
+    // Stage: «Gastar ahora» (red when someone is at the cap) leads to the quick spends of this character.
+    const go = readonly || ui.readOnly || ui.noDb ? null
+      : el('button', { type: 'button', class: `stage-go ${stage.tone === 'urgent' ? 'urgent' : ''}`, onclick: () => goSpend(row.id) }, 'Gastar ahora');
+    card.append(orb, el('div', { class: 'stage-cap' }, text, num, meta, go, act), below);
     return card;
   }
 
@@ -1623,7 +1714,7 @@
   function settleFocus(id, cls) {
     const a = document.activeElement;
     if (a && a !== document.body) return;
-    const card = document.querySelector(`#cards article[data-id="${CSS.escape(id)}"]`);
+    const card = document.querySelector(`#stage article[data-id="${CSS.escape(id)}"], #cards article[data-id="${CSS.escape(id)}"]`);
     const target = (cls === 'remove' && card?.querySelector('button.danger')) || document.querySelector(`[data-menu-for="${CSS.escape(id)}"]`);
     target?.focus();
   }
@@ -1867,7 +1958,14 @@
     el('ul', {}, el('li', {}, 'Letras Marcellus y Gothic A1 (SIL Open Font License)'), el('li', {}, 'three.js (licencia MIT)'),
       el('li', {}, 'Iconos y runas originales de Odyle Tracker')));
   const PLACE = {
-    personajes: () => ['guide', 'summary', 'empty', 'chars-bar', 'cards', 'quick', 'plan'].map(id => $(id)),
+    // Energía: the stage on the left, the case on the right (#summary and #empty stay detached: the stage replaces them).
+    personajes: () => {
+      $('case').replaceChildren(...['guide', 'chars-bar', 'cards', 'quick', 'today', 'plan'].map(id => $(id)));
+      $('energy').hidden = false; $('today').hidden = false;
+      $('today').append($('sum-legion')); // the legion readiness line stays visible, under Hoy
+      for (const id of ['summary', 'empty']) { const n = $(id); if (n?.isConnected) { detached.set(id, n); n.remove(); } }
+      return [$('page-title'), $('energy')];
+    },
     eventos: () => [$('events'), $('timers-panel')],
     estadisticas: () => ['week-panel', 'sim-panel', 'forecast-panel', 'cp-panel', 'history-panel'].map(id => $(id)),
     legion: () => ['legion-panel', 'online-panel', 'calendar-panel', 'rank-panel', 'wall-panel', 'legion', 'legion-empty'].map(id => $(id)),
@@ -1965,7 +2063,7 @@
     $('side-online').replaceChildren(...list.slice(0, 8).map((u) => el('li', {}, el('span', { class: 'dot', 'aria-hidden': 'true' }), el('span', { translate: 'no', title: u.nick || '' }, u.nick || '—'))));
     $('side-online-go').dataset.go = go;
   }
-  $('side').addEventListener('click', (ev) => {
+  $('today').addEventListener('click', (ev) => {
     const b = ev.target.closest('[data-go]');
     if (b) setTab(b.dataset.go);
   });
@@ -2074,8 +2172,7 @@
   let planRowsNow = [], planBand = null;
   function paintQuick() {
     const rows = planRowsNow;
-    const urgent = planBand && planBand.tone === 'urgent' ? planBand.targetId : null;
-    const target = rows.find(r => r.id === urgent) || rows.find(r => r.id === ui.selectedId) || rows.find(r => r.id === planBand?.targetId) || rows[0];
+    const target = rows.find(r => r.id === stageNow?.id) || rows[0]; // the character on the stage
     const box = $('quick');
     const editable = !!target && !ui.readOnly && !ui.noDb && state.presets.length > 0;
     box.hidden = !editable;
@@ -2107,12 +2204,21 @@
     $('plan-body').replaceChildren(el('div', { class: 'plan-scroll' }, el('table', { class: 'plan-table' }, el('thead', {}, head), el('tbody', {}, ...body))));
   }
   // «Gastar» de la banda: lleva a la fila y pone el foco en su primer gasto; sin presets abre los gastos.
+  // On the stage, the quick spends are that character's: focus their first one.
   function goSpend(id) {
+    const behavior = matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth';
     const card = document.querySelector(`#cards article[data-id="${CSS.escape(id)}"]`);
-    if (!card) return;
-    card.scrollIntoView({ block: 'center', behavior: matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth' });
-    const first = card.querySelector('button.spend:not(:disabled)');
-    if (first) first.focus({ preventScroll: true }); else $('presets-btn').click();
+    if (card) {
+      card.scrollIntoView({ block: 'center', behavior });
+      const first = card.querySelector('button.spend:not(:disabled)');
+      if (first) first.focus({ preventScroll: true }); else $('presets-btn').click();
+      return;
+    }
+    if (!$('stage').querySelector(`article[data-id="${CSS.escape(id)}"]`)) return;
+    const chip = $('quick').hidden ? null : $('quick-chips').querySelector('button[data-quick]:not(:disabled)');
+    if (!chip) { $('presets-btn').click(); return; }
+    $('quick').scrollIntoView({ block: 'nearest', behavior });
+    chip.focus({ preventScroll: true });
   }
 
   // Event timers: sorted by what happens next; running events first, in gold.
@@ -2167,8 +2273,11 @@
     const activeNow = new Set(items.filter(i => i.o.active && i.e.durationMin > 0).map(i => i.e.id));
     for (const id of activeNow) if (lastActive && !lastActive.has(id)) sound.chime();
     lastActive = activeNow;
-    $('side-events').replaceChildren(...items.slice(0, 3).map(({ e, o }) => el('li', {},
-      el('span', {}, e.name), el('b', { class: 'num' }, o.active ? 'En curso' : countdown(o.startMs - now)))));
+    // Hoy: the next three events (not the resets) and the weekly reset.
+    const weekly = items.find(i => i.e.id === 'weekly');
+    $('side-events').replaceChildren(...items.filter(i => !RESET_IDS.includes(i.e.id)).slice(0, 3).map(({ e, o }) => el('li', { class: o.active ? 'active' : '' },
+      el('span', {}, e.name), el('b', { class: 'num' }, o.active ? 'En curso' : countdown(o.startMs - now)))),
+      ...(weekly ? [el('li', { class: 'week' }, el('span', {}, 'Reinicio semanal'), el('b', { class: 'num' }, countdown(weekly.o.startMs - now)))] : []));
     const first = items[0];
     $('events-next').textContent = first.o.active ? `${first.e.name}: en curso` : `Próximo: ${first.e.name} en ${countdown(first.o.startMs - now)}`;
   }
@@ -2253,6 +2362,19 @@
   }
   let lastEnergy = new Map();
   let lastAnchor;
+  let stageNow = null; // { id, tone } of the character on the stage in the last paint
+  let capAlertId = null; // the character named by the last «está al tope» notice
+  // Stage with nobody yet: an empty orb and the way to add the first character (or a plain line for read-only viewers).
+  let emptyOrb = null;
+  function stageEmpty() {
+    if (!ui.loaded) return [];
+    emptyOrb ||= buildStarOrb(document, { energy: 0, max: MAX, state: 'normal', id: 'stage-empty' });
+    const canAdd = !$('add-btn').hidden;
+    return [el('div', { class: 'stage-empty' },
+      el('div', { class: 'r-orb stage-orb' }, el('div', { class: 'orb-slot', 'aria-hidden': 'true' }, emptyOrb)),
+      el('h2', {}, canAdd ? 'Añade tu personaje' : 'Aún no hay personajes.'),
+      canAdd ? el('button', { type: 'button', class: 'stage-go primary', onclick: () => openAdd() }, 'Añadir personaje') : null)];
+  }
   function paint(view) {
     const anchor = state.schedule && Number.isFinite(state.schedule.anchorMs) ? state.schedule.anchorMs : null;
     // A schedule change (incl. first load) moves computed energy without a recharge: re-baseline, no roll.
@@ -2280,17 +2402,35 @@
     }
     const caret = focusId && 'selectionStart' in active ? [active.selectionStart, active.selectionEnd] : null;
 
-    const cards = $('cards');
+    const cards = $('cards'), stageBox = $('stage');
     const draft = new Map();
     const field = input => input.type === 'radio' ? 'checked' : 'value'; // radios keep their choice, not their value
-    for (const input of cards.querySelectorAll('input, select')) draft.set(input.id, input[field(input)]);
+    const inputs = () => [...stageBox.querySelectorAll('input, select'), ...cards.querySelectorAll('input, select')];
+    for (const input of inputs()) draft.set(input.id, input[field(input)]);
     const extraOf = new Map(state.characters.map(c => [c.id, c]));
-    cards.replaceChildren(...view.rows.map((r, i) => cardNode({ ...r, cp: extraOf.get(r.id)?.cp, cpGoal: extraOf.get(r.id)?.cpGoal, notes: typeof extraOf.get(r.id)?.notes === 'string' ? extraOf.get(r.id).notes : '' }, i)));
+    const withExtra = r => ({ ...r, cp: extraOf.get(r.id)?.cp, cpGoal: extraOf.get(r.id)?.cpGoal, notes: typeof extraOf.get(r.id)?.notes === 'string' ? extraOf.get(r.id).notes : '' });
+    // Stage: the pinned character (a card click, this session only) or the most urgent; the cards are everyone else.
+    if (ui.stageId && !view.rows.some(r => r.id === ui.stageId)) ui.stageId = null;
+    // The stage does not jump: while the character on it is still at the cap, it stays there even if another one fills.
+    const keep = stageNow?.tone === 'urgent' && view.rows.find(r => r.id === stageNow.id)?.isFull ? stageNow.id : null;
+    const pick = ui.loaded && !ui.noDb ? pickStage(view.rows, { pinnedId: ui.stageId ?? keep }) : null;
+    stageNow = pick;
+    // the «X está al tope» notice is done once X is on the stage
+    if (capAlertId && capAlertId === pick?.id) { capAlertId = null; if (!$('alert').hidden) $('alert-close').click(); }
+    const stageRow = pick ? view.rows.find(r => r.id === pick.id) : null;
+    const rest = view.rows.filter(r => r !== stageRow);
+    const flat = cardOrbMode(view.rows.length) === '2d';
+    $('energy').classList.toggle('no-stage', ui.noDb);
+    stageBox.hidden = ui.noDb;
+    stageBox.className = `stage ${pick ? 'tone-' + pick.tone : 'is-empty'}`;
+    stageBox.replaceChildren(...(stageRow ? [cardNode(withExtra(stageRow), 0, false, { stage: pick })] : stageEmpty()));
+    cards.replaceChildren(...rest.map((r, i) => cardNode(withExtra(r), i, false, { flat })));
     ui.pop = null; // pop-in plays once, not on later repaints
-    for (const input of cards.querySelectorAll('input, select')) if (draft.has(input.id)) input[field(input)] = draft.get(input.id);
+    for (const input of inputs()) if (draft.has(input.id)) input[field(input)] = draft.get(input.id);
     $('empty').hidden = ui.noDb || view.rows.length > 0 || !ui.loaded;
     $('empty').textContent = ui.readOnly ? 'Aún no hay personajes.' : 'Aún no hay personajes. Pulsa + para añadir el primero.';
-    cards.hidden = view.rows.length === 0;
+    cards.hidden = rest.length === 0;
+    $('chars-bar').querySelector('h2').replaceChildren('Tus personajes', ...(rest.length ? [el('span', { class: 'count' }, `${rest.length} más`)] : []));
     planBand = paintSummary(view.rows);
     planRowsNow = view.rows;
     paintQuick();
@@ -2327,14 +2467,24 @@
     const keepBaseline = document.hidden && anchor === lastAnchor;
     if (animate && !keepBaseline) {
       for (const g of detectGains(lastEnergy, now)) {
-        const card = cards.querySelector(`article[data-id="${CSS.escape(g.id)}"]`);
+        const card = document.querySelector(`#stage article[data-id="${CSS.escape(g.id)}"], #cards article[data-id="${CSS.escape(g.id)}"]`);
         if (card) card.append(el('span', { class: 'gain', 'aria-hidden': 'true' }, `+${g.gain}`));
         const orb = orbNodes.get(g.id);
         if (orb) markGain(orb);
         orbs3d?.gain(g.id);
         sound.chime();
       }
-      if (anchor === lastAnchor) for (const id of becameFull(lastEnergy, now, MAX)) sound.fanfare();
+    }
+    // Someone else reached the cap: the stage does not jump; a short notice offers to bring them there.
+    if (!keepBaseline && anchor === lastAnchor) {
+      const filled = becameFull(lastEnergy, now, MAX);
+      if (animate) for (const _ of filled) sound.fanfare();
+      for (const id of filled) {
+        const r = view.rows.find(x => x.id === id);
+        if (!r || id === pick?.id) continue;
+        capAlertId = id;
+        showAlert(`${r.name} está al tope`, () => { ui.stageId = id; ui.selectedId = id; render(); }, 'Ver');
+      }
     }
     // Drop the orbs of characters that are gone; resume the motion of the rest after their cards were re-inserted.
     const liveIds = new Set([...view.rows, ...otherRows].map(r => r.id));
@@ -2420,9 +2570,19 @@
   });
 
   // Keyboard shortcuts (desktop): 1–9 spend, Z undo, ←/→ sections, ? help. Ignored while typing.
-  $('cards').addEventListener('pointerdown', e => {
+  // A click on a card (not on its controls) puts that character on the stage for this session; Escape on the stage undoes it.
+  $('cards').addEventListener('click', e => {
+    if (e.target.closest('button, input, select, textarea, a, label, form, .menu-wrap, .r-below')) return;
     const card = e.target.closest('article[data-id]');
-    if (card && ui.selectedId !== card.dataset.id) { ui.selectedId = card.dataset.id; for (const c of $('cards').children) c.classList.toggle('selected', c === card); paintQuick(); }
+    if (!card) return;
+    ui.stageId = ui.selectedId = card.dataset.id;
+    if (animate && document.startViewTransition) document.startViewTransition(() => render()); else render();
+  });
+  $('stage').addEventListener('keydown', e => {
+    if (e.key !== 'Escape' || !ui.stageId || e.target.closest('input, select, textarea, form, .menu-wrap')) return;
+    e.preventDefault();
+    ui.stageId = ui.selectedId = null;
+    render();
   });
   const keysOpen = () => !$('keys-help').hidden;
   function toggleKeys(show = !keysOpen()) {

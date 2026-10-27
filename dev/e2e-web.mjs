@@ -132,8 +132,10 @@ await pa.fill('#preset-name', 'Mazmorra'); await pa.fill('#preset-cost', '40');
 await pa.click('#preset-form button[type=submit]');
 await pa.waitForTimeout(600);
 await pa.keyboard.press('Escape');
-await pa.waitForSelector(`article[data-id="${charId}"] button.spend`);
-await pa.click(`article[data-id="${charId}"] button.spend`);
+// a single character is on the stage: its spends are the quick spends
+await pa.waitForSelector(`#stage article[data-id="${charId}"]`);
+await pa.waitForSelector('#quick-chips [data-quick]');
+await pa.click('#quick-chips [data-quick]');
 await pa.waitForTimeout(800);
 const energyOf = async () => (await dbRows('members/')).find((r) => r.path.endsWith('/characters/' + charId))?.data.energy;
 check('gasto: resta 40 de 300 en el servidor', (await energyOf()) === 260, String(await energyOf()));
@@ -213,7 +215,7 @@ check('móvil 390: la cabecera ocupa una sola línea', geo.headerH < 70, JSON.st
 await pa.setViewportSize({ width: 1280, height: 900 });
 
 // Banda: con un solo personaje a medias no hay alarma
-check('banda: visible y sin tono de alarma con energía a medias', (await visible(pa, '#summary')) && !(await pa.locator('#summary.band-urgent').count()));
+check('escenario: visible y sin tono de alarma con energía a medias', (await visible(pa, '#stage article.card')) && !(await pa.locator('#stage.tone-urgent').count()) && !(await pa.locator('#stage button.stage-go.urgent').count()));
 
 // recargar y seguir ahí
 await pa.reload();
@@ -265,12 +267,12 @@ check('legión: el código solo vive en el servidor (cifrado, sin código ni has
   await p.click('article[data-id="imp1"] button.primary');
   await p.fill('#energy-imp1', '840');
   await p.press('#energy-imp1', 'Enter');
-  await p.waitForSelector('#summary.band-urgent', { timeout: 5000 }).catch(() => {});
-  check('banda: carmesí con un personaje al tope', await p.locator('#summary.band-urgent').isVisible() && /al tope · pierd/.test(await text(p, '#sum-tip')), await text(p, '#sum-tip'));
+  await p.waitForSelector('#stage.tone-urgent', { timeout: 5000 }).catch(() => {});
+  check('escenario: en rojo con un personaje al tope', await p.locator('#stage.tone-urgent article[data-id="imp1"]').isVisible() && /pierde \d+ OD cada 3 h/.test(await text(p, '#stage .stage-why')), await text(p, '#stage'));
 
-  check('banda: sin aria-live; solo anuncia el cambio por una región de estado aparte',
-    (await p.getAttribute('#summary', 'aria-live')) === null && (await p.getAttribute('#band-status', 'role')) === 'status' && /al tope/.test(await text(p, '#band-status')), await text(p, '#band-status'));
-  check('banda: «Gastar» mide 44 px', (await p.locator('#band-go').boundingBox())?.height >= 43.5);
+  check('escenario: sin aria-live; solo anuncia el cambio por una región de estado aparte',
+    (await p.getAttribute('#stage', 'aria-live')) === null && (await p.getAttribute('#band-status', 'role')) === 'status' && /al tope/.test(await text(p, '#band-status')), await text(p, '#band-status'));
+  check('escenario: «Gastar ahora» mide 44 px', (await p.locator('#stage button.stage-go').boundingBox())?.height >= 43.5);
   check('barra superior: menú en fila dentro de la cabecera a 1280 px con Energía activa',
     (await p.locator('#topnav').evaluate((n) => !!n.closest('header.topbar') && getComputedStyle(n).flexDirection === 'row'))
     && (await p.getAttribute('#topnav [data-tab="personajes"]', 'aria-current')) === 'page');
@@ -397,15 +399,17 @@ check('legión: el código solo vive en el servidor (cifrado, sin código ni has
   await p.selectOption('#add-class', { index: 0 });
   await p.click('#add-form button[type=submit]');
   await p.waitForFunction(() => [...document.querySelectorAll('article.card')].some((c) => /Sin clase/.test(c.textContent)));
+  // Cards are vertical tiles: the orb and the name are centred in their tile (orb/name = offset of their centre from the tile's centre).
   const columns = () => p.evaluate(() => [...document.querySelectorAll('#cards article.card')].map((c) => ({
-    orb: c.querySelector('.orb-slot').getBoundingClientRect().left, name: c.querySelector('.name').getBoundingClientRect().left,
+    orb: (({ left, width }) => left + width / 2)(c.querySelector('.orb-slot').getBoundingClientRect()) - (({ left, width }) => left + width / 2)(c.getBoundingClientRect()),
+    name: (({ left, width }) => left + width / 2)(c.querySelector('.name').getBoundingClientRect()) - (({ left, width }) => left + width / 2)(c.getBoundingClientRect()),
     w: c.querySelector('.orb-slot').getBoundingClientRect().width, text: c.querySelector('.name').textContent, cls: !!c.querySelector('.cls-name') })));
   const spread = (xs) => Math.max(...xs) - Math.min(...xs);
   // Orbe 3D (orb3d.js): con WebGL cada hueco lleva un canvas.orb3d de su mismo tamaño y posición, dibujado (no en blanco)
   // si está en pantalla, y ningún <canvas> es mayor que un hueco (nada de partículas ni 3D detrás de la página).
   const orb3d = () => p.evaluate(() => {
     const drawn = (c) => { const d = c.getContext('2d').getImageData(0, 0, c.width, c.height).data; for (let i = 3; i < d.length; i += 4) if (d[i] > 0) return true; return false; };
-    const slots = [...document.querySelectorAll('#cards .orb-slot')].map((s) => {
+    const slots = [...document.querySelectorAll('#stage .orb-slot, #cards .orb-slot')].map((s) => {
       const r = s.getBoundingClientRect(), c = s.querySelector('canvas.orb3d'), b = c?.getBoundingClientRect();
       return { has: !!c, same: !!c && ['left', 'top', 'width', 'height'].every((k) => Math.abs(b[k] - r[k]) < 1),
         onScreen: r.bottom > 0 && r.top < innerHeight, drawn: !!c && c.width > 0 && drawn(c), w: r.width };
@@ -426,16 +430,17 @@ check('legión: el código solo vive en el servidor (cifrado, sin código ni has
     await p.waitForTimeout(300);
     const cols = await columns();
     const info = JSON.stringify(cols);
-    check(`${w} px: hay filas con nombre de 24 caracteres y sin clase`, cols.length >= 4 && cols.some((c) => /^W{24}$/.test(c.text)) && cols.some((c) => !c.cls), info);
-    check(`${w} px: el orbe de cada fila empieza en la misma x`, spread(cols.map((c) => c.orb)) <= 1, info);
-    check(`${w} px: el nombre de cada fila empieza en la misma x`, spread(cols.map((c) => c.name)) <= 1, info);
+    check(`${w} px: hay tarjetas con nombre de 24 caracteres y sin clase`, cols.length >= 3 && cols.some((c) => /^W{24}$/.test(c.text)) && cols.some((c) => !c.cls), info);
+    check(`${w} px: el orbe de cada tarjeta va centrado`, cols.every((c) => Math.abs(c.orb) <= 1), info);
+    check(`${w} px: el nombre de cada tarjeta va centrado`, cols.every((c) => Math.abs(c.name) <= 1), info);
     check(`${w} px: el orbe mide lo mismo en todas las filas`, spread(cols.map((c) => c.w)) <= 1 && cols[0].w >= 72, info);
     await checkOrb3d(`orbe 3D ${w} px`);
   }
   await p.setViewportSize({ width: 1280, height: 900 });
   await p.waitForTimeout(300);
-  await p.locator('#cards article.card .r-text').first().dispatchEvent('pointerdown'); // selecciona la primera fila
   const firstName = await p.locator('#cards article.card .name').first().textContent();
+  await p.locator('#cards article.card .name').first().click(); // la primera tarjeta pasa al escenario
+  await p.waitForTimeout(300);
   const energies = async () => Object.fromEntries((await dbRows('members/')).filter((r) => r.path.includes('/characters/')).map((r) => [r.path.split('/').pop(), r.data.energy]));
   const before = await energies();
   await p.waitForSelector('#quick-chips [data-quick]');
@@ -455,14 +460,14 @@ check('legión: el código solo vive en el servidor (cifrado, sin código ni has
     await p.waitForTimeout(300);
     const cols = await columns();
     const info = JSON.stringify(cols);
-    check(`compacto ${w} px: el orbe y el nombre de cada fila empiezan en la misma x`, cols.length >= 4 && spread(cols.map((c) => c.orb)) <= 1 && spread(cols.map((c) => c.name)) <= 1 && cols[0].w < 104, info);
+    check(`compacto ${w} px: el orbe y el nombre de cada tarjeta van centrados y el orbe es menor`, cols.length >= 3 && cols.every((c) => Math.abs(c.orb) <= 1 && Math.abs(c.name) <= 1) && spread(cols.map((c) => c.w)) <= 1 && cols[0].w < 104, info);
     await checkOrb3d(`orbe 3D compacto ${w} px`);
   }
   await p.evaluate(() => { const t = document.getElementById('compact-toggle'); t.checked = false; t.dispatchEvent(new Event('change', { bubbles: true })); });
   await p.setViewportSize({ width: 1280, height: 900 });
   await p.waitForTimeout(300);
   // editar a «Sin clase» y deshacer (el servidor rechaza classId null)
-  const wRow = p.locator('#cards article.card', { hasText: 'W'.repeat(24) });
+  const wRow = p.locator('#tab-personajes article.card', { hasText: 'W'.repeat(24) });
   const wId = await wRow.getAttribute('data-id');
   const classOf = async () => (await dbRows('members/')).find((r) => r.path.endsWith('/characters/' + wId))?.data.classId;
   const classBefore = await classOf();
@@ -474,7 +479,7 @@ check('legión: el código solo vive en el servidor (cifrado, sin código ni has
   await p.click('#undo');
   await p.waitForTimeout(900);
   check('deshacer la edición a «Sin clase»: vuelve la clase anterior', (await classOf()) === classBefore && !!classBefore, String(await classOf()));
-  check('Plan de hoy: una fila por personaje', (await p.locator('#plan tbody tr').count()) === (await p.locator('#cards article.card').count()) && (await p.locator('#plan tbody tr').count()) >= 4);
+  check('Plan de hoy: una fila por personaje', (await p.locator('#plan tbody tr').count()) === (await p.locator('#tab-personajes article.card').count()) && (await p.locator('#plan tbody tr').count()) >= 4);
   check('Plan de hoy: sin NaN ni undefined', !/NaN|undefined/.test(await p.locator('#plan').textContent()));
 }
 
@@ -766,18 +771,21 @@ check('cerrar todas: la cookie de renovación vieja de B no renueva', (await rep
   await pd.waitForSelector('#social-amigos .social-list li');
   check('amigos: D acepta y C aparece como amigo', /CarlaLuz/.test(await text(pd, '#social-amigos')));
 
-  // columna lateral: visible y con el amigo en línea a >= 1200 px, oculta por debajo
+  // «Hoy» (en Energía; sustituye a la columna lateral): eventos, reinicio semanal y el amigo en línea
   await pc.setViewportSize({ width: 1440, height: 900 });
+  await pc.click('#topnav [data-tab="personajes"]');
   await pc.waitForFunction(() => /DaniSombra/.test(document.querySelector('#side-online')?.textContent || ''), null, { timeout: 10000 }).catch(() => {});
-  check('columna lateral: a 1440 px se ve y muestra al amigo en línea',
-    await pc.locator('#side').isVisible() && /DaniSombra/.test(await text(pc, '#side-online')) && !(await pc.locator('#side-online-box').isHidden()));
-  const sideRows = await pc.locator('#side-events li').count();
-  check('columna lateral: eventos con 1 a 3 filas', sideRows >= 1 && sideRows <= 3, String(sideRows));
-  await pc.click('#side [data-go="eventos"]');
-  check('columna lateral: Ver todos abre Eventos', (await pc.getAttribute('#topnav [data-tab="eventos"]', 'aria-current')) === 'page' && await pc.locator('#tab-eventos').isVisible());
-  check('columna lateral: sin scroll horizontal a 1440 px', await pc.evaluate(() => document.documentElement.scrollWidth <= innerWidth));
+  check('Hoy: a 1440 px se ve y muestra al amigo en línea',
+    await pc.locator('#today').isVisible() && /DaniSombra/.test(await text(pc, '#side-online')) && !(await pc.locator('#side-online-box').isHidden()));
+  const sideRows = await pc.locator('#side-events li:not(.week)').count();
+  check('Hoy: eventos con 1 a 3 filas y el reinicio semanal', sideRows >= 1 && sideRows <= 3 && (await pc.locator('#side-events li.week').count()) === 1, String(sideRows));
+  check('Hoy: sin columna lateral aparte', (await pc.locator('#side').count()) === 0);
+  check('Hoy: sin scroll horizontal a 1440 px', await pc.evaluate(() => document.documentElement.scrollWidth <= innerWidth));
+  await pc.click('#today [data-go="eventos"]');
+  check('Hoy: Ver todos abre Eventos', (await pc.getAttribute('#topnav [data-tab="eventos"]', 'aria-current')) === 'page' && await pc.locator('#tab-eventos').isVisible());
   await pc.setViewportSize({ width: 1000, height: 800 });
-  check('columna lateral: a 1000 px está oculta', await pc.locator('#side').isHidden());
+  await pc.click('#topnav [data-tab="personajes"]');
+  check('Hoy: a 1000 px sigue en la vitrina de Energía', await pc.locator('#case #today').isVisible() && await pc.evaluate(() => document.documentElement.scrollWidth <= innerWidth));
   await pc.setViewportSize({ width: 1280, height: 900 });
 
   // chat en vivo C → D, con texto que coincide con la interfaz y un mensaje largo
