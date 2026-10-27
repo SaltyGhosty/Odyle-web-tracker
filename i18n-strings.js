@@ -986,8 +986,8 @@ for (const l of Object.keys(TOPBAR)) for (const [k, v] of Object.entries(TOPBAR[
 
 // Energía «Engaste»: the stage and the character cards (2026-10-27).
 const ENERGIA = {
-  en: { '{0} más': '{0} more', '{0} está al tope': '{0} is at the cap', 'Gastar ahora': 'Spend now', Hoy: 'Today', 'Reinicio semanal': 'Weekly reset' },
-  it: { '{0} más': 'altri {0}', '{0} está al tope': '{0} è al limite', 'Gastar ahora': 'Spendi ora', Hoy: 'Oggi', 'Reinicio semanal': 'Reset settimanale' },
-  pt: { '{0} más': 'mais {0}', '{0} está al tope': '{0} está no limite', 'Gastar ahora': 'Gastar agora', Hoy: 'Hoje', 'Reinicio semanal': 'Reinício semanal' },
+  en: { '{0} más': '{0} more', '{0} está al tope': '{0} is at the cap', 'Gastar ahora': 'Spend now', Hoy: 'Today', 'Reinicio semanal': 'Weekly reset', 'Ver en el escenario': 'Show on stage', 'Ver en el escenario: {0}': 'Show on stage: {0}' },
+  it: { '{0} más': 'altri {0}', '{0} está al tope': '{0} è al limite', 'Gastar ahora': 'Spendi ora', Hoy: 'Oggi', 'Reinicio semanal': 'Reset settimanale', 'Ver en el escenario': 'Mostra sul palco', 'Ver en el escenario: {0}': 'Mostra sul palco: {0}' },
+  pt: { '{0} más': 'mais {0}', '{0} está al tope': '{0} está no limite', 'Gastar ahora': 'Gastar agora', Hoy: 'Hoje', 'Reinicio semanal': 'Reinício semanal', 'Ver en el escenario': 'Ver no palco', 'Ver en el escenario: {0}': 'Ver no palco: {0}' },
 };
 for (const l of Object.keys(ENERGIA)) for (const [k, v] of Object.entries(ENERGIA[l])) if (!(k in STRINGS[l])) STRINGS[l][k] = v;

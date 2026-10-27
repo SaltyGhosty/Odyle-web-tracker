@@ -301,6 +301,14 @@ const tallShot = async (page, w, file) => {
   check('«Gastar ahora»: lleva a los gastos rápidos del escenario', await page.evaluate(() => document.activeElement?.matches('#quick-chips [data-quick]')));
   await page.focus('#stage button.stage-go'); await page.keyboard.press('Escape'); await page.waitForTimeout(400);
   check('Esc en el escenario: vuelve el más urgente', (await stageInfo(page)).name === 'Shutaruku');
+  // keyboard: Tab reaches the card's «Ver en el escenario», Enter moves it to the stage and focus lands on the stage name
+  await page.focus('#cards article[data-id=c4] button.more-actions'); await page.keyboard.press('Tab');
+  const tabbed = await page.evaluate(() => document.activeElement?.matches('#cards article[data-id=c4] button.to-stage'));
+  await page.keyboard.press('Enter'); await page.waitForTimeout(500);
+  check('teclado: Tab llega a «Ver en el escenario» y Enter lo pone en el escenario con el foco allí', tabbed && (await stageInfo(page)).name === 'SinClase'
+    && await page.evaluate(() => document.activeElement?.id === 'stage-name'));
+  await page.keyboard.press('Escape'); await page.waitForTimeout(400);
+  check('teclado: Esc desde el escenario devuelve el más urgente', (await stageInfo(page)).name === 'Shutaruku');
   // another character reaches the cap: the stage stays, a short notice offers to bring them
   await page.evaluate(() => { Object.assign(window.__docs.get('members/u_me/characters/c3'), { energy: 840, recordedAt: Date.now() }); window.__notify(); });
   await page.waitForTimeout(500);

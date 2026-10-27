@@ -227,6 +227,12 @@
   .card.tile .r-act button { min-height: 44px; padding: 0 10px; font-size: .8125rem; }
   .card.tile .r-act button.more-actions { min-width: 44px; padding: 0 10px; }
   .card.tile .r-below { width: 100%; text-align: left; }
+  /* quiet keyboard control: same as clicking the card */
+  button.to-stage { min-height: 44px; padding: 0 10px; margin-top: -4px; border: none; background: none; color: var(--muted); font-size: .8125rem; font-weight: 500;
+    text-decoration: underline; text-underline-offset: 3px; text-decoration-color: color-mix(in srgb, var(--muted) 45%, transparent); }
+  @media (hover: hover) and (pointer: fine) { button.to-stage:hover { color: var(--fg); background: none; } }
+  #stage-name:focus { outline: none; }
+  #stage-name:focus-visible { outline: 2px solid var(--sky); outline-offset: 4px; }
   @media (hover: hover) and (pointer: fine) { .card.tile:hover { background: color-mix(in srgb, var(--fg) 5%, var(--bg)); } }
   .who-sub { display: flex; flex-wrap: wrap; justify-content: center; align-items: center; gap: 4px 10px; }
   .who-sub:empty { display: none; }
@@ -1544,7 +1550,7 @@
         ...orbFor(row, { flat: flatOrb })));
 
     const text = el('div', { class: 'r-text' });
-    text.append(el('div', { class: 'who' }, el('h2', { class: 'name', title: row.name }, row.name),
+    text.append(el('div', { class: 'who' }, el('h2', { class: 'name', title: row.name, ...(stage ? { id: 'stage-name', tabindex: '-1' } : {}) }, row.name),
       el('div', { class: 'who-sub' }, cls ? el('p', { class: 'cls-name' }, classIcon(cls), cls.name) : null,
         row.account === 'premium' ? el('span', { class: 'acct-mark' }, 'Premium') : null)));
 
@@ -1666,7 +1672,9 @@
           ['Quitar', 'remove', () => { ui.pop = row.id; ui.confirmId = row.id; ui.editingId = ui.extraId = ui.notesId = null; render(); }],
         ]));
     }
-    if (!stage) { card.append(orb, text, num, meta, act, below); return card; }
+    // Keyboard way to do what a click on the card does (the article itself is not focusable).
+    const toStageBtn = readonly ? null : el('button', { type: 'button', class: 'to-stage', 'aria-label': `Ver en el escenario: ${row.name}`, onclick: () => toStage(row.id, { focus: true }) }, 'Ver en el escenario');
+    if (!stage) { card.append(orb, text, num, meta, act, below, toStageBtn); return card; }
     // Stage: «Gastar ahora» (red when someone is at the cap) leads to the quick spends of this character.
     const go = readonly || ui.readOnly || ui.noDb ? null
       : el('button', { type: 'button', class: `stage-go ${stage.tone === 'urgent' ? 'urgent' : ''}`, onclick: () => goSpend(row.id) }, 'Gastar ahora');
@@ -2575,9 +2583,15 @@
     if (e.target.closest('button, input, select, textarea, a, label, form, .menu-wrap, .r-below')) return;
     const card = e.target.closest('article[data-id]');
     if (!card) return;
-    ui.stageId = ui.selectedId = card.dataset.id;
-    if (animate && document.startViewTransition) document.startViewTransition(() => render()); else render();
+    toStage(card.dataset.id);
   });
+  // Put a character on the stage for this session; with focus, the stage name takes it (so Escape there is reachable).
+  function toStage(id, { focus = false } = {}) {
+    ui.stageId = ui.selectedId = id;
+    const done = () => { if (focus) $('stage-name')?.focus(); };
+    if (animate && document.startViewTransition) document.startViewTransition(() => render()).updateCallbackDone.then(done, done);
+    else { render(); done(); }
+  }
   $('stage').addEventListener('keydown', e => {
     if (e.key !== 'Escape' || !ui.stageId || e.target.closest('input, select, textarea, form, .menu-wrap')) return;
     e.preventDefault();
@@ -2602,7 +2616,7 @@
       const preset = state.presets[Number(e.key) - 1];
       if (!preset || !my || ui.readOnly || ui.noDb || activeTab !== 'personajes') return;
       const rows = buildView(state.characters, state.schedule, Date.now()).rows;
-      const row = rows.find(r => r.id === ui.selectedId) || rows[0];
+      const row = rows.find(r => r.id === ui.selectedId) || rows.find(r => r.id === stageNow?.id) || rows[0];
       if (!row) return;
       e.preventDefault();
       spend(row, preset);
