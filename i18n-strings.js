@@ -975,3 +975,11 @@ const ACERCA = {
     'three.js (licencia MIT)': 'three.js (licença MIT)', 'Iconos y runas originales de Odyle Tracker': 'Ícones e runas originais do Odyle Tracker' },
 };
 for (const l of Object.keys(ACERCA)) for (const [k, v] of Object.entries(ACERCA[l])) if (!(k in STRINGS[l])) STRINGS[l][k] = v;
+
+// Top bar «Engaste»: menu, clocks and the «Relojes ▾» popover (2026-10-27).
+const TOPBAR = {
+  en: { 'Más': 'More', 'Relojes': 'Clocks', '+{0} OD en': '+{0} OD in', 'En curso': 'In progress', 'Próximo evento': 'Next event' },
+  it: { 'Más': 'Altro', 'Relojes': 'Orologi', '+{0} OD en': '+{0} OD tra', 'En curso': 'In corso', 'Próximo evento': 'Prossimo evento' },
+  pt: { 'Más': 'Mais', 'Relojes': 'Relógios', '+{0} OD en': '+{0} OD em', 'En curso': 'Em andamento', 'Próximo evento': 'Próximo evento' },
+};
+for (const l of Object.keys(TOPBAR)) for (const [k, v] of Object.entries(TOPBAR[l])) if (!(k in STRINGS[l])) STRINGS[l][k] = v;

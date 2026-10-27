@@ -3,10 +3,11 @@
 import { readFileSync } from 'node:fs';
 import http from 'node:http';
 import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { loadChromium } from './pw.mjs';
 const chromium = await loadChromium();
 
-const ROOT = new URL('..', import.meta.url).pathname;
+const ROOT = fileURLToPath(new URL('..', import.meta.url));
 const server = http.createServer((q, r) => {
   const f = path.join(ROOT, decodeURIComponent(q.url.split('?')[0]) === '/' ? 'index.html' : decodeURIComponent(q.url.split('?')[0]));
   try { const body = readFileSync(f); r.writeHead(200, { 'content-type': f.endsWith('.js') ? 'text/javascript' : 'text/html; charset=utf-8' }); r.end(body); }
@@ -140,7 +141,7 @@ async function open(width, height = 900, opts = {}) {
   if (opts.leader) await page.addInitScript(() => { window.__leader = true; });
   if (opts.prefsAsmodian) await page.addInitScript(() => { window.__prefsAsmodian = true; });
   await page.addInitScript(STUB);
-  await page.addInitScript(() => { try { localStorage.setItem('odyle-lang', 'es'); localStorage.removeItem('odyle-tab'); } catch {} });
+  await page.addInitScript(l => { try { localStorage.setItem('odyle-lang', l); localStorage.removeItem('odyle-tab'); } catch {} }, opts.lang || 'es');
   await page.goto(BASE);
   await page.waitForSelector('article.card');
   await page.waitForTimeout(400);
@@ -150,11 +151,105 @@ const db = (page, p) => page.evaluate(k => window.__docs.get(k) ?? null, p);
 const text = (page, sel) => page.evaluate(s => document.querySelector(s)?.textContent ?? '', sel);
 const visible = (page, sel) => page.locator(sel).first().isVisible();
 
+// ================= Top bar «Engaste» (one line, three clocks) =================
+// Bar contract: header.topbar (≤ 72 px tall, one line) with .brand, nav#topnav and .clocks (refill · daily · event).
+const barFits = page => page.evaluate(() => {
+  const h = document.querySelector('header.topbar'), hr = h.getBoundingClientRect();
+  const out = [...document.querySelectorAll('header.topbar .clocks > *, header.topbar .topnav > *, header.topbar .bar-right > *')]
+    .filter(n => n.offsetParent !== null)
+    .filter(n => { const r = n.getBoundingClientRect(); return r.right > hr.right + 0.5 || r.left < hr.left - 0.5 || r.bottom > hr.bottom + 0.5 || r.top < hr.top - 0.5; })
+    .map(n => n.dataset.clock || n.dataset.tab || n.className || n.tagName);
+  const clocksOverflow = [...h.querySelectorAll('.clocks .ck')].filter(n => n.offsetParent !== null)
+    .filter(n => n.scrollWidth > n.clientWidth + 1 || n.scrollHeight > n.clientHeight + 1).map(n => n.dataset.clock);
+  const nav = h.querySelector('.topnav');
+  return { scrollHeight: h.scrollHeight, height: hr.height, out, clocksOverflow, navOverflow: nav ? nav.scrollWidth > nav.clientWidth + 1 : true,
+    pageWide: document.documentElement.scrollWidth > innerWidth };
+});
+{
+  const page = await open(1440);
+  check('barra: una línea de 72 px con logo, menú y tres relojes', await page.evaluate(() => {
+    const h = document.querySelector('header.topbar');
+    return h && h.getBoundingClientRect().height === 72 && h.querySelector('.brand') && h.querySelector('nav#topnav')
+      && ['refill', 'daily', 'event'].every(k => h.querySelector(`.clocks button.ck[data-clock="${k}"] small.k`) && h.querySelector(`.clocks button.ck[data-clock="${k}"] b.v`));
+  }));
+  const fit = await barFits(page);
+  check('barra 1440: nada se sale ni se parte', fit.scrollHeight <= 72 && !fit.out.length && !fit.clocksOverflow.length && !fit.navOverflow && !fit.pageWide, JSON.stringify(fit));
+  check('barra: menú del artifact (Energía, Eventos, Legión, Estadísticas) + Más', await page.evaluate(() =>
+    [...document.querySelectorAll('#topnav [data-tab]')].filter(b => b.offsetParent !== null).map(b => b.dataset.tab).join() === 'personajes,eventos,legion,estadisticas'
+    && document.querySelector('#topnav [data-more]').offsetParent !== null));
+  check('relojes: recarga = #next-tick con hh:mm:ss, diario y evento cuentan', await page.evaluate(() =>
+    document.querySelector('[data-clock="refill"] #next-tick') && /^\d\d:\d\d:\d\d$/.test(document.getElementById('next-tick').textContent)
+    && /^\d\d:\d\d:\d\d$/.test(document.querySelector('.clocks [data-clock="daily"] .v').textContent)
+    && /\d/.test(document.querySelector('.clocks [data-clock="event"] .v').textContent)
+    && document.querySelector('.clocks [data-clock="daily"]').classList.contains('reset')
+    && !document.querySelector('header.topbar [aria-live]')));
+  const t0 = await text(page, '#next-tick'); await page.waitForTimeout(1100);
+  check('relojes: avanzan cada segundo', (await text(page, '#next-tick')) !== t0);
+  await page.screenshot({ path: 'dev/screens/topbar-luz-1440.png' });
+  await page.click('#topnav [data-more]'); await page.waitForTimeout(100);
+  const pop = await page.evaluate(() => {
+    const m = document.getElementById('more-menu'), b = document.querySelector('#topnav [data-more]').getBoundingClientRect(), r = m.getBoundingClientRect();
+    return { open: m.matches(':popover-open'), under: r.top >= b.bottom && Math.abs(r.left - b.left) < 2, tabs: [...m.querySelectorAll('[data-tab]')].map(x => x.dataset.tab).join() };
+  });
+  check('Más ▾: se abre bajo el botón con Ajustes, Novedades y Acerca de', pop.open && pop.under && pop.tabs === 'ajustes,novedades,acerca', JSON.stringify(pop));
+  await page.click('#more-menu [data-tab="ajustes"]'); await page.waitForTimeout(200);
+  check('Más ▾: elegir una sección la abre, cierra el menú y marca Más', !(await page.evaluate(() => document.getElementById('more-menu').matches(':popover-open')))
+    && await visible(page, '#tab-ajustes') && (await page.getAttribute('#topnav [data-more]', 'aria-current')) === 'page'
+    && await page.evaluate(() => document.getElementById('tab-ajustes').firstElementChild.id === 'page-title') && (await text(page, '#page-title')) === 'Ajustes');
+  await page.click('.clocks [data-clock="daily"]'); await page.waitForTimeout(200);
+  check('reloj diario: lleva a Eventos', await visible(page, '#tab-eventos') && (await text(page, '#page-title')) === 'Eventos');
+  await page.click('.clocks [data-clock="refill"]'); await page.waitForTimeout(200);
+  check('reloj de recarga: lleva a ajustar la recarga', await visible(page, '#tab-ajustes') && await page.evaluate(() => document.activeElement?.id === 'adjust-minutes'));
+  check('pie: aviso de fans al final de la página', await page.evaluate(() => {
+    const f = document.querySelectorAll('footer.fan-foot');
+    return f.length === 1 && f[0].previousElementSibling === document.querySelector('.page') && /no oficial/.test(f[0].textContent);
+  }));
+  await page.click('#topnav [data-tab="personajes"]');
+  await page.click('header.topbar [data-theme-choice="asmodian"]'); await page.waitForTimeout(300);
+  check('barra: Luz/Sombra cambia el tema', await page.evaluate(() => document.documentElement.dataset.faction) === 'asmodian');
+  await page.screenshot({ path: 'dev/screens/topbar-sombra-1440.png' });
+  await page.close();
+}
+{
+  // Italian at 1000 px: the longest labels, refill and event clocks folded into «Relojes ▾»; still one line.
+  const page = await open(1000, 900, { lang: 'it' });
+  await page.waitForTimeout(300);
+  const fit = await barFits(page);
+  check('barra it 1000: una línea (scrollHeight ≤ 72), sin desbordes en los relojes', fit.scrollHeight <= 72 && !fit.out.length && !fit.clocksOverflow.length && !fit.navOverflow && !fit.pageWide, JSON.stringify(fit));
+  check('barra 900–1199: el diario a la vista, recarga y evento en «Relojes ▾»', await page.evaluate(() =>
+    document.querySelector('.clocks [data-clock="daily"]').offsetParent !== null
+    && document.querySelector('.clocks [data-clock="refill"]').offsetParent === null && document.querySelector('.clocks [data-clock="event"]').offsetParent === null
+    && document.getElementById('clocks-btn').offsetParent !== null));
+  await page.screenshot({ path: 'dev/screens/topbar-it-1000.png' });
+  await page.click('#clocks-btn'); await page.waitForTimeout(150);
+  check('Relojes ▾: muestra recarga y evento con la cuenta', await page.evaluate(() => {
+    const m = document.getElementById('clocks-menu');
+    return m.matches(':popover-open') && /^\d\d:\d\d:\d\d$/.test(m.querySelector('[data-clock="refill"] .v').textContent) && /\d/.test(m.querySelector('[data-clock="event"] .v').textContent);
+  }));
+  await page.close();
+}
+{
+  const page = await open(390, 844);
+  const m = await page.evaluate(() => {
+    const strip = document.querySelector('.clock-strip'), h = document.querySelector('header.topbar');
+    const kids = [...strip.querySelectorAll('.ck')].sort((a, b) => a.getBoundingClientRect().left - b.getBoundingClientRect().left);
+    return { inStrip: !!strip.querySelector('.clocks') && !strip.hidden, first: kids[0]?.dataset.clock, sticky: getComputedStyle(strip).position === 'sticky',
+      under: Math.abs(strip.getBoundingClientRect().top - h.getBoundingClientRect().bottom) < 1,
+      head: !!h.querySelector('.brand') && !!h.querySelector('.theme-switch') && !h.querySelector('.clocks'),
+      wide: document.documentElement.scrollWidth > innerWidth, bottomBar: getComputedStyle(document.getElementById('topnav')).position === 'fixed' };
+  });
+  check('móvil: tira fija de relojes bajo la cabecera, el diario primero', m.inStrip && m.first === 'daily' && m.sticky && m.under && m.head && !m.wide && m.bottomBar, JSON.stringify(m));
+  await page.screenshot({ path: 'dev/screens/topbar-390.png' });
+  await page.evaluate(() => scrollTo(0, 600)); await page.waitForTimeout(100);
+  check('móvil: al bajar, la tira de relojes sigue arriba', await page.evaluate(() => Math.abs(document.querySelector('.clock-strip').getBoundingClientRect().top) < 1));
+  await page.close();
+}
+
 // ================= Desktop =================
 {
   const page = await open(1280);
   // nav bar
-  check('escritorio: barra de navegación con 6 secciones', await visible(page, '#topnav') && await page.locator('#topnav button').count() === 6);
+  check('escritorio: barra superior con 4 secciones + Más', await visible(page, '#topnav') && await page.locator('#topnav button:visible').count() === 5);
   check('escritorio: sin menú ☰', !(await visible(page, '#menu-btn')));
   check('perfil: tarjeta en la cabecera con tu nombre', await visible(page, '#profile-chip') && /SaltyMain/.test(await text(page, '#profile-chip')));
   check('perfil: no se abre solo si ya existe', !(await visible(page, '#profile-modal')));

@@ -59,39 +59,60 @@
   }
   .page > * { width: min(100%, 928px); min-width: 0; }
 
-  /* ---- Header: tick ruler + meridian (position = progress to the next recharge, set by paintClock via --mer) ---- */
-  header { position: relative; display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 16px 24px; padding-bottom: 22px; border-bottom: 1px solid var(--gold); }
-  .subtitle { margin: 4px 0 0; color: var(--muted); font-size: .875rem; letter-spacing: .08em; text-transform: uppercase; }
-  /* Page head: «Energía», the live recharge line and the two page actions. Desktop: inside the header; phone: top of the Energía section. */
-  .page-head { display: flex; flex-wrap: wrap; align-items: flex-end; justify-content: space-between; gap: 12px 24px; flex: 1 1 auto; min-width: 0; }
-  .page-title { margin: 0; font: 800 1.625rem/1.1 var(--font-body); letter-spacing: 0; }
-  .page-sub { margin: 6px 0 0; color: var(--muted); font-size: 1rem; }
-  .page-sub b { color: var(--gold); font-size: 1.0625rem; font-weight: 700; font-variant-numeric: tabular-nums; }
-  .head-actions { display: flex; flex-wrap: wrap; gap: 10px; }
-  .head-actions button { display: inline-flex; align-items: center; justify-content: center; gap: 8px; }
-  .head-actions .i { width: 18px; height: 18px; }
-  .page-head.plain .page-sub, .page-head.plain .head-actions { display: none; }
-  .ruler { position: absolute; left: 0; right: 0; bottom: 0; height: 22px; pointer-events: none;
-    background: repeating-linear-gradient(90deg, var(--line) 0 1px, transparent 1px 48px) bottom / 100% 8px no-repeat,
-      repeating-linear-gradient(90deg, var(--line) 0 1px, transparent 1px 12px) bottom / 100% 4px no-repeat; }
-  .ruler.missing .meridian { display: none; }
-  .meridian { position: absolute; top: 0; bottom: 0; left: calc(var(--mer, 0) * 100%); width: 1px; background: var(--gold); }
-  .meridian::before { content: ""; position: absolute; left: -3px; top: -1px; width: 7px; height: 7px; background: var(--gold); transform: rotate(45deg); }
-  /* The countdown rides on the meridian (decorative copy; the accessible one is #next-tick). Past ~60 % it flips to the left of the line. */
-  .mer-label { display: none; position: absolute; top: 1px; left: 10px; white-space: nowrap; color: var(--gold); font-size: .6875rem; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; font-variant-numeric: tabular-nums; }
-  .ruler.late .mer-label { left: auto; right: 10px; }
+  /* ---- Top bar «Engaste»: logo · menu · relojes + perfil + Luz/Sombra (one line ≥ 900 px); phone: logo · perfil · Luz/Sombra,
+     with the clocks in a sticky strip right under it. All bar controls share one height per row (40 px menu, 48 px clocks). ---- */
+  header.topbar { position: relative; z-index: 15; display: flex; align-items: center; gap: 10px; padding: 10px 16px;
+    background: var(--bg-2); border-bottom: 1px solid color-mix(in srgb, var(--gold) 18%, transparent); }
+  .subtitle { display: none; }
+  .page-title { margin: 0; font: 800 1.625rem/1.1 var(--font-body); letter-spacing: 0; column-span: all; }
+  .bar-right { display: flex; align-items: center; gap: 8px; min-width: 0; }
+  .clocks { display: flex; gap: 8px; align-items: center; }
+  .ck { height: 48px; min-height: 48px; min-width: 138px; flex: none; display: flex; flex-direction: column; justify-content: center; align-items: flex-start;
+    padding: 0 14px; border: none; border-radius: 10px; background: var(--bg); color: var(--fg); text-align: left; font-weight: 400; }
+  .ck .k { display: block; max-width: 150px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+    font-size: 11px; line-height: 1.2; letter-spacing: .12em; font-weight: 800; color: var(--muted); text-transform: uppercase; }
+  .ck .v { display: block; white-space: nowrap; font-size: 18px; line-height: 1.2; font-weight: 700; color: var(--sky); font-variant-numeric: tabular-nums; }
+  .ck .v .live { margin-right: 6px; font-size: 11px; letter-spacing: .08em; font-weight: 800; text-transform: uppercase; color: var(--gold-bright); }
+  .ck.reset { background: color-mix(in srgb, var(--gold) 16%, var(--bg)); }
+  .ck.reset .v { color: var(--gold-bright); }
+  @media (hover: hover) and (pointer: fine) {
+    .ck:hover { background: color-mix(in srgb, var(--fg) 7%, var(--bg)); }
+    .ck.reset:hover { background: color-mix(in srgb, var(--gold) 24%, var(--bg)); }
+  }
+  .clocks-btn { display: none; height: 48px; min-height: 48px; align-items: center; gap: 6px; padding: 0 14px; border: none; border-radius: 10px;
+    background: var(--bg); color: var(--fg); white-space: nowrap; }
+  .caret { font-size: .75em; color: var(--muted); }
+  /* Popovers of the bar («Más ▾», «Relojes ▾»): placed under their button by JS (positionPop). */
+  .bar-pop { position: fixed; inset: auto; margin: 0; padding: 6px; min-width: 200px; border: 1px solid var(--line-strong); border-radius: 12px;
+    background: var(--glass-strong); color: var(--fg); }
+  .bar-pop .pop-list { display: flex; flex-direction: column; gap: 2px; }
+  .bar-pop .pop-list button { display: flex; align-items: center; gap: 10px; width: 100%; min-height: 40px; padding: 0 12px; border: none; border-radius: 8px;
+    text-align: left; color: var(--muted); font-weight: 700; white-space: nowrap; }
+  .bar-pop .pop-list button[aria-current="page"] { color: var(--gold-bright); background: color-mix(in srgb, var(--gold) 14%, transparent); }
+  .bar-pop .pop-list .i { width: 18px; height: 18px; }
+  .bar-pop .pop-list .badge { margin-left: auto; }
+  #clocks-menu .clocks { flex-direction: column; align-items: stretch; }
+  /* Phone: the clocks ride in a sticky strip under the bar, daily reset first, sliding sideways. */
+  .clock-strip { position: sticky; top: 0; z-index: 14; display: flex; overflow-x: auto; overscroll-behavior-x: contain; scrollbar-width: none;
+    padding: 8px 16px; background: var(--bg-2); border-bottom: 1px solid color-mix(in srgb, var(--gold) 18%, transparent); }
+  .clock-strip::-webkit-scrollbar { display: none; }
+  .clock-strip .clocks { flex: none; }
+  .clock-strip [data-clock="daily"] { order: -1; }
+  .fan-foot { position: relative; z-index: 1; padding: 14px 16px; text-align: center; border-top: 1px solid color-mix(in srgb, var(--gold) 12%, transparent); }
   @media (min-width: 900px) {
-    header { align-items: flex-end; padding: 0 0 36px; min-height: 104px; }
-    .ruler { height: 30px; }
-    .mer-label { display: block; }
+    header.topbar { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; height: 72px; gap: 32px; padding: 0 36px; }
     .page-title { font-size: 1.875rem; }
   }
-  @media (max-width: 899.98px) { .ruler { height: 12px; } header { padding-bottom: 12px; } }
+  @media (min-width: 900px) and (max-width: 1199.98px) {
+    .topbar .clocks [data-clock="refill"], .topbar .clocks [data-clock="event"] { display: none; }
+    .clocks-btn { display: inline-flex; }
+  }
+  @media (max-width: 899.98px) { .fan-foot { padding-bottom: calc(84px + env(safe-area-inset-bottom)); } }
 
   /* ---- Theme switch "Luz / Sombra": two pressed-state buttons, no page animation ---- */
   .theme-switch { display: grid; grid-auto-flow: column; grid-auto-columns: 1fr; border: 1px solid var(--line-strong); }
   .theme-switch button { min-height: 44px; padding: 4px 14px; border: none; background: none; color: var(--muted); font-weight: 500; }
-  .more-sheet .theme-switch button, .rail-foot .theme-switch button { min-height: 44px; }
+  .more-sheet .theme-switch button { min-height: 44px; }
   .theme-switch button[aria-pressed="true"] { background: var(--gold); color: var(--on-gold); font-weight: 700; }
   .label-like { font-size: .8125rem; font-weight: 500; color: var(--muted); }
   /* Account picker: two radios drawn as the Luz / Sombra switch. */
@@ -396,47 +417,46 @@
   .event-row.active .ev-name, .event-row.active .ev-when { color: var(--gold-bright); }
   .event-row.active { background: color-mix(in srgb, var(--gold) 10%, transparent); }
 
-  /* ---- Marco: rail (>= 900 px), barra inferior + hoja Más (< 900 px) ---- */
+  /* ---- Marco: menú en la barra superior (>= 900 px), barra inferior + hoja Más (< 900 px) ---- */
   .i { width: 22px; height: 22px; flex: none; fill: none; stroke: currentColor; stroke-width: 1.75; stroke-linecap: round; stroke-linejoin: round; }
-  .brand { display: flex; flex-direction: column; }
+  .brand { display: flex; flex-direction: column; min-width: 0; }
   .brand-name { margin: 0; font-family: var(--font-display); font-weight: 400; font-size: 1.35rem; letter-spacing: .06em; color: var(--gold); }
-  header .subtitle { font-size: .7rem; margin: 0; }
   .topnav { position: fixed; z-index: 20; background: var(--glass); border-color: var(--gold); display: flex; }
   .topnav button { border: none; background: none; color: var(--muted); font-weight: 500; min-height: 44px; display: flex; align-items: center; gap: 10px; position: relative; }
-  @media (hover: hover) and (pointer: fine) { .topnav button:hover { color: var(--fg); background: var(--hover); } }
+  @media (hover: hover) and (pointer: fine) { .topnav button:hover, .bar-pop .pop-list button:hover { color: var(--fg); background: var(--hover); } }
   .topnav button[aria-current="page"] { color: var(--gold); font-weight: 700; background: color-mix(in srgb, var(--gold) 10%, transparent); }
-  .topnav .badge, .more-grid .badge { min-width: 18px; height: 18px; padding: 0 5px; display: inline-grid; place-items: center; font-size: .7rem; font-weight: 700; background: var(--gold); color: var(--on-gold); font-variant-numeric: tabular-nums; letter-spacing: 0; }
+  .topnav .badge, .more-grid .badge, .bar-pop .badge { min-width: 18px; height: 18px; padding: 0 5px; display: inline-grid; place-items: center; font-size: .7rem; font-weight: 700; background: var(--gold); color: var(--on-gold); font-variant-numeric: tabular-nums; letter-spacing: 0; }
   .fan-note { margin: 0; font-size: .75rem; line-height: 1.4; color: var(--muted); }
-  .more-sheet .fan-note { margin-top: 12px; text-align: center; }
   .about-panel .fan-note { font-size: .8125rem; }
   .about-panel h3 { font-size: 1rem; margin: 0; }
   .about-panel ul { margin: 0; padding-left: 1.2em; }
   a.btn.primary { display: inline-flex; align-items: center; justify-content: center; align-self: flex-start; min-height: 44px; padding: 8px 16px; background: var(--gold); color: var(--on-gold); border: 1px solid var(--gold); text-decoration: none; }
   @media (hover: hover) and (pointer: fine) { a.btn.primary:hover { background: var(--gold-bright); } }
   .about-panel a:not(.btn) { display: inline-flex; align-items: center; min-height: 44px; }
-  .rail-brand, .rail-foot { display: none; }
+  .topnav .caret { display: none; }
   @media (min-width: 900px) {
-    .topnav { top: 0; bottom: 0; left: 0; width: 232px; flex-direction: column; gap: 2px; padding: 24px 16px 16px; border-right: 1px solid var(--gold); overflow-y: auto; }
-    .topnav button { padding: 10px 12px; width: 100%; text-align: left; }
-    .topnav .badge { margin-left: auto; }
-    .topnav .more-btn { display: none; }
-    .rail-brand { display: block; padding: 0 8px 22px; margin-bottom: 14px; border-bottom: 1px solid var(--line); }
-    .rail-brand .brand-name { font-size: 1.9rem; }
-    .rail-foot { display: flex; flex-direction: column; gap: 12px; margin-top: auto; padding-top: 16px; }
-    .page { margin-left: 232px; }
-    header .brand { display: none; }
+    .topbar .brand-name { font-size: 28px; line-height: 1; }
+    .topbar .topnav { position: static; z-index: auto; display: flex; align-items: center; gap: 4px; min-width: 0; background: none; }
+    .topbar .topnav button { height: 40px; min-height: 40px; padding: 0 14px; gap: 8px; border-radius: 10px; font-weight: 700; font-size: 14px; white-space: nowrap; flex: none; }
+    .topbar .topnav button .i { display: none; }
+    .topbar .topnav button.in-drop { display: none; }
+    .topbar .topnav button[aria-current="page"] { background: color-mix(in srgb, var(--gold) 14%, transparent); color: var(--gold-bright); }
+    .topbar .topnav .badge { min-width: 22px; height: 22px; padding: 0 7px; border-radius: 11px; font-size: 11px; }
+    .topnav .caret { display: inline; }
+    .topbar .theme-switch { border-radius: 10px; overflow: hidden; }
+    .topbar .theme-switch button { height: 46px; min-height: 46px; padding: 0 12px; }
+    .topbar .profile-chip { min-height: 48px; height: 48px; border-radius: 10px; margin-left: 0; }
   }
   @media (max-width: 899.98px) {
     .topnav { left: 0; right: 0; bottom: 0; padding: 4px 4px calc(4px + env(safe-area-inset-bottom)); border-top: 1px solid var(--gold); justify-content: space-around; }
     .topnav button { flex: 1 1 0; flex-direction: column; justify-content: center; gap: 2px; padding: 6px 2px; font-size: .7rem; min-width: 0; }
     .topnav button.in-more { display: none; }
     .topnav .badge { position: absolute; top: 2px; left: calc(50% + 6px); }
-    .page { padding-bottom: calc(80px + env(safe-area-inset-bottom)); }
   }
   .side { display: none; }
   @media (min-width: 1200px) {
-    /* The events column is a square panel, top-aligned with the first row (page padding 28 + header 104 + gap 24). */
-    .side { display: flex; flex-direction: column; gap: 20px; position: fixed; top: 156px; right: 16px; width: 248px; max-height: calc(100vh - 156px - 84px); padding: 16px; overflow-y: auto;
+    /* The events column is a square panel, top-aligned with the section title (top bar 72 + page padding 28). */
+    .side { display: flex; flex-direction: column; gap: 20px; position: fixed; top: 100px; right: 16px; width: 248px; max-height: calc(100vh - 100px - 84px); padding: 16px; overflow-y: auto;
       border: 1px solid var(--line); border-top-color: var(--gold); background: var(--glass); z-index: 10; }
     .page { margin-right: 280px; }
   }
@@ -555,7 +575,7 @@
     /* the undo toast is a bar docked just above the bottom nav; the page reserves its height while it shows, so it never covers a row */
     .toast { left: 0; right: 0; max-width: none; justify-content: space-between; bottom: calc(64px + env(safe-area-inset-bottom)); transform: translateY(16px); border-width: 1px 0; }
     .toast.show { transform: none; }
-    body.toast-up .page { padding-bottom: calc(80px + var(--toast-h, 50px) + 12px + env(safe-area-inset-bottom)); }
+    body.toast-up .fan-foot { padding-bottom: calc(84px + var(--toast-h, 50px) + 12px + env(safe-area-inset-bottom)); }
     /* on phones the assistant is an icon button in the header, so it never covers a row */
     .ai-fab { position: static; width: 44px; height: 44px; padding: 0; display: grid; place-items: center; flex: none; }
     .ai-fab .ai-ico { display: grid; }
@@ -592,6 +612,13 @@
   .lg-members small { color: var(--muted); margin-left: 6px; }
 
   .chars-actions { display: flex; align-items: center; gap: 10px; }
+  .chars-actions .add-btn { display: inline-flex; align-items: center; justify-content: center; gap: 8px; }
+  .chars-actions .add-btn .i { width: 18px; height: 18px; }
+  @media (max-width: 899.98px) {
+    .chars-bar { flex-wrap: wrap; }
+    .chars-actions { width: 100%; }
+    .chars-actions button { flex: 1 1 auto; justify-content: center; }
+  }
   .presets-btn { display: inline-flex; align-items: center; gap: 8px; padding: 8px 14px; min-height: 44px; border-color: var(--sky); color: var(--sky); }
   .presets-btn .i, .ai-fab .i { width: 18px; height: 18px; }
   button .i { pointer-events: none; }
@@ -610,16 +637,35 @@
   .profile-chip + .online-pill { margin-left: 0; }
 
   @media (max-width: 899.98px) {
-    header { flex-wrap: nowrap; gap: 8px 10px; }
-    header > .brand { min-width: 0; flex: 1 1 auto; }
+    header.topbar > .brand { flex: 1 1 auto; }
     .page-title { font-size: 1.625rem; }
-    .head-actions { width: 100%; }
-    .head-actions button { flex: 1 1 auto; }
     .profile-chip { padding: 4px; margin-left: 0; flex: none; }
     .profile-chip .pc-text { display: none; }
     .profile-chip .pc-icon { width: 36px; height: 36px; }
-    .subtitle { display: none; }
     .online-pill { display: none; }
+  }
+  /* Narrower desktops keep the bar on one line, in steps: below 1680 px tighter spacing, the chip shows only its class icon
+     and the online pill waits for room; below 1440 px the Luz/Sombra switch moves into «Más ▾»; below 1200 px (clocks folded) tighter still. */
+  #more-menu .pop-theme { margin-top: 6px; padding-top: 6px; border-top: 1px solid var(--line); }
+  @media (min-width: 1440px) { #more-menu .pop-theme { display: none; } }
+  @media (min-width: 900px) and (max-width: 1679.98px) {
+    header.topbar { gap: 24px; padding: 0 24px; }
+    .topbar .profile-chip { padding: 6px; }
+    .topbar .profile-chip .pc-text { display: none; }
+    .topbar .online-pill { display: none; }
+  }
+  @media (min-width: 900px) and (max-width: 1439.98px) {
+    .topbar .theme-switch { display: none; }
+    .topbar .topnav button { padding: 0 10px; }
+    .topbar [data-clock="event"] .k { max-width: 120px; }
+  }
+  @media (min-width: 900px) and (max-width: 1199.98px) {
+    header.topbar { gap: 16px; padding: 0 16px; }
+    .topbar .topnav { gap: 2px; }
+  }
+  @media (min-width: 900px) and (max-width: 959.98px) {
+    .topbar .brand-name { font-size: 24px; }
+    .topbar .topnav button { padding: 0 8px; font-size: 13px; }
   }
 
   /* ---- Custom timers ---- */
@@ -667,26 +713,26 @@
   }
 </style>
 
-<div class="page">
-  <header>
-    <div class="page-head" id="page-head">
-      <div class="head-text">
-        <h1 class="page-title" id="page-title">Energía</h1>
-        <p class="page-sub" id="page-sub"><span id="sub-time"><span id="sub-regen">+30 OD en</span> <b id="next-tick"></b></span><span id="sub-missing" hidden>Falta la hora de recarga</span> · <span id="sub-count"></span><span id="sub-cap-sep"> · </span><span id="sub-cap">tope 840</span></p>
-      </div>
-      <div class="head-actions">
-        <button type="button" id="clock-fix">Ajustar recarga</button>
-        <button type="button" id="add-btn" class="add-btn primary" title="Añadir personaje" aria-haspopup="dialog" data-icon="anadir" hidden>Añadir personaje</button>
-      </div>
+<header class="topbar">
+  <div class="brand"><p class="brand-name">Odyle</p><span class="subtitle" id="subtitle">Daevas de Elyos</span></div>
+  <div class="bar-right" id="bar-right">
+    <div class="clocks" id="clocks">
+      <button type="button" class="ck" data-clock="refill"><small class="k" id="ck-refill-k">+30 OD en</small><b class="v" id="next-tick">—</b></button>
+      <button type="button" class="ck reset" data-clock="daily"><small class="k">Reinicio diario</small><b class="v">—</b></button>
+      <button type="button" class="ck" data-clock="event"><small class="k">Próximo evento</small><b class="v"><span class="live" hidden>En curso</span><span class="t">—</span></b></button>
     </div>
-    <div class="brand"><p class="brand-name">Odyle</p><span class="subtitle" id="subtitle">Daevas de Elyos</span></div>
+    <button type="button" class="clocks-btn" id="clocks-btn" aria-haspopup="true" aria-expanded="false" aria-controls="clocks-menu">Relojes <span class="caret" aria-hidden="true">▾</span></button>
     <button type="button" id="profile-chip" class="profile-chip" aria-haspopup="dialog" hidden>
       <span class="pc-icon" id="pc-icon" aria-hidden="true"></span>
       <span class="pc-text"><b id="pc-name"></b><small id="pc-title"></small></span>
     </button>
     <button type="button" id="online-pill" class="online-pill" hidden></button>
-    <div class="ruler" id="ruler" aria-hidden="true"><div class="meridian"><span class="mer-label">Próxima recarga <span id="mer-time"></span></span></div></div>
-  </header>
+  </div>
+</header>
+<div class="clock-strip" id="clock-strip" hidden></div>
+
+<div class="page">
+  <h1 class="page-title" id="page-title">Energía</h1>
 
   <section class="band" id="summary" hidden>
     <p class="band-text" id="sum-tip"></p>
@@ -719,6 +765,7 @@
     <h2>Tus personajes</h2>
     <div class="chars-actions">
       <button type="button" id="presets-btn" class="presets-btn" aria-label="Botones de gasto" title="Botones de gasto" aria-haspopup="dialog" data-icon="rayo" hidden>Gastos</button>
+      <button type="button" id="add-btn" class="add-btn primary" title="Añadir personaje" aria-haspopup="dialog" data-icon="anadir" hidden>Añadir personaje</button>
     </div>
   </div>
   <section class="grid" id="cards" aria-label="Personajes"></section>
@@ -1055,13 +1102,14 @@
 </div>
 
 <script type="module">
-  import { SECTIONS, navModel, resolveTab, decisionBand, planRows, headerRule } from './layout.js';
+  import { SECTIONS, navModel, topbarModel, resolveTab, decisionBand, planRows, headerRule } from './layout.js';
+  import { headerClocks } from './clocks.js';
   import { iconSvg } from './icons.js';
   import { ABOUT, aboutModel } from './about.js';
   import { startI18n, tr, LOCALE, LANG, LANGS, setLang, onLangChange } from './i18n.js';
   startI18n();
   import { buildView, parseEnergyInput, parseMinutesInput, parseNameInput, parseClassInput } from './view.js';
-  import { anchorFromCountdown, formatDuration, nextTickAt, TICK_MS, MAX, rulesOf } from './energy.js';
+  import { anchorFromCountdown, formatDuration, nextTickAt, MAX, rulesOf } from './energy.js';
   import { CLASSES, classById } from './classes.js';
   import { THEMES, resolveTheme, otherTheme, themeOf } from './theme.js';
   import { paths, planMigration } from './store.js';
@@ -1797,7 +1845,6 @@
   let social = null;
   for (const n of document.querySelectorAll('[data-icon]')) n.prepend(iconSvg(document, n.dataset.icon));
   const pageEl = document.querySelector('.page');
-  const pageHead = $('page-head');
   const drawerOrder = [...$('drawer').children];
   const drawerPanels = drawerOrder.filter(n => !n.classList.contains('drawer-head'));
   const isNews = n => n.querySelector && (n.querySelector('#news') || n.querySelector('#feedback-form'));
@@ -1829,31 +1876,34 @@
     acerca: () => [aboutPanel],
     ...(SOCIAL ? { amigos: () => [socialPanels.amigos], chat: () => [socialPanels.chat], buscar: () => [socialPanels.buscar] } : {}),
   };
+  // Desktop: menu items in the top bar, the rest in the «Más ▾» popover. Phone: the bottom bar (4 + «Más» sheet).
+  // One set of buttons serves both: the bar subset of the phone is the head of the desktop menu, in the same order.
+  const TOP = topbarModel({ social: SOCIAL });
   const navButton = id => el('button', { type: 'button', 'data-tab': id, onclick: () => setTab(id) },
     iconSvg(document, SECTION[id].icon), el('span', { class: 'lbl' }, SECTION[id].label));
-  const nav = el('nav', { class: 'topnav', id: 'topnav', 'aria-label': 'Secciones' },
-    el('div', { class: 'rail-brand' }, el('p', { class: 'brand-name' }, 'Odyle')));
+  const nav = el('nav', { class: 'topnav', id: 'topnav', 'aria-label': 'Secciones' });
   const tabWrap = el('div', { class: 'tabs' });
   const tabPanels = {};
   for (const [id, label] of TABS) {
-    const b = navButton(id);
-    if (!NAV.bar.includes(id)) b.classList.add('in-more'); // hidden in the mobile bar
-    nav.append(b);
     tabPanels[id] = el('section', { class: 'tab-panel', id: 'tab-' + id, 'aria-label': label });
     tabWrap.append(tabPanels[id]);
   }
-  const moreBtn = el('button', { type: 'button', class: 'more-btn', 'data-more': '', 'aria-haspopup': 'dialog', onclick: () => openMore() },
-    iconSvg(document, 'mas'), el('span', { class: 'lbl' }, 'Más'));
+  for (const id of [...TOP.menu, ...TOP.more]) {
+    const b = navButton(id);
+    if (!NAV.bar.includes(id)) b.classList.add('in-more'); // hidden in the phone bar
+    if (!TOP.menu.includes(id)) b.classList.add('in-drop'); // hidden in the desktop menu («Más ▾»)
+    nav.append(b);
+  }
+  const moreBtn = el('button', { type: 'button', class: 'more-btn', 'data-more': '', onclick: () => { if (!WIDE.matches) openMore(); } },
+    iconSvg(document, 'mas'), el('span', { class: 'lbl' }, 'Más'), el('span', { class: 'caret', 'aria-hidden': 'true' }, '▾'));
   nav.append(moreBtn);
   const FAN = 'Sitio de fans no oficial · no afiliado a NCSOFT';
-  const fanNote = el('p', { class: 'fan-note' }, FAN);
-  const railFoot = el('div', { class: 'rail-foot' }, themeSwitch(), fanNote);
-  nav.append(railFoot);
+  const fanFoot = el('footer', { class: 'fan-foot' }, el('p', { class: 'fan-note' }, FAN));
   const moreSheet = el('dialog', { class: 'more-sheet', id: 'more-sheet', 'aria-label': 'Más secciones' });
   const moreInner = el('div', { class: 'more-inner' }, el('div', { class: 'more-grid' }, ...NAV.more.map(id => navButton(id)),
     el('button', { type: 'button', 'data-profile': '', onclick: () => { closeMore(); $('profile-chip').click(); } },
       iconSvg(document, 'perfil'), el('span', { class: 'lbl' }, 'Perfil'))),
-    themeSwitch(), el('p', { class: 'fan-note' }, FAN));
+    themeSwitch());
   moreSheet.append(moreInner);
   // Only a tap on the backdrop (outside the dialog's box) closes it; a tap on its own padding does not.
   moreSheet.addEventListener('click', e => {
@@ -1862,11 +1912,46 @@
     if (e.clientX < r.left || e.clientX > r.right || e.clientY < r.top || e.clientY > r.bottom) closeMore();
   });
   document.body.append(moreSheet);
+  // Popovers of the top bar: «Más ▾» (sections) and, 900–1199 px, «Relojes ▾» (refill + event clocks).
+  const moreMenu = el('div', { class: 'bar-pop', id: 'more-menu', popover: 'auto', 'aria-label': 'Más secciones' },
+    el('div', { class: 'pop-list' }, ...TOP.more.map(id => navButton(id))), el('div', { class: 'pop-theme' }, themeSwitch()));
+  const clocksMenu = el('div', { class: 'bar-pop', id: 'clocks-menu', popover: 'auto', 'aria-label': 'Relojes' },
+    el('div', { class: 'clocks' }, ...['refill', 'event'].map(k => {
+      const c = document.querySelector(`#clocks [data-clock="${k}"]`).cloneNode(true);
+      for (const n of [c, ...c.querySelectorAll('[id]')]) n.removeAttribute('id');
+      return c;
+    })));
+  document.body.append(moreMenu, clocksMenu);
+  // Anchored under the button that opened it: «Más» by its left edge, «Relojes» by its right edge (it sits at the right).
+  function anchorPop(pop, btn, side) {
+    pop.addEventListener('beforetoggle', e => {
+      if (e.newState !== 'open') return;
+      const r = btn.getBoundingClientRect();
+      pop.style.top = `${Math.round(r.bottom + 6)}px`;
+      if (side === 'left') { pop.style.left = `${Math.round(r.left)}px`; pop.style.right = 'auto'; }
+      else { pop.style.right = `${Math.round(document.documentElement.clientWidth - r.right)}px`; pop.style.left = 'auto'; }
+    });
+  }
+  anchorPop(moreMenu, moreBtn, 'left');
+  anchorPop(clocksMenu, $('clocks-btn'), 'right');
+  $('clocks-btn').setAttribute('popovertarget', 'clocks-menu');
+  const hidePop = p => { if (p.matches(':popover-open')) p.hidePopover(); };
+  addEventListener('resize', () => { hidePop(moreMenu); hidePop(clocksMenu); });
+  // The clocks: refill → Ajustes (recharge time), daily reset and next event → Eventos.
+  function onClock(e) {
+    const c = e.target.closest('[data-clock]');
+    if (!c) return;
+    if (c.dataset.clock === 'refill') goTo('ajustes', 'adjust-minutes'); else setTab('eventos');
+  }
+  $('clocks').addEventListener('click', onClock);
+  clocksMenu.addEventListener('click', onClock);
+  const barTheme = themeSwitch();
+  $('bar-right').append(barTheme);
   function openMore() { if (!moreSheet.open) moreSheet.showModal(); }
-  function closeMore() { if (moreSheet.open) moreSheet.close(); }
+  function closeMore() { if (moreSheet.open) moreSheet.close(); hidePop(moreMenu); hidePop(clocksMenu); }
   applyTheme(theme); // marks the switches just created
   function setBadge(id, n) {
-    for (const b of document.querySelectorAll(`#topnav [data-tab="${id}"], #more-sheet [data-tab="${id}"]`)) {
+    for (const b of document.querySelectorAll(`#topnav [data-tab="${id}"], #more-sheet [data-tab="${id}"], #more-menu [data-tab="${id}"]`)) {
       let s = b.querySelector('.badge');
       if (!n) { if (s) s.remove(); continue; }
       if (!s) { s = el('span', { class: 'badge' }); b.append(s); }
@@ -1884,34 +1969,53 @@
     const b = ev.target.closest('[data-go]');
     if (b) setTab(b.dataset.go);
   });
+  // «Más» is marked when the open section lives behind it (the phone sheet and the desktop dropdown hold different sets).
+  function markMore() {
+    const hidden = WIDE.matches ? TOP.more : NAV.more;
+    if (hidden.includes(activeTab)) moreBtn.setAttribute('aria-current', 'page'); else moreBtn.removeAttribute('aria-current');
+  }
   function setTab(id) {
     id = resolveTab(id, { social: SOCIAL });
     activeTab = id;
     try { localStorage.setItem('odyle-tab', id); } catch {}
     for (const [k, p] of Object.entries(tabPanels)) p.hidden = k !== id;
-    for (const b of document.querySelectorAll('#topnav [data-tab], #more-sheet [data-tab]')) {
+    for (const b of document.querySelectorAll('#topnav [data-tab], #more-sheet [data-tab], #more-menu [data-tab]')) {
       if (b.dataset.tab === id) b.setAttribute('aria-current', 'page'); else b.removeAttribute('aria-current');
     }
-    if (NAV.more.includes(id)) moreBtn.setAttribute('aria-current', 'page'); else moreBtn.removeAttribute('aria-current');
+    markMore();
     closeMore();
     $('page-title').textContent = SECTION[id].label;
-    pageHead.classList.toggle('plain', id !== 'personajes');
+    tabPanels[id].prepend($('page-title'));
     if (id === 'eventos') $('events').open = true;
     if (id === 'novedades') loadInbox(); // the owner's feedback inbox
     window.scrollTo({ top: 0 });
     if (social) social.onTab(id);
     render();
   }
-  // The profile chip lives at the foot of the rail on desktop and in the header on mobile.
+  // Desktop: the menu sits in the bar, the clocks in its right zone. Phone: the menu is the bottom bar and the clocks
+  // ride in the sticky strip under the header; the assistant is an icon button in the header.
   function placeChrome() {
-    const header = pageEl.querySelector('header');
-    if (WIDE.matches) { fanNote.before($('profile-chip')); closeMore(); header.prepend(pageHead); }
-    else { header.append($('profile-chip')); tabPanels.personajes.prepend(pageHead); }
-    if (WIDE.matches) document.body.append($('ai-fab')); else pageEl.querySelector('header').append($('ai-fab'));
+    closeMore();
+    if (WIDE.matches) {
+      $('bar-right').before(nav);
+      $('bar-right').prepend($('clocks'));
+      $('clock-strip').hidden = true;
+      moreBtn.setAttribute('popovertarget', 'more-menu');
+      moreBtn.setAttribute('aria-haspopup', 'true');
+      document.body.append($('ai-fab'));
+    } else {
+      pageEl.before(nav);
+      $('clock-strip').append($('clocks'));
+      $('clock-strip').hidden = false;
+      moreBtn.removeAttribute('popovertarget');
+      moreBtn.setAttribute('aria-haspopup', 'dialog');
+      barTheme.before($('ai-fab'));
+    }
+    markMore();
   }
   function applyLayout() {
-    pageEl.before(nav);
-    pageEl.querySelector('header').after(tabWrap);
+    pageEl.prepend(tabWrap);
+    pageEl.after(fanFoot);
     // notices stay above the sections
     tabWrap.before($('nodata'), $('notice'));
     for (const [id] of TABS) tabPanels[id].replaceChildren(...PLACE[id]());
@@ -1933,7 +2037,6 @@
     $('guide').hidden = !show;
     [s1, s2, s3].forEach((d, i) => $('step-' + (i + 1)).classList.toggle('done', d));
   }
-  $('clock-fix').addEventListener('click', () => goTo('ajustes', 'adjust-minutes'));
   $('guide').addEventListener('click', e => {
     const b = e.target.closest('[data-step]'); if (!b) return;
     const step = b.dataset.step;
@@ -2116,36 +2219,37 @@
   }
 
   // Also the per-card rune timers ("+15 en hh:mm:ss") and the rune ring progress.
+  // Top bar clocks (each second, no aria-live): refill, daily reset, next non-reset event. The «Relojes ▾» popover holds
+  // copies of the refill and event clocks, so every [data-clock] node of a kind is filled; a kind is only rewritten when it changed.
+  let headRegen = '+30 OD en';
+  const clockShown = {};
+  function setClock(kind, label, value, live = false) {
+    const key = `${label}\u0000${value}\u0000${live}`;
+    if (clockShown[kind] === key) return;
+    clockShown[kind] = key;
+    for (const c of document.querySelectorAll(`[data-clock="${kind}"]`)) {
+      const k = c.querySelector('.k');
+      if (label !== null && k.dataset.label !== label) { k.dataset.label = label; k.textContent = label; if (kind === 'event') c.title = label; }
+      if (kind === 'event') { c.querySelector('.live').hidden = !live; c.querySelector('.t').textContent = value; }
+      else c.querySelector('.v').textContent = value;
+    }
+  }
   function paintClock() {
-    paintEvents(Date.now());
-    paintTimers(Date.now());
-    paintCalendar(Date.now());
+    const now = Date.now();
+    paintEvents(now);
+    paintTimers(now);
+    paintCalendar(now);
     const anchor = state.schedule && Number.isFinite(state.schedule.anchorMs) ? state.schedule.anchorMs : null;
-    const left = anchor === null ? null : nextTickAt(anchor, Date.now()) - Date.now();
-    $('ruler').classList.toggle('missing', anchor === null);
-    $('sub-time').hidden = anchor === null;
-    $('sub-missing').hidden = anchor !== null;
-    const count = state.characters.length;
-    const countText = count === 1 ? '1 personaje' : `${count} personajes`;
-    if ($('sub-count').textContent !== countText) $('sub-count').textContent = countText;
-    if (anchor === null) { $('mer-time').textContent = ''; return; }
-    const clock = formatClock(left);
-    $('next-tick').textContent = clock;
-    $('mer-time').textContent = clock;
-    $('next-tick').setAttribute('aria-label', `en ${formatDuration(left)}`);
-    // The meridian: 0 just recharged, 1 when the next recharge arrives. Same tick as the clock; only a CSS variable changes.
-    const mer = Math.min(1, Math.max(0, 1 - left / TICK_MS));
-    $('ruler').style.setProperty('--mer', String(mer));
-    $('ruler').classList.toggle('late', mer > 0.6);
+    setClock('refill', headRegen, anchor === null ? '—' : formatClock(nextTickAt(anchor, now) - now));
+    const hc = headerClocks(now);
+    setClock('daily', null, hc.daily ? formatClock(hc.daily.startMs - now) : '—');
+    if (hc.next) setClock('event', hc.next.name, hc.next.active ? formatClock(hc.next.endMs - now) : countdown(hc.next.startMs - now), hc.next.active);
+    else setClock('event', 'Próximo evento', '—');
   }
 
-  // Header: «+N OD en» and «tope N» only when every character shares the account rule; otherwise just «Recarga en».
-  let headRegen = '+30 OD en', headCap = 'tope 840';
+  // Refill clock label: «+N OD en» only when every character shares the account rule; otherwise just «Recarga en».
   function paintHeaderRule(rule) {
-    const regenText = rule ? `+${rule.regen} OD en` : 'Recarga en';
-    if (regenText !== headRegen) { headRegen = regenText; $('sub-regen').textContent = regenText; }
-    if (rule && `tope ${rule.max}` !== headCap) { headCap = `tope ${rule.max}`; $('sub-cap').textContent = headCap; }
-    $('sub-cap').hidden = $('sub-cap-sep').hidden = !rule;
+    headRegen = rule ? `+${rule.regen} OD en` : 'Recarga en';
   }
   let lastEnergy = new Map();
   let lastAnchor;
@@ -2162,7 +2266,6 @@
     if ($('add-btn').hidden && !$('add-modal').hidden) closeAdd();
     paintPresets();
     paintTaskList();
-    $('page-sub').hidden = ui.noDb;
     paintHeaderRule(headerRule(view.rows));
 
     // Keep focus and caret across repaints (timers repaint too).
