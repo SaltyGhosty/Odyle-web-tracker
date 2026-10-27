@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { SECTIONS, navModel, resolveTab, decisionBand, planRows, headerRule } from './layout.js';
+import { SECTIONS, navModel, resolveTab, topbarModel, decisionBand, planRows, headerRule } from './layout.js';
 
 test('secciones: Energía primero, ids estables y etiqueta nueva', () => {
   assert.equal(SECTIONS[0].id, 'personajes');
@@ -148,4 +148,23 @@ test('Acerca de: último del rail y en Más, web y artifact', () => {
     assert.ok(m.more.includes('acerca'));
   }
   assert.equal(resolveTab('acerca', { social: false }), 'acerca');
+});
+
+test('topbarModel web: cinco en el menú, el resto en Más', () => {
+  assert.deepEqual(topbarModel({ social: true }), {
+    menu: ['personajes', 'eventos', 'legion', 'amigos', 'chat'],
+    more: ['buscar', 'estadisticas', 'ajustes', 'novedades', 'acerca'],
+  });
+});
+test('topbarModel artifact: sin sociales, Estadísticas en el menú', () => {
+  assert.deepEqual(topbarModel({ social: false }), {
+    menu: ['personajes', 'eventos', 'legion', 'estadisticas'],
+    more: ['ajustes', 'novedades', 'acerca'],
+  });
+});
+test('topbarModel cubre cada sección una sola vez', () => {
+  for (const social of [true, false]) {
+    const { menu, more } = topbarModel({ social });
+    assert.deepEqual([...menu, ...more].sort(), navModel({ social }).rail.slice().sort());
+  }
 });

@@ -29,6 +29,17 @@ export function resolveTab(saved, { social }) {
   return navModel({ social }).rail.includes(saved) ? saved : 'personajes';
 }
 
+// Desktop top bar: main menu items; everything else in the «Más» dropdown (rail order).
+const MENU = {
+  web: ['personajes', 'eventos', 'legion', 'amigos', 'chat'],
+  artifact: ['personajes', 'eventos', 'legion', 'estadisticas'],
+};
+
+export function topbarModel({ social }) {
+  const menu = social ? MENU.web : MENU.artifact;
+  return { menu, more: navModel({ social }).rail.filter((id) => !menu.includes(id)) };
+}
+
 // What the player should do next: crimson when someone is at cap, gold when someone will waste
 // recharges before the end of the quiet window, neutral otherwise.
 export function decisionBand(rows, now, { quiet, tzOffsetMin }) {
