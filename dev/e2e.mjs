@@ -19,7 +19,8 @@ const BASE = `http://localhost:${server.address().port}/`;
 const STUB = () => {
   const now = Date.now();
   const docs = new Map(Object.entries({
-    'settings/schedule': { anchorMs: now - 60 * 60_000 },
+    // __tickSoon: the next +OD tick lands 2.5 s after load (the refill pulse)
+    'settings/schedule': { anchorMs: window.__tickSoon ? now - 10_800_000 + 2500 : now - 60 * 60_000 },
     'members/u_me': window.__noProfile ? { joinedAt: now - 86_400_000 }
       : { joinedAt: now - 86_400_000, profile: { nick: 'SaltyMain', server: 'Israphel', bio: '', faction: 'elyos', mainCharId: 'c1' } },
     // __empty: no characters; __demo: the Energía screenshots (one at the cap, three not)
@@ -141,7 +142,7 @@ const check = (name, ok, extra = '') => { results.push([name, !!ok]); console.lo
 const errors = [];
 
 async function open(width, height = 900, opts = {}) {
-  const ctx = await browser.newContext({ viewport: { width, height }, colorScheme: 'dark' });
+  const ctx = await browser.newContext({ viewport: { width, height }, colorScheme: 'dark', reducedMotion: opts.reducedMotion || 'no-preference' });
   const page = await ctx.newPage();
   page.on('pageerror', e => errors.push(`${width}px: ${e.message}`));
   page.on('console', m => { if (m.type() === 'error' && !/favicon|Failed to load resource/.test(m.text())) errors.push(`${width}px console: ${m.text()}`); });
@@ -151,6 +152,7 @@ async function open(width, height = 900, opts = {}) {
   if (opts.demo) await page.addInitScript(() => { window.__demo = true; });
   if (opts.empty) await page.addInitScript(() => { window.__empty = true; });
   if (opts.readOnly) await page.addInitScript(() => { window.__readOnly = true; });
+  if (opts.tickSoon) await page.addInitScript(() => { window.__tickSoon = true; });
   await page.addInitScript(STUB);
   await page.addInitScript(l => { try { localStorage.setItem('odyle-lang', l); localStorage.removeItem('odyle-tab'); } catch {} }, opts.lang || 'es');
   await page.goto(BASE);
@@ -604,6 +606,108 @@ for (const theme of ['luz', 'sombra']) {
   await page.evaluate(() => { window.__failLegion = true; });
   await page.click('#lg-new-code'); await page.waitForTimeout(400);
   check('líder: un fallo al guardar la legión no bloquea la página', await page.locator('#cards button.spend').count() > 0 && !(await page.evaluate(() => document.getElementById('add-btn').hidden)) && /permiso/.test(await text(page, '#notice')));
+  await page.close();
+}
+
+// ================= Living sky, pulse and motion =================
+// skyRead: a hash of every pixel of canvas#sky (stricter than one pixel) and how many are drawn. The first readback of
+// a GPU canvas moves it to memory and may round differently, so each read discards one readback first.
+const skyRead = page => page.evaluate(() => {
+  const c = document.getElementById('sky'), g = c.getContext('2d');
+  g.getImageData(0, 0, c.width, c.height);
+  const d = g.getImageData(0, 0, c.width, c.height).data;
+  let h = 0, lit = 0;
+  for (let i = 0; i < d.length; i++) { h = (h * 31 + d[i]) | 0; if (i % 4 === 3 && d[i] > 0) lit++; }
+  return { h, lit, w: c.width, ht: c.height };
+});
+{
+  const page = await open(1440, 900, { demo: true });
+  check('cielo: canvas#sky primero en body, fijo detrás de todo, sin clics y más grande que la ventana', await page.evaluate(() => {
+    const c = document.getElementById('sky'), cs = getComputedStyle(c), r = c.getBoundingClientRect();
+    return c === document.body.firstElementChild && c.getAttribute('aria-hidden') === 'true' && cs.position === 'fixed' && cs.zIndex === '-1'
+      && cs.pointerEvents === 'none' && r.left <= -8 && r.top <= -8 && r.right >= innerWidth + 8 && r.bottom >= innerHeight + 8
+      && getComputedStyle(document.documentElement).backgroundColor === 'rgba(0, 0, 0, 0)' && document.documentElement.scrollWidth <= innerWidth;
+  }));
+  const a = await skyRead(page); await page.waitForTimeout(1000); const b = await skyRead(page);
+  check('cielo: con movimiento, dos lecturas a 1 s son distintas', a.lit > 0 && a.h !== b.h, JSON.stringify([a, b]));
+  check('cielo: a media resolución (0,5)', a.w === 720 && a.ht === 450, JSON.stringify(a));
+  check('orbes: los de las tarjetas flotan; el del escenario y «Gastar ahora» no se mueven', await page.evaluate(() =>
+    [...document.querySelectorAll('#cards article.card.tile')].every(c => getComputedStyle(c.querySelector('.r-orb')).animationName === 'orb-float')
+    && getComputedStyle(document.querySelector('#stage .r-orb')).animationName === 'none'
+    && getComputedStyle(document.querySelector('#stage button.stage-go')).animationName === 'none'));
+  await page.mouse.move(1430, 890); await page.waitForTimeout(150);
+  const par = await page.evaluate(() => document.getElementById('sky').style.translate);
+  check('paralaje: el ratón mueve el cielo unos píxeles (≤ 8)', /^(7\.\d+|8\.00)px (7\.\d+|8\.00)px$/.test(par), par);
+  await page.mouse.move(720, 450); await page.waitForTimeout(150);
+  await page.screenshot({ path: 'dev/screens/sky-luz-1440.png' });
+  // the first visit to a section plays its entrance; coming back to a section already seen does not
+  await page.click('#topnav [data-tab=eventos]'); await page.waitForTimeout(50);
+  const first = await page.evaluate(() => document.querySelectorAll('#tab-eventos > .enter').length);
+  await page.waitForTimeout(1300);
+  await page.click('#topnav [data-tab=personajes]'); await page.waitForTimeout(100);
+  await page.click('#topnav [data-tab=eventos]'); await page.waitForTimeout(50);
+  const again = await page.evaluate(() => document.querySelectorAll('#tab-eventos .enter').length + document.getAnimations().filter(x => x.animationName === 'rise').length);
+  check('entradas: solo la primera vez que se abre una sección', first >= 1 && again === 0, JSON.stringify({ first, again }));
+  await page.click('#topnav [data-tab=personajes]'); await page.waitForTimeout(50);
+  const back = await page.evaluate(() => document.querySelectorAll('#tab-personajes .enter').length);
+  check('entradas: al volver a Energía las tarjetas no vuelven a entrar', back === 0, String(back));
+  await page.click('header.topbar [data-theme-choice="asmodian"]'); await page.waitForTimeout(400);
+  const c = await skyRead(page);
+  check('cielo Sombra: los colores cambian con el tema', c.lit > 0 && c.h !== b.h);
+  await page.screenshot({ path: 'dev/screens/sky-sombra-1440.png' });
+  // «Reducir animaciones»: the sky stops on one still frame, the orbs stop floating, no parallax
+  await openAjustes(page);
+  await page.click('#lite-toggle'); await page.waitForTimeout(200);
+  await page.click('#topnav [data-tab=personajes]'); await page.waitForTimeout(200);
+  const l1 = await skyRead(page); await page.mouse.move(10, 10); await page.waitForTimeout(1000); const l2 = await skyRead(page);
+  check('«Reducir animaciones»: cielo quieto, sin paralaje ni orbes flotando', l1.lit > 0 && l1.h === l2.h && await page.evaluate(() =>
+    ['', '0px', '0px 0px', '0.00px 0.00px'].includes(document.getElementById('sky').style.translate)
+    && [...document.querySelectorAll('#cards .r-orb')].every(o => getComputedStyle(o).animationName === 'none')), JSON.stringify([l1, l2]));
+  await openAjustes(page);
+  await page.click('#lite-toggle'); await page.waitForTimeout(200);
+  const m1 = await skyRead(page); await page.waitForTimeout(1000); const m2 = await skyRead(page);
+  check('«Reducir animaciones» de nuevo apagado: el cielo vuelve a moverse', m1.h !== m2.h);
+  await page.click('#topnav [data-tab=personajes]'); await page.waitForTimeout(200);
+  // a new card rises in (4th card: 3 × 60 ms stagger) and a repaint during its entrance carries it on, never restarts it
+  await page.evaluate(() => { window.__docs.set('members/u_me/characters/c5', { name: 'Recién', classId: 'mago', energy: 100, recordedAt: Date.now(), order: 5 }); window.__notify(); });
+  await page.waitForSelector('#cards article[data-id=c5]');
+  const e1 = await page.evaluate(() => { const c = document.querySelector('#cards article[data-id=c5]'); return { enter: c.classList.contains('enter'), anim: getComputedStyle(c).animationName, d: parseFloat(c.style.getPropertyValue('--enter-delay')) }; });
+  await page.waitForTimeout(150); await page.evaluate(() => window.__notify()); await page.waitForTimeout(60);
+  const e2 = await page.evaluate(() => { const c = document.querySelector('#cards article[data-id=c5]'); return { enter: c.classList.contains('enter'), d: parseFloat(c.style.getPropertyValue('--enter-delay')) }; });
+  await page.waitForTimeout(800); await page.evaluate(() => window.__notify()); await page.waitForTimeout(60);
+  const e3 = await page.evaluate(() => document.querySelector('#cards article[data-id=c5]').classList.contains('enter'));
+  check('entradas: la tarjeta nueva sube con su escalón y sigue al repintar, sin repetir', e1.enter && e1.anim === 'rise' && e1.d <= 180 && e1.d > 100
+    && e2.enter && e2.d < e1.d - 100 && !e3, JSON.stringify({ e1, e2, e3 }));
+  await page.close();
+}
+{
+  // prefers-reduced-motion: one still frame, no motes, no parallax, no entrances; the clocks keep counting
+  const page = await open(1440, 900, { demo: true, reducedMotion: 'reduce' });
+  const a = await skyRead(page); await page.mouse.move(1430, 890);
+  const t0 = await text(page, '#next-tick'); await page.waitForTimeout(1000);
+  const b = await skyRead(page);
+  check('movimiento reducido: el cielo no se redibuja (dos lecturas a 1 s iguales)', a.lit > 0 && a.h === b.h, JSON.stringify([a, b]));
+  check('movimiento reducido: sin paralaje, sin entradas ni orbes flotando; los relojes siguen', await page.evaluate(() =>
+    ['', '0px', '0px 0px', '0.00px 0.00px'].includes(document.getElementById('sky').style.translate)
+    && [...document.querySelectorAll('.card')].every(c => getComputedStyle(c).animationName === 'none')
+    && [...document.querySelectorAll('.r-orb')].every(o => getComputedStyle(o).animationName === 'none')) && (await text(page, '#next-tick')) !== t0);
+  await page.close();
+}
+{
+  // Refill pulse: a tick 2.5 s after load runs the gain path (the +N, the orb ripple, the sky's wave) and the sky keeps going.
+  const page = await open(1440, 900, { demo: true, tickSoon: true });
+  await page.waitForSelector('#stage .gain, #cards .gain', { timeout: 6000 }).catch(() => {});
+  const g = await page.evaluate(() => document.querySelectorAll('.gain').length);
+  const a = await skyRead(page); await page.waitForTimeout(300); const b = await skyRead(page);
+  check('pulso: en la recarga sale el +N y el cielo sigue vivo', g >= 1 && a.h !== b.h, String(g));
+  await page.close();
+}
+{
+  const page = await open(390, 844, { demo: true });
+  check('cielo 390: cubre la ventana, a 0,35 y sin ensanchar la página', await page.evaluate(() => {
+    const c = document.getElementById('sky'), r = c.getBoundingClientRect();
+    return r.left <= -8 && r.right >= innerWidth + 8 && c.width === Math.round(innerWidth * 0.35) && document.documentElement.scrollWidth <= innerWidth;
+  }));
   await page.close();
 }
 

@@ -21,6 +21,7 @@
     --shadow: none;
     --orb-liquid-top: #F2C77E; --orb-liquid-deep: #5C8DC2; --orb-glass: #18203A;
     --orb-ring: #E3A853; --orb-ring-off: rgba(244, 231, 200, .26);
+    --sky-1: #E3A853; --sky-2: #9CC3E6; --sky-3: #5C8DC2; /* living sky (sky.js): oro y azul cielo sobre pizarra */
     --font-display: "Marcellus", "Trajan Pro", Georgia, serif;
     --font-body: "Gothic A1", system-ui, -apple-system, "Segoe UI", sans-serif;
     --ease-out: cubic-bezier(0.23, 1, 0.32, 1);
@@ -36,11 +37,13 @@
     --glow: rgba(165, 140, 232, .3); --scrim: rgba(5, 3, 12, .7);
     --orb-liquid-top: #C8CDE4; --orb-liquid-deep: #7A58C0; --orb-glass: #0D0A19;
     --orb-ring: #A58CE8; --orb-ring-off: rgba(236, 232, 246, .24);
+    --sky-1: #A58CE8; --sky-2: #C8CDE4; --sky-3: #7A58C0; /* living sky: violeta sobre el Abismo */
   }
 
   * { box-sizing: border-box; }
   [hidden] { display: none !important; }
-  html { background: var(--bg); font-synthesis: none; scrollbar-color: color-mix(in srgb, var(--gold) 55%, transparent) var(--glass); }
+  /* --bg lives on body only: it propagates to the viewport, under the living sky (canvas#sky, z-index -1). */
+  html { font-synthesis: none; scrollbar-color: color-mix(in srgb, var(--gold) 55%, transparent) var(--glass); }
   ::selection { background: color-mix(in srgb, var(--gold) 38%, transparent); color: var(--fg); }
   body {
     margin: 0;
@@ -52,6 +55,8 @@
     line-height: 1.45;
     font-variant-numeric: tabular-nums;
   }
+  /* Living Atreia sky: 8 px larger than the viewport on each side, so the mouse parallax never shows an edge. */
+  #sky { position: fixed; top: -8px; left: -8px; width: calc(100vw + 16px); height: calc(100vh + 16px); z-index: -1; pointer-events: none; display: block; }
   .page {
     position: relative; z-index: 1;
     padding: 28px 16px 56px;
@@ -415,7 +420,6 @@
     #tab-ajustes[hidden], #tab-novedades[hidden] { display: none !important; }
     #tab-legion .legion:empty + .legion-empty { display: block; }
     .chars-bar { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
-    @media (prefers-reduced-motion: no-preference) { .tab-panel:not([hidden]) { animation: rise .35s cubic-bezier(.2, .7, .2, 1) both; } }
   }
 
   /* ---- Legion ---- */
@@ -773,6 +777,11 @@
     @keyframes so-rune-in { from { stroke-width: 2.8; opacity: .4; } } /* to: the rune's own width */
     @keyframes so-beat { 0%, 100% { opacity: 1; } 50% { opacity: .5; } }
     @keyframes rise { from { opacity: 0; transform: translateY(14px); } to { opacity: 1; transform: none; } }
+    /* Entrances: only the first time a section is shown in the session (the script adds .enter), 60 ms steps, at most 6. */
+    body:not(.calm) .enter { animation: rise .45s var(--ease-out) var(--enter-delay, calc(min(var(--i, 0), 6) * 60ms)) both; }
+    /* Card orbs float slowly, each out of step with the next. The number below them never moves. */
+    body:not(.calm) .card.tile .r-orb { animation: orb-float 4s ease-in-out calc(var(--i, 0) * -700ms) infinite; }
+    @keyframes orb-float { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-6px); } }
     .gain { animation: float 1.6s ease-out forwards; }
     @keyframes float {
       0% { opacity: 0; transform: translate(-50%, 10px) scale(.8); }
@@ -782,6 +791,7 @@
   }
 </style>
 
+<canvas id="sky" aria-hidden="true"></canvas>
 <header class="topbar">
   <div class="brand"><p class="brand-name">Odyle</p><span class="subtitle" id="subtitle">Daevas de Elyos</span></div>
   <div class="bar-right" id="bar-right">
@@ -1201,6 +1211,7 @@
   import { makeCode, normalizeCode, hashCode, roomName, parseLegionName, parseProfile, legionOf, sameLegion, legionTitle, proofFor, pickLegion, legionKey } from './legion.js';
   import { formatClock, detectGains, rollValue, becameFull } from './motion.js';
   import { buildStarOrb, updateStarOrb, markGain, syncOrbMotion } from './starorb.js';
+  import { createSky, skyBudget } from './sky.js';
   // The 3D orb loads on its own: without WebGL, or if Three.js cannot load, every orb stays the SVG one.
   let orbs3d = null;
   import('./orb3d.js').then(m => { orbs3d = m.createOrbs3D(); if (orbs3d) render(); }).catch(() => {});
@@ -1222,6 +1233,21 @@
   try { lite = localStorage.getItem('odyle-lite') === '1'; } catch {}
   let animate = !reduceMotion && !lite;
   document.body.classList.toggle('calm', lite);
+  // Living sky (sky.js), created after the first render. Its colours are read from the theme tokens only on a theme
+  // change (sky.js asks for them every frame, so this array is a cache, never a getComputedStyle per frame).
+  let sky = null;
+  let skyColors = [];
+  function readSkyColors() {
+    const cs = getComputedStyle(document.documentElement);
+    skyColors = ['--sky-1', '--sky-2', '--sky-3'].map(k => cs.getPropertyValue(k).trim());
+  }
+  const skyBudgetNow = () => skyBudget({ width: innerWidth, reduceMotion, lite, hidden: document.hidden });
+  // Re-evaluated on visibility, resize, theme and «Reducir animaciones»: moving sky, or one still frame.
+  function syncSky() {
+    if (!sky) return;
+    if (skyBudgetNow().animate) sky.start();
+    else { sky.stop(); sky.parallax(0, 0); sky.frame(); }
+  }
 
   // ---- Actions (the only functions that write data), one write at a time ----
   let queue = Promise.resolve();
@@ -1457,6 +1483,9 @@
     if (meta) meta.setAttribute('content', th.themeColor);
     for (const b of document.querySelectorAll('[data-theme-choice]')) b.setAttribute('aria-pressed', String(b.dataset.themeChoice === th.id));
     try { localStorage.setItem('odyle-theme', th.id); } catch {}
+    const before = skyColors.join();
+    readSkyColors();
+    if (skyColors.join() !== before) sky?.frame(); // the new colours at once, also on a still sky
     if (persist && my && !ui.readOnly && state.prefs.theme !== th.id) {
       state.prefs = { ...state.prefs, theme: th.id };
       save(() => db.doc(my.prefs).set({ ...state.prefs }));
@@ -1516,6 +1545,8 @@
   }
 
   const seen = new Set();
+  const entering = new Map(); // card id → { t0, i }: its entrance, while it lasts
+  const ENTER_MS = 450;
 
   // One SVG orb per character, reused across repaints (updateStarOrb only changes attributes, so nothing restarts).
   // With WebGL, the 3D canvas (also one per character) sits over it in the same slot.
@@ -1538,11 +1569,18 @@
     const err = ui.errors[row.id];
     const cls = classById(row.classId);
     const mood = row.isFull ? 'full' : row.nearFull ? 'near' : '';
-    const fresh = !seen.has(row.id);
-    seen.add(row.id);
+    // Entrance only the first time the Energía section shows this card (cards rendered while it is hidden do not count).
+    // Repaints during the entrance rebuild the card, so it carries on from where it was (negative delay), never restarts.
+    const energyPanel = $('tab-personajes');
+    const onShow = !readonly && !stage && !!energyPanel && !energyPanel.hidden;
+    if (onShow && !seen.has(row.id)) { seen.add(row.id); if (animate) entering.set(row.id, { t0: performance.now(), i: Math.min(index, 6) }); }
+    const en = !readonly && !stage ? entering.get(row.id) : null;
+    const since = en ? performance.now() - en.t0 : 0;
+    const fresh = !!en && animate && since < en.i * 60 + ENTER_MS;
+    if (en && !fresh) entering.delete(row.id);
     const kind = stage ? `stage-card tone-${stage.tone}` : 'tile';
     const card = el('article', { class: `card ${kind} ${mood} ${fresh && animate && !stage ? 'enter' : ''} ${!readonly && !stage && ui.selectedId === row.id ? 'selected' : ''}`, 'data-id': row.id,
-      style: `--c:${row.color};--i:${index}` });
+      style: `--c:${row.color};--i:${index}${fresh ? `;--enter-delay:${Math.round(en.i * 60 - since)}ms` : ''}` });
 
     const flatOrb = flat && !stage;
     const orb = el('div', { class: stage ? 'r-orb stage-orb' : 'r-orb' },
@@ -2096,7 +2134,19 @@
     if (id === 'novedades') loadInbox(); // the owner's feedback inbox
     window.scrollTo({ top: 0 });
     if (social) social.onTab(id);
+    enterOnce(id);
     render();
+  }
+  // Entrances: the first time a section is shown in this session its panels rise one after another; Energía's
+  // cards do it in cardNode. A section seen before appears at once.
+  const shownTabs = new Set();
+  function enterOnce(id) {
+    if (shownTabs.has(id)) return;
+    shownTabs.add(id);
+    if (!animate || id === 'personajes') return;
+    const kids = [...tabPanels[id].children].filter(n => n.id !== 'page-title' && !n.hidden);
+    kids.forEach((n, i) => { n.style.setProperty('--i', String(Math.min(i, 6))); n.classList.add('enter'); });
+    setTimeout(() => { for (const n of kids) n.classList.remove('enter'); }, 1200); // never replays on a later visit
   }
   // Desktop: the menu sits in the bar, the clocks in its right zone. Phone: the menu is the bottom bar and the clocks
   // ride in the sticky strip under the header; the assistant is an icon button in the header.
@@ -2474,7 +2524,11 @@
     // While hidden, keep the old baseline so returning shows one "+N" with the total.
     const keepBaseline = document.hidden && anchor === lastAnchor;
     if (animate && !keepBaseline) {
-      for (const g of detectGains(lastEnergy, now)) {
+      const gains = detectGains(lastEnergy, now);
+      // One wave of light per tick from the stage ring (one rect read, only when there is a gain).
+      const stageOrb = gains.length && sky ? document.querySelector('#stage .stage-orb') : null;
+      if (stageOrb) { const r = stageOrb.getBoundingClientRect(); sky.pulse(r.left + r.width / 2, r.top + r.height / 2); }
+      for (const g of gains) {
         const card = document.querySelector(`#stage article[data-id="${CSS.escape(g.id)}"], #cards article[data-id="${CSS.escape(g.id)}"]`);
         if (card) card.append(el('span', { class: 'gain', 'aria-hidden': 'true' }, `+${g.gain}`));
         const orb = orbNodes.get(g.id);
@@ -2651,6 +2705,7 @@
     try { localStorage.setItem('odyle-lite', lite ? '1' : '0'); } catch {}
     animate = !reduceMotion && !lite;
     document.body.classList.toggle('calm', lite);
+    syncSky();
     render();
   });
   $('event-list').addEventListener('click', e => { const b = e.target.closest('[data-fav]'); if (b) toggleFav(b.dataset.fav); });
@@ -3425,7 +3480,22 @@
     }
   }, 1000);
   setInterval(() => { render(); paintOnline(); }, 30_000);
-  document.addEventListener('visibilitychange', () => { if (!document.hidden) render(); });
+  document.addEventListener('visibilitychange', () => { syncSky(); if (!document.hidden) render(); });
+
+  // ---- Living sky behind the whole page (after the first render) ----
+  readSkyColors();
+  sky = createSky($('sky'), { budget: skyBudgetNow, colors: () => skyColors });
+  syncSky();
+  let skyResize = 0;
+  addEventListener('resize', () => { clearTimeout(skyResize); skyResize = setTimeout(syncSky, 200); });
+  // Mouse parallax (desktop pointer only, while the sky moves): at most one update per frame, no layout reads.
+  const FINE = matchMedia('(hover: hover) and (pointer: fine)');
+  let parX = 0, parY = 0, parRaf = 0;
+  addEventListener('pointermove', e => {
+    if (!animate || e.pointerType !== 'mouse' || !FINE.matches) return;
+    parX = e.clientX; parY = e.clientY;
+    if (!parRaf) parRaf = requestAnimationFrame(() => { parRaf = 0; if (animate) sky.parallax((parX / innerWidth) * 2 - 1, (parY / innerHeight) * 2 - 1); });
+  }, { passive: true });
 
   // ---- Connect to db (one subscription each, never from render) ----
   try {

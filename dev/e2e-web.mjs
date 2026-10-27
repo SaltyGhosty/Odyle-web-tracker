@@ -406,7 +406,7 @@ check('legión: el código solo vive en el servidor (cifrado, sin código ni has
     w: c.querySelector('.orb-slot').getBoundingClientRect().width, text: c.querySelector('.name').textContent, cls: !!c.querySelector('.cls-name') })));
   const spread = (xs) => Math.max(...xs) - Math.min(...xs);
   // Orbe 3D (orb3d.js): con WebGL cada hueco lleva un canvas.orb3d de su mismo tamaño y posición, dibujado (no en blanco)
-  // si está en pantalla, y ningún <canvas> es mayor que un hueco (nada de partículas ni 3D detrás de la página).
+  // si está en pantalla, y ningún <canvas> es mayor que un hueco salvo el cielo vivo (canvas#sky, 2D, detrás de la página).
   const orb3d = () => p.evaluate(() => {
     const drawn = (c) => { const d = c.getContext('2d').getImageData(0, 0, c.width, c.height).data; for (let i = 3; i < d.length; i += 4) if (d[i] > 0) return true; return false; };
     const slots = [...document.querySelectorAll('#stage .orb-slot, #cards .orb-slot')].map((s) => {
@@ -416,7 +416,7 @@ check('legión: el código solo vive en el servidor (cifrado, sin código ni has
     });
     const maxSlot = Math.max(...slots.map((x) => x.w));
     return { gl: !!document.createElement('canvas').getContext('webgl'), slots,
-      big: [...document.querySelectorAll('canvas')].filter((c) => { const b = c.getBoundingClientRect(); return b.width > maxSlot + 1 || b.height > maxSlot + 1; }).length };
+      big: [...document.querySelectorAll('canvas:not(#sky)')].filter((c) => { const b = c.getBoundingClientRect(); return b.width > maxSlot + 1 || b.height > maxSlot + 1; }).length };
   });
   const checkOrb3d = async (tag) => {
     const o = await orb3d();
