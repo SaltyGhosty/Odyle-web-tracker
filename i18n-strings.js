@@ -991,3 +991,11 @@ const ENERGIA = {
   pt: { '{0} más': 'mais {0}', '{0} está al tope': '{0} está no limite', 'Gastar ahora': 'Gastar agora', Hoy: 'Hoje', 'Reinicio semanal': 'Reinício semanal', 'Ver en el escenario': 'Ver no palco', 'Ver en el escenario: {0}': 'Ver no palco: {0}' },
 };
 for (const l of Object.keys(ENERGIA)) for (const [k, v] of Object.entries(ENERGIA[l])) if (!(k in STRINGS[l])) STRINGS[l][k] = v;
+
+// Eventos «Engaste»: each event card's lead above its big countdown (2026-10-27).
+const EVENTOS = {
+  en: { 'Empieza en': 'Starts in', 'En curso · termina en': 'In progress · ends in' },
+  it: { 'Empieza en': 'Inizia tra', 'En curso · termina en': 'In corso · finisce tra' },
+  pt: { 'Empieza en': 'Começa em', 'En curso · termina en': 'Em andamento · termina em' },
+};
+for (const l of Object.keys(EVENTOS)) for (const [k, v] of Object.entries(EVENTOS[l])) if (!(k in STRINGS[l])) STRINGS[l][k] = v;

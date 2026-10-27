@@ -162,6 +162,14 @@
     display: flex; flex-direction: column; gap: 12px;
   }
   h2 { font-family: var(--font-display); font-weight: 400; font-size: 1.2rem; line-height: 1.2; margin: 0; letter-spacing: .03em; }
+  /* Card skin for every section's panels (Eventos, Legión, Estadísticas, Ajustes, Novedades, Acerca de; the social screens
+     in web/social.css): the Energía case's ground and radius, no 1px rule; the sky shows between cards, never behind text. */
+  .tab-panel > .panel, .tab-panel > .legion > .member { border: none; border-radius: 18px; background: var(--glass); padding: 22px; gap: 16px; }
+  .tab-panel > .panel h2, .tab-panel > .legion > .member h2 { font-size: 1.5rem; }
+  .tab-panel > .panel :is(button, input, select, textarea, .file-btn, a.btn), .tab-panel > .legion button { border-radius: 10px; }
+  .tab-panel > .panel .theme-switch { border-radius: 10px; overflow: hidden; }
+  .tab-panel > .panel .theme-switch button { border-radius: 0; }
+  @media (max-width: 899.98px) { .tab-panel > .panel h2, .tab-panel > .legion > .member h2 { font-size: 1.3125rem; } }
   .row { display: flex; flex-wrap: wrap; gap: 8px; align-items: flex-start; }
   .row .field { flex: 1 1 150px; min-width: 0; display: flex; flex-direction: column; gap: 4px; }
   .row .offset { margin-top: 22px; }
@@ -370,13 +378,13 @@
   /* ---- Week report & achievements ---- */
   .week-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
   .week-stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: 10px; }
-  .stat { border: 1px solid var(--line); padding: 10px 12px; }
-  .stat b { display: block; font-size: 1.4rem; color: var(--gold-bright); font-variant-numeric: tabular-nums; }
+  .stat { border-radius: 14px; background: var(--bg); padding: 14px 16px; }
+  .stat b { display: block; font-size: 1.75rem; font-weight: 700; line-height: 1.15; color: var(--gold-bright); font-variant-numeric: tabular-nums; }
   .stat span { color: var(--muted); font-size: .8125rem; }
   h3.sub { margin: 4px 0 0; font-size: .875rem; color: var(--muted); letter-spacing: .08em; text-transform: uppercase; }
   .achievements { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 8px; }
-  .ach { border: 1px solid var(--line); padding: 8px 10px; font-size: .8125rem; opacity: .45; }
-  .ach.done { opacity: 1; border-color: var(--gold); }
+  .ach { border-radius: 14px; background: var(--bg); padding: 12px 14px; font-size: .8125rem; opacity: .45; }
+  .ach.done { opacity: 1; background: color-mix(in srgb, var(--gold) 16%, var(--bg)); }
   .ach strong { display: block; color: var(--fg); }
   .ach span { color: var(--muted); }
 
@@ -435,11 +443,8 @@
   .note-preview { margin: 0; color: var(--muted); font-size: .8125rem; font-style: italic; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   textarea { font: inherit; color: inherit; background: var(--field); border: 1px solid var(--line); padding: 9px 12px; width: 100%; min-height: 90px; resize: vertical; }
   .note-count { color: var(--muted); font-size: .75rem; margin: 0; text-align: right; }
-  .event-row { grid-template-columns: auto minmax(0, 1fr) auto; }
-  .event-row .fav { grid-row: 1 / span 2; align-self: center; background: none; border: none; min-height: 32px; padding: 4px 6px; font-size: 1.1rem; color: var(--muted); }
+  .event-row .fav { grid-column: 2; grid-row: 1; align-self: start; justify-self: end; background: none; border: none; min-height: 44px; min-width: 44px; margin: -10px -12px 0 0; padding: 4px 6px; font-size: 1.25rem; color: var(--muted); }
   .event-row .fav[aria-pressed="true"] { color: var(--gold-bright); }
-  .event-row .ev-note { grid-column: 2; }
-  .event-row .ev-when { grid-column: 3; }
   .event-row.favorite .ev-name { color: var(--gold-bright); }
   .alert { position: fixed; z-index: 41; top: 12px; left: 50%; transform: translate(-50%, -20px); opacity: 0;
     display: flex; align-items: center; gap: 12px; max-width: calc(100vw - 32px);
@@ -487,15 +492,17 @@
   .events[open] summary::after { transform: rotate(180deg); }
   .events { overflow: hidden; }
   .events-next { color: var(--sky); font-size: .875rem; font-variant-numeric: tabular-nums; }
-  .event-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 2px; }
-  @media (min-width: 860px) { .event-list { grid-template-columns: repeat(2, minmax(0, 1fr)); column-gap: 24px; } }
-  .event-row { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 0 12px; padding: 8px 0; border-top: 1px solid color-mix(in srgb, var(--gold) 12%, transparent); }
-  .event-row .ev-name { font-weight: 600; }
-  .event-row .ev-note { color: var(--muted); font-size: .75rem; grid-column: 1; }
-  .event-row .ev-when { text-align: right; font-variant-numeric: tabular-nums; font-size: .875rem; color: var(--sky); grid-row: 1 / span 2; grid-column: 2; align-self: center; }
-  .event-row .ev-when small { display: block; color: var(--muted); font-size: .75rem; }
-  .event-row.active .ev-name, .event-row.active .ev-when { color: var(--gold-bright); }
-  .event-row.active { background: color-mix(in srgb, var(--gold) 10%, transparent); }
+  /* Each event is a card on the deep ground (like the Energía tiles) with its countdown big; the resets lead, gold like the daily clock. */
+  .event-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 12px; grid-template-columns: repeat(auto-fill, minmax(min(100%, 260px), 1fr)); }
+  .event-row { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-content: start; gap: 2px 12px; padding: 18px 20px 20px; border-radius: 14px; background: var(--bg); min-width: 0; }
+  .event-row .ev-name { grid-column: 1; grid-row: 1; min-width: 0; font-family: var(--font-display); font-weight: 400; font-size: 1.1875rem; line-height: 1.25; overflow-wrap: anywhere; }
+  .event-row .ev-note { grid-column: 1 / -1; grid-row: 2; color: var(--muted); font-size: .8125rem; }
+  .event-row .ev-when { grid-column: 1 / -1; grid-row: 3; margin-top: 12px; display: flex; flex-direction: column; gap: 2px; min-width: 0; font-variant-numeric: tabular-nums; }
+  .event-row .ev-when small { display: block; color: var(--muted); font-size: .8125rem; }
+  .event-row .ev-count { font-size: 32px; font-weight: 700; line-height: 1.1; color: var(--sky); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .event-row.reset { background: color-mix(in srgb, var(--gold) 16%, var(--bg)); }
+  .event-row.reset .ev-count, .event-row.active .ev-count, .event-row.active .ev-name { color: var(--gold-bright); }
+  .event-row.active { box-shadow: inset 0 0 0 2px var(--gold); }
 
   /* ---- Marco: menú en la barra superior (>= 900 px), barra inferior + hoja Más (< 900 px) ---- */
   .i { width: 22px; height: 22px; flex: none; fill: none; stroke: currentColor; stroke-width: 1.75; stroke-linecap: round; stroke-linejoin: round; }
@@ -584,27 +591,29 @@
   /* ---- Online now and "Busco grupo" ---- */
   .online-pill { padding: 6px 12px; min-height: 44px; font-size: .8125rem; color: var(--ok); border-color: color-mix(in srgb, var(--ok) 45%, transparent); }
   .online-list { list-style: none; margin: 0; padding: 0; display: flex; flex-wrap: wrap; gap: 6px; }
-  .online-list li { display: flex; align-items: center; gap: 6px; padding: 4px 10px; background: var(--hover); border: 1px solid var(--line); font-size: .8125rem; }
-  .online-list li::before { content: ""; width: 8px; height: 8px; background: var(--ok); }
-  .online-list li.me { border-color: var(--gold); }
+  .online-list li { display: flex; align-items: center; gap: 8px; min-height: 36px; padding: 4px 14px; border-radius: 10px; background: var(--bg); font-size: .8125rem; }
+  .online-list li::before { content: ""; width: 8px; height: 8px; border-radius: 50%; background: var(--ok); }
+  .online-list li.me { box-shadow: inset 0 0 0 1px var(--gold); }
   .online-list small { color: var(--muted); }
   .lfg-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
-  .lfg-list li { display: flex; align-items: center; gap: 10px; padding: 8px 0; border-top: 1px solid color-mix(in srgb, var(--gold) 12%, transparent); }
+  .lfg-list li { display: flex; align-items: center; gap: 10px; padding: 12px 16px; border-radius: 14px; background: var(--bg); }
+  .lfg-list:empty { display: none; }
   .lfg-list li > span { flex: 1; min-width: 0; overflow-wrap: anywhere; }
   .lfg-list small { display: block; color: var(--muted); }
 
   /* ---- Legion calendar, ranking, wall ---- */
-  .cal-list, .wall-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; }
-  .cal-list li, .wall-list li { padding: 10px 0; border-top: 1px solid color-mix(in srgb, var(--gold) 12%, transparent); display: flex; flex-wrap: wrap; align-items: center; gap: 6px 10px; }
-  .cal-list li:first-child, .wall-list li:first-child { border-top: none; }
+  .cal-list, .wall-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px; }
+  .cal-list li, .wall-list li { padding: 12px 16px; border-radius: 14px; background: var(--bg); display: flex; flex-wrap: wrap; align-items: center; gap: 6px 10px; }
   .cal-list .c-main { flex: 1 1 200px; min-width: 0; }
   .cal-list .c-main b { display: block; overflow-wrap: anywhere; }
   .cal-list small, .wall-list small { color: var(--muted); font-size: .75rem; }
+  .cal-list li.now { background: color-mix(in srgb, var(--gold) 16%, var(--bg)); }
   .cal-list li.now b { color: var(--gold-bright); }
   .rsvp { display: flex; gap: 4px; }
   .rsvp button { padding: 4px 10px; min-height: 30px; font-size: .8125rem; }
   .rsvp button[aria-pressed="true"] { background: var(--gold); color: var(--on-gold); border-color: var(--gold); }
-  .rank-cols { display: grid; gap: 16px; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); }
+  .rank-cols { display: grid; gap: 12px; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); }
+  .rank-cols > * { border-radius: 14px; background: var(--bg); padding: 14px 16px; min-width: 0; }
   .rank-cols h3 { margin: 0 0 6px; font-size: .875rem; color: var(--muted); font-weight: 600; }
   .rank-cols ol { margin: 0; padding-left: 22px; display: flex; flex-direction: column; gap: 2px; font-size: .875rem; }
   .rank-cols li.me { color: var(--gold-bright); font-weight: 600; }
@@ -670,17 +679,17 @@
   @media (prefers-reduced-motion: reduce) { .modal, .modal-box { transition: none; } }
 
   /* ---- Your legion ---- */
+  #lg-none, #lg-mine { display: flex; flex-direction: column; gap: 14px; }
   .lg-forms { display: grid; gap: 12px; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); }
   .code-input { text-transform: uppercase; letter-spacing: .12em; font-variant-numeric: tabular-nums; }
   .lg-head { display: flex; align-items: baseline; gap: 12px; flex-wrap: wrap; }
   .lg-head h2 { color: var(--gold-bright); }
   .lg-role { color: var(--muted); font-size: .8125rem; }
   .lg-code-row { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
-  .lg-code { font: 600 1.05rem var(--font-body); letter-spacing: .18em; color: var(--gold-bright); padding: 4px 10px; border: 1px dashed var(--line); }
+  .lg-code { font: 600 1.05rem var(--font-body); letter-spacing: .18em; color: var(--gold-bright); padding: 6px 12px; border-radius: 10px; background: var(--bg); }
   .lg-code-row button, .lg-members button { padding: 4px 12px; min-height: 32px; font-size: .8125rem; }
-  .lg-members { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; }
-  .lg-members li { display: flex; align-items: center; gap: 10px; padding: 6px 0; border-top: 1px solid color-mix(in srgb, var(--gold) 12%, transparent); }
-  .lg-members li:first-child { border-top: none; }
+  .lg-members { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px; }
+  .lg-members li { display: flex; align-items: center; gap: 10px; min-height: 52px; padding: 8px 16px; border-radius: 14px; background: var(--bg); }
   .lg-members li > span { flex: 1; min-width: 0; overflow-wrap: anywhere; }
   .lg-members small { color: var(--muted); margin-left: 6px; }
 
@@ -744,9 +753,9 @@
   /* ---- Custom timers ---- */
   .timer-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
   .timer-list:empty { display: none; }
-  .timer-list li { display: flex; align-items: center; gap: 10px; padding: 6px 0; border-top: 1px solid color-mix(in srgb, var(--gold) 12%, transparent); }
+  .timer-list li { display: flex; align-items: center; gap: 10px; padding: 10px 16px; border-radius: 14px; background: var(--bg); }
   .timer-list .t-name { flex: 1; min-width: 0; font-weight: 600; overflow-wrap: anywhere; }
-  .timer-list .t-left { color: var(--sky); font-variant-numeric: tabular-nums; }
+  .timer-list .t-left { color: var(--sky); font-size: 1.25rem; font-weight: 700; font-variant-numeric: tabular-nums; }
   .timer-list li.done .t-left { color: var(--gold-bright); }
   .row .field.narrow { flex: 0 1 90px; }
 
@@ -1188,7 +1197,7 @@
 
 <script type="module">
   import { SECTIONS, navModel, topbarModel, resolveTab, decisionBand, planRows, headerRule } from './layout.js';
-  import { headerClocks, RESET_IDS } from './clocks.js';
+  import { headerClocks, RESET_IDS, sortEvents } from './clocks.js';
   import { pickStage, stageCaption, cardOrbMode } from './stage.js';
   import { iconSvg } from './icons.js';
   import { ABOUT, aboutModel } from './about.js';
@@ -1712,7 +1721,7 @@
     }
     // Keyboard way to do what a click on the card does (the article itself is not focusable).
     const toStageBtn = readonly ? null : el('button', { type: 'button', class: 'to-stage', 'aria-label': `Ver en el escenario: ${row.name}`, onclick: () => toStage(row.id, { focus: true }) }, 'Ver en el escenario');
-    if (!stage) { card.append(orb, text, num, meta, act, below, toStageBtn); return card; }
+    if (!stage) { card.append(...[orb, text, num, meta, act, below, toStageBtn].filter(Boolean)); return card; } // no stray "null" on read-only cards
     // Stage: «Gastar ahora» (red when someone is at the cap) leads to the quick spends of this character.
     const go = readonly || ui.readOnly || ui.noDb ? null
       : el('button', { type: 'button', class: `stage-go ${stage.tone === 'urgent' ? 'urgent' : ''}`, onclick: () => goSpend(row.id) }, 'Gastar ahora');
@@ -2321,12 +2330,14 @@
       .sort((a, b) => (b.o.active - a.o.active) || (b.f - a.f) || (a.o.active ? a.o.endMs - b.o.endMs : a.o.startMs - b.o.startMs));
     checkFavAlerts(items, now);
     const sameDay = ms => new Date(ms).toDateString() === new Date(now).toDateString();
-    $('event-list').replaceChildren(...items.map(({ e, o, f }) => el('li', { class: `event-row ${o.active ? 'active' : ''} ${f ? 'favorite' : ''}`, 'data-event': e.id },
+    // Event cards: the daily and weekly resets first (gold, like the daily clock), then the rest, each with its big countdown.
+    $('event-list').replaceChildren(...sortEvents(items).map(({ e, o, f }) => el('li', { class: `event-row ${o.active ? 'active' : ''} ${f ? 'favorite' : ''} ${RESET_IDS.includes(e.id) ? 'reset' : ''}`, 'data-event': e.id },
       el('button', { type: 'button', class: 'fav', 'data-fav': e.id, 'aria-pressed': String(f), 'aria-label': f ? `Quitar de favoritos: ${e.name}` : `Añadir a favoritos: ${e.name}`, disabled: !my || ui.readOnly }, f ? '★' : '☆'),
       el('span', { class: 'ev-name' }, e.name),
       el('span', { class: 'ev-when' },
-        o.active ? `En curso · termina en ${formatClock(o.endMs - now)}` : `Empieza en ${countdown(o.startMs - now)}`,
-        el('small', {}, (sameDay(o.startMs) ? timeFmt : dayFmt).format(new Date(o.startMs)))),
+        el('small', { class: 'ev-lead' }, o.active ? 'En curso · termina en' : 'Empieza en'),
+        el('b', { class: 'ev-count' }, o.active ? formatClock(o.endMs - now) : countdown(o.startMs - now)),
+        el('small', { class: 'ev-at' }, (sameDay(o.startMs) ? timeFmt : dayFmt).format(new Date(o.startMs)))),
       el('span', { class: 'ev-note' }, e.note))));
     const activeNow = new Set(items.filter(i => i.o.active && i.e.durationMin > 0).map(i => i.e.id));
     for (const id of activeNow) if (lastActive && !lastActive.has(id)) sound.chime();

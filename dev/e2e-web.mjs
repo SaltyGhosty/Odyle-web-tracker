@@ -825,6 +825,31 @@ check('cerrar todas: la cookie de renovación vieja de B no renueva', (await rep
   await pd.click('[data-tab="chat"]'); await pd.click('#social-chat .conv'); await pd.waitForSelector('#social-chat .msg-text');
   check('móvil: sin scroll horizontal con un mensaje de 600 caracteres', await pd.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth));
   await pd.screenshot({ path: 'dev/screens/e2e-chat-mobile.png' });
+
+  // piel de tarjetas: Amigos, Chat (conversación abierta) y Buscar a 1440 y 390, Luz y Sombra.
+  // El tema se pone solo en el atributo (no se guarda), así las pruebas de tema de abajo no cambian.
+  const faction0 = await pd.evaluate(() => document.documentElement.dataset.faction);
+  for (const theme of ['luz', 'sombra']) for (const w of [1440, 390]) {
+    await pd.setViewportSize({ width: w, height: 900 });
+    await pd.evaluate((f) => { document.documentElement.dataset.faction = f; }, theme === 'sombra' ? 'asmodian' : 'elyos');
+    for (const t of ['amigos', 'chat', 'buscar']) {
+      await pd.evaluate((id) => document.querySelector(`#topnav [data-tab="${id}"]`).click(), t);
+      if (t === 'amigos') await pd.waitForSelector('#social-amigos .social-list li');
+      if (t === 'chat') { await pd.evaluate(() => { const c = document.querySelector('#social-chat .conv'); if (c && c.offsetParent) c.click(); }); await pd.waitForSelector('#social-chat .msg-text'); }
+      if (t === 'buscar') { await pd.fill('#search-q', 'Carla'); await pd.waitForSelector('#social-buscar .social-list li'); }
+      await pd.waitForTimeout(500);
+      const s = await pd.evaluate((id) => {
+        const p = document.querySelector(`#social-${id} > .panel`), c = getComputedStyle(p);
+        const tiles = [...document.querySelectorAll(`#social-${id} .social-list > li`)].map((li) => getComputedStyle(li));
+        return { radius: c.borderTopLeftRadius, border: c.borderTopWidth, pad: c.paddingTop, solid: c.backgroundColor !== 'rgba(0, 0, 0, 0)',
+          tiles: tiles.every((x) => x.borderTopLeftRadius === '14px' && x.borderTopWidth === '0px'), wide: document.documentElement.scrollWidth > innerWidth };
+      }, t);
+      check(`tarjetas ${theme} ${w}: ${t} en una tarjeta de 18 px, sin regla de 1 px y sin ensanchar`,
+        s.radius === '18px' && s.border === '0px' && s.pad === '22px' && s.solid && s.tiles && !s.wide, JSON.stringify(s));
+      await pd.screenshot({ path: `dev/screens/tarjetas-${t}-${theme}-${w}.png`, fullPage: true });
+    }
+  }
+  await pd.evaluate((f) => { document.documentElement.dataset.faction = f; }, faction0);
   await pd.setViewportSize({ width: 1280, height: 900 });
 
   // tema: Sombra se guarda en prefs.theme, sobrevive a recargar y guardar el perfil no lo cambia

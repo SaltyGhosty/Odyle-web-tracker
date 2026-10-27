@@ -718,6 +718,45 @@ const skyRead = page => page.evaluate(() => {
   await page.close();
 }
 
+// ================= Card skin: every other section, 1440 and 390, Luz and Sombra =================
+// Section panels are cards (18 px radius, no 1px rule); Eventos opens with the daily then the weekly reset, each countdown 32 px.
+const SECTIONS = ['eventos', 'legion', 'estadisticas', 'ajustes', 'novedades', 'acerca'];
+const skinInfo = page => page.evaluate(() => {
+  const tab = [...document.querySelectorAll('.tab-panel')].find(p => !p.hidden);
+  const cards = [...tab.querySelectorAll(':scope > .panel, :scope > .legion > .member')].filter(n => n.offsetParent !== null).map(n => getComputedStyle(n));
+  return { cards: cards.length, round: cards.every(c => c.borderTopLeftRadius === '18px' && c.borderTopWidth === '0px' && c.paddingTop === '22px'),
+    solid: cards.every(c => c.backgroundColor !== 'rgba(0, 0, 0, 0)'), wide: document.documentElement.scrollWidth > innerWidth };
+});
+for (const theme of ['luz', 'sombra']) for (const w of [1440, 390]) {
+  const page = await open(w, 900, { demo: true });
+  if (theme === 'sombra') { await page.evaluate(() => document.querySelector('[data-theme-choice="asmodian"]').click()); await page.waitForTimeout(300); }
+  for (const t of SECTIONS) {
+    await page.evaluate(id => document.querySelector(`#topnav [data-tab="${id}"]`).click(), t);
+    await page.waitForTimeout(700); // the section's entrance has settled
+    const s = await skinInfo(page);
+    check(`tarjetas ${theme} ${w}: ${t} en tarjetas de 18 px, fondo sólido y sin ensanchar`, s.cards >= 1 && s.round && s.solid && !s.wide, JSON.stringify(s));
+    if (t === 'eventos') {
+      const ev = await page.evaluate(() => {
+        const rows = [...document.querySelectorAll('#event-list > li')];
+        return { order: rows.slice(0, 2).map(r => r.dataset.event).join(), resets: rows.filter(r => r.classList.contains('reset')).length,
+          count: rows.every(r => getComputedStyle(r.querySelector('.ev-count')).fontSize === '32px'), radius: getComputedStyle(rows[0]).borderTopLeftRadius,
+          tint: getComputedStyle(rows[0]).backgroundColor !== getComputedStyle(rows[2]).backgroundColor };
+      });
+      check(`eventos ${theme} ${w}: reinicio diario y semanal primero, dorados, reloj de 32 px`, ev.order === 'daily,weekly' && ev.resets === 2 && ev.count && ev.tint, JSON.stringify(ev));
+    }
+    await tallShot(page, w, `dev/screens/tarjetas-${t}-${theme}-${w}.png`);
+    await page.setViewportSize({ width: w, height: 900 });
+    if (t === 'legion') { // and inside Ana's legion: members, calendar, ranking, wall and the others' cards
+      await page.fill('#lg-code', 'k7q2-xm9p'); await page.click('#lg-join button[type=submit]'); await page.waitForTimeout(800);
+      const s2 = await skinInfo(page);
+      check(`tarjetas ${theme} ${w}: legión con miembros en tarjetas`, s2.cards >= 4 && s2.round && s2.solid && !s2.wide, JSON.stringify(s2));
+      await tallShot(page, w, `dev/screens/tarjetas-legion-miembro-${theme}-${w}.png`);
+      await page.setViewportSize({ width: w, height: 900 });
+    }
+  }
+  await page.close();
+}
+
 // ================= Phone =================
 {
   const page = await open(390, 844);
