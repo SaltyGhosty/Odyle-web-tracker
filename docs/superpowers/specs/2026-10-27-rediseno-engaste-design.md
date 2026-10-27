@@ -83,7 +83,7 @@ Mismo marco (barra superior + fondo vivo) y mismo lenguaje de tarjetas en: Event
 
 ## 6. Móvil (< 900 px)
 
-- Barra superior: logo + reloj destacado (reinicio diario) + selector Luz/Sombra; los tres relojes pasan a una tira deslizable bajo la barra.
+- Barra superior: logo + ficha de perfil + selector Luz/Sombra; debajo, una tira **fija** (sticky) con los tres relojes, el reinicio diario primero, deslizable de lado. Así el reinicio diario siempre está a la vista. _(Decisión del diseñador: un solo juego de relojes, no uno repetido en la barra.)_
 - Navegación: la barra inferior actual (4 fijas + «Más») se mantiene.
 - Energía: escenario arriba (orbe 3D más pequeño, `orb-phone` 72 px → se permite mayor en el escenario), tarjetas debajo en una columna.
 - Fondo vivo a menor coste (menos motas, resolución más baja).
