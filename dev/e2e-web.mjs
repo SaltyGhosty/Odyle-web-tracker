@@ -646,6 +646,15 @@ check('legión: B ve a A entre los miembros', /AnaDaeva/.test(await text(pb, '#l
   check('privacidad: se ve sin sesión, en el idioma elegido, con 11 secciones y el responsable',
     (await page.locator('#policy h2').count()) === 11 && /Privacy policy/.test(await text(page, 'h1')) &&
     (await text(page, '#policy')).includes('Luciano Labbozzetta'));
+  check('cuenta: el cielo vivo se dibuja (canvas#sky con tamaño)', await page.evaluate(() => { const c = document.getElementById('sky'); return !!c && c.width > 0 && c.height > 0; }));
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await page.screenshot({ path: 'dev/screens/privacidad-1440.png' });
+  await page.goto(`${ORIGIN}/login`);
+  await page.waitForTimeout(300);
+  await page.screenshot({ path: 'dev/screens/auth-1440.png' });
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.waitForTimeout(400);
+  await page.screenshot({ path: 'dev/screens/auth-390.png' });
   // El 401 del login fallido provocado arriba es esperado; cualquier otro error cuenta.
   const realErrs = errs.filter((e) => !/status of 401/.test(e));
   check('idioma: sin errores de consola ni violaciones de CSP', realErrs.length === 0, realErrs.join(' | '));

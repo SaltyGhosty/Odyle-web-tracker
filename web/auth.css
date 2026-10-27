@@ -15,6 +15,7 @@
   --on-gold: #1B1E28;
   --danger: #FF9A8E;
   --ok: #8FD9A8;
+  --sky-1: #E3A853; --sky-2: #9CC3E6; --sky-3: #5C8DC2; /* cielo vivo (sky.js) */
   --elyos: #E3A853;
   --asmo: #C9CFDF;
   --font-display: "Marcellus", "Trajan Pro", Georgia, serif;
@@ -23,8 +24,10 @@
 }
 * { box-sizing: border-box; }
 [hidden] { display: none !important; }
-html { background: var(--bg); font-synthesis: none; }
+/* --bg solo en body: se propaga al lienzo, bajo el cielo vivo (canvas#sky, z-index -1). */
+html { font-synthesis: none; }
 ::selection { background: color-mix(in srgb, var(--gold) 38%, transparent); color: var(--fg); }
+#sky { position: fixed; top: -8px; left: -8px; width: calc(100vw + 16px); height: calc(100vh + 16px); z-index: -1; pointer-events: none; display: block; }
 body {
   margin: 0;
   min-height: 100vh;
@@ -53,7 +56,7 @@ h1 {
 }
 .subtitle { margin: 0 0 8px; text-align: center; color: var(--muted); font-family: var(--font-display); font-weight: 400; letter-spacing: .03em; }
 .panel {
-  background: var(--glass); border: 1px solid var(--line); padding: 20px;
+  background: var(--glass); border: 1px solid var(--line); border-radius: 18px; padding: 20px;
   display: flex; flex-direction: column; gap: 14px;
 }
 form { display: flex; flex-direction: column; gap: 14px; }
@@ -109,7 +112,7 @@ button.link { background: none; border: 0; padding: 0; min-height: 0; color: var
 .lang-list button[aria-checked="true"]::after { content: "✓"; margin-left: auto; color: var(--gold); }
 /* Política de privacidad (/privacidad): columna de lectura más ancha que las páginas de cuenta. */
 .auth.privacy { max-width: 720px; }
-.privacy article { display: flex; flex-direction: column; gap: 10px; line-height: 1.65; }
+.privacy article { background: var(--glass); border: 1px solid var(--line); border-radius: 18px; padding: 24px 22px; display: flex; flex-direction: column; gap: 10px; line-height: 1.65; }
 .privacy article h2 { font-family: var(--font-display); color: var(--gold-bright); margin-top: 18px; }
 .privacy article h2:first-child { margin-top: 0; }
 .privacy article p { color: var(--fg); max-width: 68ch; }

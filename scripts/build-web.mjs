@@ -53,7 +53,7 @@ writeFileSync(path.join(OUT, 'app.js'), script[1].replace(/^\n/, ''));
 
 // ---- páginas, adaptadores y pantallas solo web (todo web/ salvo pruebas) ----
 const WEB_DIR = path.join(ROOT, 'web');
-for (const f of ['claude-shim.js', 'legion-api.js', 'social-api.js', 'social-dom.js', 'social-ui.js', 'social.css', 'auth.html', 'auth-i18n.js', 'auth.js', 'auth.css', 'privacidad.html', 'privacy.js', 'privacy-text.js']) need(path.join(WEB_DIR, f));
+for (const f of ['claude-shim.js', 'legion-api.js', 'social-api.js', 'social-dom.js', 'social-ui.js', 'social.css', 'auth.html', 'auth-i18n.js', 'auth.js', 'auth.css', 'privacidad.html', 'privacy.js', 'privacy-text.js', 'sky-boot.js']) need(path.join(WEB_DIR, f));
 for (const f of readdirSync(WEB_DIR)) {
   if (/\.(js|css|html)$/.test(f) && !f.endsWith('.test.js')) copyFileSync(path.join(WEB_DIR, f), path.join(OUT, f));
 }
