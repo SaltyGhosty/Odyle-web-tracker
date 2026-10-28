@@ -26,3 +26,10 @@ test('iconSvg: svg decorativo de 24×24 con un path por trazo', () => {
 test('iconSvg con id desconocido devuelve un svg vacío, no lanza', () => {
   assert.equal(iconSvg(fakeDoc(), 'zzz').children.length, 0);
 });
+test('estrella, desplegar y hecho: iconos propios en lugar de ☆ ★ ▾ ✓', () => {
+  for (const id of ['estrella', 'desplegar', 'hecho']) {
+    assert.ok(Array.isArray(ICONS[id]) && ICONS[id].length > 0, id);
+    for (const d of ICONS[id]) assert.match(d, /^[MmLlHhVvCcSsQqTtAaZz0-9 .,-]+$/, id);
+    assert.equal(iconSvg(fakeDoc(), id).children.length, ICONS[id].length);
+  }
+});

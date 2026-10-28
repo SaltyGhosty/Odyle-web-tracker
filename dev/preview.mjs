@@ -135,7 +135,8 @@ for (const [label, width, height] of [['mobile', 390, 844], ['desktop', 1280, 80
     // has its orb: the 3D canvas over the (hidden) SVG when WebGL works, the SVG alone otherwise.
     const orbs = await page.evaluate(() => ({
       gl: !!document.createElement('canvas').getContext('webgl'),
-      big: [...document.querySelectorAll('canvas')].filter((c) => { const r = c.getBoundingClientRect(); return r.width > 110 || r.height > 110; }).length,
+      // no canvas bigger than its own orb slot (the stage slot is 250 px, a card's 108 px)
+      big: [...document.querySelectorAll('canvas')].filter((c) => { const r = c.getBoundingClientRect(), s = c.closest('.orb-slot')?.getBoundingClientRect(); return !s || r.width > s.width + 1 || r.height > s.height + 1; }).length,
       slots: [...document.querySelectorAll('.orb-slot')].map((s) => ({ svg: !!s.querySelector('.star-orb'), c3d: !!s.querySelector('canvas.orb3d'), has3d: s.classList.contains('has-3d') })),
     }));
     check(`${label}/${scheme} no full-page canvas; each slot has its orb (${orbs.gl ? '3D' : 'SVG'})`, orbs.big === 0 && await page.locator('#scene').count() === 0 &&
@@ -172,7 +173,8 @@ for (const [label, width, height] of [['mobile', 390, 844], ['desktop', 1280, 80
       await page.waitForTimeout(200);
       await closeModal();
       const ev0 = await events(); // the earlier 'Actualizar' edits already logged 'set' events
-      await page.click('article[data-id=c1] button.spend');
+      // c1 (612 of a Normal 560 cap) is on the stage: its spends are the quick spends
+      await page.click('#quick-chips [data-quick]');
       await page.waitForTimeout(1000);
       check('spend: Mazmorra −40 → 572 and one more event', (await num('c1')) === '572' && (await events()) === ev0 + 1);
       check('spend: undo toast shown', await page.locator('#toast').isVisible());
@@ -186,7 +188,7 @@ for (const [label, width, height] of [['mobile', 390, 844], ['desktop', 1280, 80
       await page.click('article[data-id=c1] button.primary');
       await page.fill('#energy-c1', '30'); await page.press('#energy-c1', 'Enter');
       await page.waitForTimeout(800);
-      await page.click('article[data-id=c1] button.spend');
+      await page.click('article[data-id=c1] button.spend'); // c1 (30) is back among the cards
       await page.waitForTimeout(200);
       check('spend: not enough energy is refused', (await page.locator('article[data-id=c1]').textContent()).includes('No hay energía suficiente') && (await num('c1')) === '30');
       await page.waitForTimeout(8500);
@@ -224,13 +226,13 @@ for (const [label, width, height] of [['mobile', 390, 844], ['desktop', 1280, 80
   await page.goto(BASE);
   await page.waitForTimeout(1800);
   check('seeded: no false +N on load', await page.locator('.gain').count() === 0);
-  check('summary: tip about the full character', ((await page.locator('#summary').textContent().catch(() => '')) || '').includes('Lleno está al tope'));
+  check('summary: tip about the full character (announced; the stage shows it)', ((await page.locator('#band-status').textContent().catch(() => '')) || '').includes('Lleno está al tope') && (await page.locator('#stage h2').textContent()) === 'Lleno');
   check('forecast: 3 lines and a legend', await page.locator('#forecast path.series').count() === 3 && await page.locator('#forecast-legend li').count() === 3);
-  check('summary: legion readiness line', ((await page.locator('#summary').textContent().catch(() => '')) || '').includes('Listos para mazmorra en la legión: 3'));
-  check('waste: full card says it is losing energy', (await page.locator('article[data-id=s3]').textContent()).includes('Lleno · perdiendo energía'));
+  check('summary: legion readiness line (under Hoy)', ((await page.locator('#today').textContent().catch(() => '')) || '').includes('Listos para mazmorra en la legión: 3'));
+  check('waste: the full character (on the stage) says it is losing energy', (await page.locator('#stage article[data-id=s3]').textContent()).includes('pierde 30 OD cada 3 h'));
   // seeded characters have no account: Premium, +30 per recharge
   check('waste: card filling during rest hours warns', (await page.locator('article[data-id=s2]').textContent()).includes('Perderás 30 de OD'));
-  check('header: every character Premium shows +30 and cap 840', (await page.locator('#sub-regen').textContent()) === '+30 OD en' && (await page.locator('#sub-cap').textContent()) === 'tope 840' && await page.locator('#sub-cap').isVisible());
+  check('header: every character Premium, the refill clock reads +30 OD en', (await page.locator('#clocks [data-clock="refill"] .k').textContent()) === '+30 OD en');
   await page.evaluate(() => document.querySelector('[data-tab="ajustes"]')?.click());
   check('settings: rest hours fields', await page.locator('#quiet-start').isVisible() && await page.locator('#quiet-end').isVisible());
   await page.evaluate(() => document.querySelector('[data-tab="personajes"]')?.click());
@@ -280,7 +282,7 @@ for (const [label, width, height] of [['mobile', 390, 844], ['desktop', 1280, 80
     characters: { a: { name: 'Uno', classId: 'asesino', energy: 612, recordedAt: now, order: 1 } }, schedule: { anchorMs: now + 3600000 },
     docs: { 'members/u_me': { joinedAt: 1 }, 'members/u_me/settings/presets': { items: [{ id: 'p1', name: 'Mazmorra', cost: 40 }] } } }, ${extra}); })()`;
   let { ctx, page } = await mk(base('{ delay: 300 }'));
-  await page.dblclick('article[data-id=a] button.spend');
+  await page.dblclick('#quick-chips [data-quick]'); // the only character is on the stage: its spends are the quick spends
   await page.waitForTimeout(1500);
   const evs = await page.evaluate(() => [...window.__docs.keys()].filter(k => k.includes('/events/')).length);
   check('double tap: one spend logged and −40 once', evs === 1 && (await page.locator('article[data-id=a] .num').textContent()) === '572');
@@ -290,10 +292,10 @@ for (const [label, width, height] of [['mobile', 390, 844], ['desktop', 1280, 80
   ({ ctx, page } = await mk(base('{ failEvents: true }')));
   // the notice is transient (a later save clears it), so watch it instead of reading it afterwards
   await page.evaluate(() => { window.__notices = []; new MutationObserver(() => window.__notices.push(document.getElementById('notice').textContent)).observe(document.getElementById('notice'), { childList: true, characterData: true, subtree: true }); });
-  await page.click('article[data-id=a] button.spend');
+  await page.click('#quick-chips [data-quick]');
   await page.waitForTimeout(1000);
   const notice = (await page.evaluate(() => window.__notices)).join('|');
-  check('failed event write: page stays editable and says the log failed', await page.locator('article[data-id=a] button.spend').count() === 1 && notice.includes('historial'));
+  check('failed event write: page stays editable and says the log failed', await page.locator('#quick-chips [data-quick]').count() === 1 && notice.includes('historial'));
   await ctx.close();
   ({ ctx, page } = await mk(base('{}')));
   await page.click('#presets-btn');
@@ -303,7 +305,7 @@ for (const [label, width, height] of [['mobile', 390, 844], ['desktop', 1280, 80
   check('menu: focus survives a repaint', await page.evaluate(() => document.activeElement?.id === 'preset-del-p1'));
   await ctx.close();
   ({ ctx, page } = await mk(`(() => { window.__SEED = { charPath: 'members/u_me/characters', characters: {}, schedule: null, docs: { 'members/u_me': { joinedAt: 1 } } }; })()`));
-  check('empty page points to the + button', ((await page.locator('#empty').textContent()) || '').includes('Pulsa +'));
+  check('empty page: the stage offers to add the first character', ((await page.locator('#stage').textContent()) || '').includes('Añade tu personaje') && await page.locator('#stage button.stage-go').isVisible());
   await ctx.close();
 }
 // Migration: old shared 'characters' move into members/u_me/characters, once, intact.

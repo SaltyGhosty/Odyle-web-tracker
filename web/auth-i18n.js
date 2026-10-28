@@ -15,6 +15,12 @@
   // Claves = texto en español (el de la página y el que devuelve el servidor).
   const S = {
     en: {
+      'Privacidad': 'Privacy',
+      'Sitio de fans no oficial · no afiliado a NCSOFT': 'Unofficial fan site · not affiliated with NCSOFT',
+      'Al crear la cuenta aceptas la': 'By creating the account you accept the',
+      'política de privacidad': 'privacy policy',
+      'Política de privacidad': 'Privacy policy',
+      'Volver a Odyle Tracker': 'Back to Odyle Tracker',
       'Cuenta': 'Account',
       'Idioma': 'Language',
       'Esta página necesita JavaScript.': 'This page needs JavaScript.',
@@ -71,6 +77,12 @@
       'El cuerpo debe ser un objeto JSON': 'The body must be a JSON object',
     },
     it: {
+      'Privacidad': 'Privacy',
+      'Sitio de fans no oficial · no afiliado a NCSOFT': 'Sito di fan non ufficiale · non affiliato a NCSOFT',
+      'Al crear la cuenta aceptas la': 'Creando l’account accetti la',
+      'política de privacidad': 'politica sulla privacy',
+      'Política de privacidad': 'Informativa sulla privacy',
+      'Volver a Odyle Tracker': 'Torna a Odyle Tracker',
       'Cuenta': 'Account',
       'Idioma': 'Lingua',
       'Esta página necesita JavaScript.': 'Questa pagina richiede JavaScript.',
@@ -126,6 +138,12 @@
       'El cuerpo debe ser un objeto JSON': 'Il corpo deve essere un oggetto JSON',
     },
     pt: {
+      'Privacidad': 'Privacidade',
+      'Sitio de fans no oficial · no afiliado a NCSOFT': 'Site de fãs não oficial · não afiliado à NCSOFT',
+      'Al crear la cuenta aceptas la': 'Ao criar a conta, você aceita a',
+      'política de privacidad': 'política de privacidade',
+      'Política de privacidad': 'Política de privacidade',
+      'Volver a Odyle Tracker': 'Voltar ao Odyle Tracker',
       'Cuenta': 'Conta',
       'Idioma': 'Idioma',
       'Esta página necesita JavaScript.': 'Esta página precisa de JavaScript.',
@@ -202,6 +220,8 @@
     document.title = 'Energía Odyle · ' + t('Cuenta');
     const ns = document.querySelector('noscript p');
     if (ns) ns.textContent = t('Esta página necesita JavaScript.');
+    const fan = document.getElementById('fan-note'); // aviso de fans: siempre visible, en el idioma elegido
+    if (fan) fan.textContent = t('Sitio de fans no oficial · no afiliado a NCSOFT');
   }
 
   function setLang(code) {
@@ -279,7 +299,10 @@
       b.lang = l.code;
       const name = document.createElement('span');
       name.textContent = l.name;
-      b.append(flag(l.code), name);
+      // marca de la opción elegida: un trazo SVG (no un glifo), visible solo con aria-checked="true"
+      const check = svgEl('svg', { class: 'check', viewBox: '0 0 24 24', 'aria-hidden': 'true', focusable: 'false' });
+      check.append(svgEl('path', { d: 'M5 12.5l4.5 4.5L19 7.5' }));
+      b.append(flag(l.code), name, check);
       b.addEventListener('click', () => { setLang(l.code); close(true); });
       li.append(b);
       list.append(li);

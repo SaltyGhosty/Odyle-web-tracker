@@ -86,7 +86,8 @@
     });
     const forgot = h('button', { type: 'button', class: 'link', text: t('¿Olvidaste tu contraseña?') });
     forgot.addEventListener('click', forgotView);
-    render(t('Entrar'), f, h('div', { class: 'links' }, h('a', { href: withNext('/registro'), text: t('Crear una cuenta') }), forgot));
+    render(t('Entrar'), f, h('div', { class: 'links' }, h('a', { href: withNext('/registro'), text: t('Crear una cuenta') }), forgot,
+      h('a', { href: '/privacidad', text: t('Privacidad') })));
   }
 
   function forgotView() {
@@ -118,6 +119,7 @@
         f.append(h('a', { href: withNext('/login'), text: t('Ir a entrar') }));
       },
     });
+    f.append(h('p', { class: 'hint' }, t('Al crear la cuenta aceptas la'), ' ', h('a', { href: '/privacidad', text: t('política de privacidad') })));
     render(t('Crear cuenta'), f, h('div', { class: 'links' }, h('a', { href: withNext('/login'), text: t('Ya tengo cuenta') })));
   }
 

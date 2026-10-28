@@ -89,6 +89,7 @@ export const STRINGS = {
   "Lista de tareas": "To-do list",
   "Listos para mazmorra en la legión: {0} personajes con {1} o más de OD": "Dungeon-ready in the legion: {0} characters with {1} or more OD",
   "Lleno en {0}": "Full in {0}",
+  "pierde {0} OD cada 3 h": "loses {0} OD every 3 h",
   "Mazmorra de emergencia": "Emergency dungeon",
   "Mazmorra semanal": "Weekly dungeon",
   "Menú": "Menu",
@@ -178,7 +179,7 @@ export const STRINGS = {
   "· +{0} esta semana": "· +{0} this week",
   "¿Quitar a {0}?": "Remove {0}?",
   "¿Qué mejorarías o qué te gustaría ver?": "What would you improve or like to see?",
-  "★ {0} empieza a las {1}": "★ {0} starts at {1}",
+  "{0} empieza a las {1}": "{0} starts at {1}",
   "🏅 {0} de {1} logros": "🏅 {0} of {1} achievements"
  },
  "it": {
@@ -271,6 +272,7 @@ export const STRINGS = {
   "Lista de tareas": "Lista delle attività",
   "Listos para mazmorra en la legión: {0} personajes con {1} o más de OD": "Pronti per il dungeon nella legione: {0} personaggi con {1} o più OD",
   "Lleno en {0}": "Pieno tra {0}",
+  "pierde {0} OD cada 3 h": "perde {0} OD ogni 3 h",
   "Mazmorra de emergencia": "Dungeon d'emergenza",
   "Mazmorra semanal": "Dungeon settimanale",
   "Menú": "Menu",
@@ -360,7 +362,7 @@ export const STRINGS = {
   "· +{0} esta semana": "· +{0} questa settimana",
   "¿Quitar a {0}?": "Rimuovere {0}?",
   "¿Qué mejorarías o qué te gustaría ver?": "Cosa miglioreresti o cosa vorresti vedere?",
-  "★ {0} empieza a las {1}": "★ {0} inizia alle {1}",
+  "{0} empieza a las {1}": "{0} inizia alle {1}",
   "🏅 {0} de {1} logros": "🏅 {0} di {1} obiettivi"
  },
  "pt": {
@@ -453,6 +455,7 @@ export const STRINGS = {
   "Lista de tareas": "Lista de tarefas",
   "Listos para mazmorra en la legión: {0} personajes con {1} o más de OD": "Prontos para masmorra na legião: {0} personagens com {1} ou mais de OD",
   "Lleno en {0}": "Cheio em {0}",
+  "pierde {0} OD cada 3 h": "perde {0} OD a cada 3 h",
   "Mazmorra de emergencia": "Masmorra de emergência",
   "Mazmorra semanal": "Masmorra semanal",
   "Menú": "Menu",
@@ -542,7 +545,7 @@ export const STRINGS = {
   "· +{0} esta semana": "· +{0} esta semana",
   "¿Quitar a {0}?": "Remover {0}?",
   "¿Qué mejorarías o qué te gustaría ver?": "O que você melhoraria ou gostaria de ver?",
-  "★ {0} empieza a las {1}": "★ {0} começa às {1}",
+  "{0} empieza a las {1}": "{0} começa às {1}",
   "🏅 {0} de {1} logros": "🏅 {0} de {1} conquistas"
  }
 };
@@ -940,3 +943,67 @@ const ACCOUNT = {
   pt: { Cuenta: 'Conta', Normal: 'Normal', Premium: 'Premium', 'Normal: +15 cada 3 h, tope 560 · Premium: +30 cada 3 h, tope 840': 'Normal: +15 a cada 3 h, limite 560 · Premium: +30 a cada 3 h, limite 840' },
 };
 for (const l of Object.keys(ACCOUNT)) for (const [k, v] of Object.entries(ACCOUNT[l])) if (!(k in STRINGS[l])) STRINGS[l][k] = v;
+
+// Acerca de (2026-10-15).
+const ACERCA = {
+  en: { 'Acerca de': 'About', 'Acerca de Odyle Tracker': 'About Odyle Tracker',
+    'Odyle Tracker lleva la cuenta de la energía Odyle de tus personajes de Aion 2 y te avisa antes de que se desperdicie. Es gratis y sin anuncios.': 'Odyle Tracker keeps count of your Aion 2 characters\' Odyle energy and warns you before it goes to waste. It is free and has no ads.',
+    'Sitio de fans no oficial, no afiliado a NCSOFT. Aion 2 es una marca de NCSOFT.': 'Unofficial fan site, not affiliated with NCSOFT. Aion 2 is a trademark of NCSOFT.',
+    'Apoyar el proyecto': 'Support the project', 'Donar con PayPal': 'Donate with PayPal',
+    'Las donaciones ayudan a pagar el servidor. No dan ventajas ni funciones extra.': 'Donations help pay for the server. They give no advantages or extra features.',
+    Privacidad: 'Privacy', 'Política de privacidad': 'Privacy policy', 'Contacto:': 'Contact:',
+    'En esta versión los datos los guarda claude.ai.': 'In this version your data is stored by claude.ai.',
+    Créditos: 'Credits', 'Letras Marcellus y Gothic A1 (SIL Open Font License)': 'Marcellus and Gothic A1 fonts (SIL Open Font License)',
+    'three.js (licencia MIT)': 'three.js (MIT license)', 'Iconos y runas originales de Odyle Tracker': 'Icons and runes original to Odyle Tracker' },
+  it: { 'Acerca de': 'Informazioni', 'Acerca de Odyle Tracker': 'Informazioni su Odyle Tracker',
+    'Odyle Tracker lleva la cuenta de la energía Odyle de tus personajes de Aion 2 y te avisa antes de que se desperdicie. Es gratis y sin anuncios.': 'Odyle Tracker tiene il conto dell\'energia Odyle dei tuoi personaggi di Aion 2 e ti avvisa prima che vada sprecata. È gratuito e senza pubblicità.',
+    'Sitio de fans no oficial, no afiliado a NCSOFT. Aion 2 es una marca de NCSOFT.': 'Sito di fan non ufficiale, non affiliato a NCSOFT. Aion 2 è un marchio di NCSOFT.',
+    'Apoyar el proyecto': 'Sostieni il progetto', 'Donar con PayPal': 'Dona con PayPal',
+    'Las donaciones ayudan a pagar el servidor. No dan ventajas ni funciones extra.': 'Le donazioni aiutano a pagare il server. Non danno vantaggi né funzioni extra.',
+    Privacidad: 'Privacy', 'Política de privacidad': 'Informativa sulla privacy', 'Contacto:': 'Contatto:',
+    'En esta versión los datos los guarda claude.ai.': 'In questa versione i dati sono conservati da claude.ai.',
+    Créditos: 'Crediti', 'Letras Marcellus y Gothic A1 (SIL Open Font License)': 'Caratteri Marcellus e Gothic A1 (SIL Open Font License)',
+    'three.js (licencia MIT)': 'three.js (licenza MIT)', 'Iconos y runas originales de Odyle Tracker': 'Icone e rune originali di Odyle Tracker' },
+  pt: { 'Acerca de': 'Sobre', 'Acerca de Odyle Tracker': 'Sobre o Odyle Tracker',
+    'Odyle Tracker lleva la cuenta de la energía Odyle de tus personajes de Aion 2 y te avisa antes de que se desperdicie. Es gratis y sin anuncios.': 'O Odyle Tracker acompanha a energia Odyle dos seus personagens de Aion 2 e avisa antes que ela seja desperdiçada. É gratuito e sem anúncios.',
+    'Sitio de fans no oficial, no afiliado a NCSOFT. Aion 2 es una marca de NCSOFT.': 'Site de fãs não oficial, não afiliado à NCSOFT. Aion 2 é uma marca da NCSOFT.',
+    'Apoyar el proyecto': 'Apoie o projeto', 'Donar con PayPal': 'Doar com PayPal',
+    'Las donaciones ayudan a pagar el servidor. No dan ventajas ni funciones extra.': 'As doações ajudam a pagar o servidor. Não dão vantagens nem funções extras.',
+    Privacidad: 'Privacidade', 'Política de privacidad': 'Política de privacidade', 'Contacto:': 'Contato:',
+    'En esta versión los datos los guarda claude.ai.': 'Nesta versão os dados são guardados pelo claude.ai.',
+    Créditos: 'Créditos', 'Letras Marcellus y Gothic A1 (SIL Open Font License)': 'Fontes Marcellus e Gothic A1 (SIL Open Font License)',
+    'three.js (licencia MIT)': 'three.js (licença MIT)', 'Iconos y runas originales de Odyle Tracker': 'Ícones e runas originais do Odyle Tracker' },
+};
+for (const l of Object.keys(ACERCA)) for (const [k, v] of Object.entries(ACERCA[l])) if (!(k in STRINGS[l])) STRINGS[l][k] = v;
+
+// Top bar «Engaste»: menu, clocks and the «Relojes ▾» popover (2026-10-27).
+const TOPBAR = {
+  en: { 'Más': 'More', 'Relojes': 'Clocks', '+{0} OD en': '+{0} OD in', 'En curso': 'In progress', 'Próximo evento': 'Next event' },
+  it: { 'Más': 'Altro', 'Relojes': 'Orologi', '+{0} OD en': '+{0} OD tra', 'En curso': 'In corso', 'Próximo evento': 'Prossimo evento' },
+  pt: { 'Más': 'Mais', 'Relojes': 'Relógios', '+{0} OD en': '+{0} OD em', 'En curso': 'Em andamento', 'Próximo evento': 'Próximo evento' },
+};
+for (const l of Object.keys(TOPBAR)) for (const [k, v] of Object.entries(TOPBAR[l])) if (!(k in STRINGS[l])) STRINGS[l][k] = v;
+
+// Energía «Engaste»: the stage and the character cards (2026-10-27).
+const ENERGIA = {
+  en: { '{0} más': '{0} more', '{0} está al tope': '{0} is at the cap', 'Gastar ahora': 'Spend now', Hoy: 'Today', 'Reinicio semanal': 'Weekly reset', 'Ver en el escenario': 'Show on stage', 'Ver en el escenario: {0}': 'Show on stage: {0}' },
+  it: { '{0} más': 'altri {0}', '{0} está al tope': '{0} è al limite', 'Gastar ahora': 'Spendi ora', Hoy: 'Oggi', 'Reinicio semanal': 'Reset settimanale', 'Ver en el escenario': 'Mostra sul palco', 'Ver en el escenario: {0}': 'Mostra sul palco: {0}' },
+  pt: { '{0} más': 'mais {0}', '{0} está al tope': '{0} está no limite', 'Gastar ahora': 'Gastar agora', Hoy: 'Hoje', 'Reinicio semanal': 'Reinício semanal', 'Ver en el escenario': 'Ver no palco', 'Ver en el escenario: {0}': 'Ver no palco: {0}' },
+};
+for (const l of Object.keys(ENERGIA)) for (const [k, v] of Object.entries(ENERGIA[l])) if (!(k in STRINGS[l])) STRINGS[l][k] = v;
+
+// Eventos «Engaste»: each event card's lead above its big countdown (2026-10-27).
+const EVENTOS = {
+  en: { 'Empieza en': 'Starts in', 'En curso · termina en': 'In progress · ends in' },
+  it: { 'Empieza en': 'Inizia tra', 'En curso · termina en': 'In corso · finisce tra' },
+  pt: { 'Empieza en': 'Começa em', 'En curso · termina en': 'Em andamento · termina em' },
+};
+for (const l of Object.keys(EVENTOS)) for (const [k, v] of Object.entries(EVENTOS[l])) if (!(k in STRINGS[l])) STRINGS[l][k] = v;
+
+// Phone clock strip: the daily reset's short label, so no clock label is cut (2026-10-28).
+const STRIP = {
+  en: { Diario: 'Daily' },
+  it: { Diario: 'Giornaliero' },
+  pt: { Diario: 'Diário' },
+};
+for (const l of Object.keys(STRIP)) for (const [k, v] of Object.entries(STRIP[l])) if (!(k in STRINGS[l])) STRINGS[l][k] = v;

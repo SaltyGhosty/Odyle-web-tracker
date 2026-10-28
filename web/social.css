@@ -1,5 +1,10 @@
 /* web/social.css - pantallas sociales (solo web). Solo variables del tema; nada de colores fijos. */
 .social { display: flex; flex-direction: column; gap: 16px; min-width: 0; }
+/* Card skin (as index.html's section panels): the Energía case's ground, 18 px radius, no 1px rule; people are tiles on the deep ground. */
+.social > .panel { border: none; border-radius: 18px; background: var(--glass); padding: 22px; gap: 16px; }
+.social > .panel h2 { font-size: 1.5rem; }
+@media (max-width: 899.98px) { .social > .panel h2 { font-size: 1.3125rem; } }
+.social :is(button, input, select, textarea) { border-radius: 10px; }
 .social button, .sheet button { transition: transform 160ms var(--ease-out), border-color .2s, background-color .2s; }
 .social button:active, .sheet button:active { transform: scale(0.97); }
 .person { display: flex; align-items: center; gap: 12px; min-width: 0; }
@@ -8,7 +13,7 @@
 .meta, .online-text { color: var(--muted); font-size: .8125rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .online-text { color: var(--ok); }
 .avatar { position: relative; flex: none; width: 40px; height: 40px; display: grid; place-items: center;
-  border: 1px solid var(--line); background: var(--glass-strong); font-family: var(--font-display); font-weight: 400; color: var(--gold-bright); }
+  border-radius: 12px; background: var(--glass-strong); font-family: var(--font-display); font-weight: 400; color: var(--gold-bright); }
 .avatar.online::after { content: ""; position: absolute; right: -1px; bottom: -1px; width: 11px; height: 11px; border-radius: 50%;
   background: var(--ok); border: 2px solid var(--glass-strong); }
 .mini-orb { position: relative; flex: none; width: 44px; height: 44px; display: inline-block; }
@@ -19,16 +24,15 @@
 .live-status { position: fixed; left: 50%; bottom: 16px; transform: translateX(-50%); z-index: 50; margin: 0;
   padding: 8px 14px; border: 1px solid var(--line); background: var(--glass-strong); color: var(--muted);
   font-size: .8125rem; }
-.social-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; }
-.social-list > li { display: flex; align-items: center; gap: 12px; padding: 10px 0; border-top: 1px solid var(--line); min-width: 0; }
-.social-list > li:first-child { border-top: none; }
+.social-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px; }
+.social-list > li { display: flex; align-items: center; gap: 12px; padding: 12px 16px; border-radius: 14px; background: var(--bg); min-width: 0; }
 .social-list .grow { flex: 1; min-width: 0; text-align: left; background: none; border: none; padding: 0; min-height: 0; color: inherit; }
 .social-actions { display: flex; gap: 6px; flex-wrap: wrap; justify-content: flex-end; }
 @media (prefers-reduced-motion: reduce) { .social button, .sheet button { transition: none; } .social button:active, .sheet button:active { transform: none; } }
 
-.subtabs { display: flex; gap: 4px; overflow-x: auto; scrollbar-width: none; border-bottom: 1px solid var(--line); }
-.subtabs button { flex: none; border: none; background: none; min-height: 40px; padding: 8px 12px; color: var(--muted); display: inline-flex; gap: 6px; align-items: center; }
-.subtabs button[aria-selected="true"] { color: var(--gold-bright); box-shadow: inset 0 -2px 0 var(--gold); }
+.subtabs { display: flex; gap: 4px; overflow-x: auto; scrollbar-width: none; }
+.subtabs button { flex: none; border: none; background: none; min-height: 44px; padding: 8px 14px; color: var(--muted); display: inline-flex; gap: 6px; align-items: center; font-weight: 700; }
+.subtabs button[aria-selected="true"] { color: var(--gold-bright); background: color-mix(in srgb, var(--gold) 14%, transparent); }
 .subtabs .count { font-variant-numeric: tabular-nums; font-size: .75rem; color: var(--muted); }
 .sheet { width: min(520px, calc(100vw - 32px)); max-height: calc(100vh - 32px); border: 1px solid var(--gold);
   padding: 0; background: var(--glass-strong); color: var(--fg); }
@@ -36,7 +40,8 @@
 .sheet-box { padding: 16px; display: flex; flex-direction: column; gap: 12px; }
 .sheet-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; }
 .sheet-head h2 { font-size: 1rem; min-width: 0; }
-.sheet-close { min-height: 36px; padding: 4px 10px; }
+.sheet-close { min-height: 36px; padding: 4px 10px; display: inline-grid; place-items: center; }
+.sheet-close .i { width: 18px; height: 18px; }
 .sheet-bio, .sheet-line { margin: 0; color: var(--muted); overflow-wrap: anywhere; }
 .energy-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
 .energy-list li { display: flex; align-items: center; gap: 10px; }
@@ -57,14 +62,15 @@
 .chat { display: grid; grid-template-columns: minmax(220px, 300px) minmax(0, 1fr); gap: 16px; min-height: 60vh; }
 .chat-list, .chat-thread { min-width: 0; display: flex; flex-direction: column; gap: 8px; }
 .conv-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 2px; }
-.conv { width: 100%; display: flex; align-items: center; gap: 10px; text-align: left; border: 1px solid transparent; background: none; padding: 8px; min-height: 56px; }
-.conv.open { border-color: var(--line); background: var(--hover); }
+.conv { width: 100%; display: flex; align-items: center; gap: 10px; text-align: left; border: none; background: none; padding: 8px 10px; min-height: 56px; }
+.conv.open { background: var(--bg); }
 .conv-text { flex: 1; min-width: 0; display: flex; flex-direction: column; }
 .conv-text .nick { font-family: var(--font-display); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .conv-last { color: var(--muted); font-size: .8125rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .conv-side { display: flex; flex-direction: column; align-items: flex-end; gap: 4px; font-size: .75rem; color: var(--muted); }
 .conv-side .badge { min-width: 18px; height: 18px; padding: 0 5px; border-radius: 9px; display: inline-grid; place-items: center; background: var(--gold); color: var(--on-gold); font-weight: 700; font-variant-numeric: tabular-nums; }
 .thread-head { display: flex; align-items: center; gap: 8px; border-bottom: 1px solid var(--line); padding-bottom: 8px; }
+.thread-head .avatar { background: var(--bg); }
 .thread-head .back { display: none; min-height: 36px; padding: 2px 12px; font-size: 1.2rem; }
 .thread-head .grow { flex: 1; min-width: 0; text-align: left; background: none; border: none; padding: 0; color: inherit; }
 .msgs-scroll { flex: 1; overflow-y: auto; max-height: 55vh; min-height: 200px; }
@@ -72,12 +78,12 @@
 .msg { max-width: min(78%, 560px); display: flex; flex-direction: column; gap: 2px; }
 .msg.mine { align-self: flex-end; align-items: flex-end; }
 .msg.theirs { align-self: flex-start; }
-.msg-text { margin: 0; padding: 8px 12px; border: 1px solid var(--line); background: var(--glass-strong);
+.msg-text { margin: 0; padding: 8px 12px; border: 1px solid transparent; border-radius: 14px; background: var(--bg);
   white-space: pre-wrap; overflow-wrap: anywhere; word-break: break-word; }
-.msg.mine .msg-text { background: color-mix(in srgb, var(--gold) 14%, var(--glass-strong)); border-color: var(--gold); }
+.msg.mine .msg-text { background: color-mix(in srgb, var(--gold) 16%, var(--bg)); }
 .msg-time { font-size: .7rem; color: var(--muted); font-variant-numeric: tabular-nums; }
 .msgs .read, .msgs .more { align-self: center; font-size: .75rem; color: var(--muted); }
-.invite { display: flex; flex-direction: column; gap: 2px; padding: 10px 12px; border: 1px solid var(--gold); background: var(--glass-strong); }
+.invite { display: flex; flex-direction: column; gap: 2px; padding: 12px 14px; border: 1px solid var(--gold); border-radius: 14px; background: var(--bg); }
 .invite-kind { font-size: .7rem; letter-spacing: .08em; text-transform: uppercase; color: var(--gold-bright); }
 .invite-title { font-family: var(--font-display); overflow-wrap: anywhere; }
 .invite-meta { color: var(--muted); font-size: .8125rem; font-variant-numeric: tabular-nums; }

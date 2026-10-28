@@ -19,7 +19,7 @@ mkdirSync(path.join(OUT, 'vendor'), { recursive: true });
 // ---- módulos del repositorio (sin pruebas) ----
 const modules = readdirSync(ROOT).filter((f) => f.endsWith('.js') && !f.endsWith('.test.js'));
 const EXPECTED = ['i18n.js', 'i18n-strings.js', 'view.js', 'energy.js', 'classes.js', 'store.js', 'spend.js', 'events.js', 'planner.js',
-  'charts.js', 'sound.js', 'tasks.js', 'achievements.js', 'motion.js', 'starorb.js', 'orb3d.js', 'legion.js', 'theme.js', 'social.js', 'runes.js', 'layout.js', 'icons.js'];
+  'charts.js', 'sound.js', 'tasks.js', 'achievements.js', 'motion.js', 'starorb.js', 'orb3d.js', 'legion.js', 'theme.js', 'social.js', 'runes.js', 'layout.js', 'clocks.js', 'stage.js', 'icons.js', 'about.js', 'sky.js'];
 for (const m of EXPECTED) if (!modules.includes(m)) fail(`falta el módulo ${m}`);
 for (const m of modules) {
   let src = read(path.join(ROOT, m));
@@ -53,7 +53,7 @@ writeFileSync(path.join(OUT, 'app.js'), script[1].replace(/^\n/, ''));
 
 // ---- páginas, adaptadores y pantallas solo web (todo web/ salvo pruebas) ----
 const WEB_DIR = path.join(ROOT, 'web');
-for (const f of ['claude-shim.js', 'legion-api.js', 'social-api.js', 'social-dom.js', 'social-ui.js', 'social.css', 'auth.html', 'auth-i18n.js', 'auth.js', 'auth.css']) need(path.join(WEB_DIR, f));
+for (const f of ['claude-shim.js', 'legion-api.js', 'social-api.js', 'social-dom.js', 'social-ui.js', 'social.css', 'auth.html', 'auth-i18n.js', 'auth.js', 'auth.css', 'privacidad.html', 'privacy.js', 'privacy-text.js', 'sky-boot.js']) need(path.join(WEB_DIR, f));
 for (const f of readdirSync(WEB_DIR)) {
   if (/\.(js|css|html)$/.test(f) && !f.endsWith('.test.js')) copyFileSync(path.join(WEB_DIR, f), path.join(OUT, f));
 }

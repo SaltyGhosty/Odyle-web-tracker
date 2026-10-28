@@ -4,7 +4,7 @@ export const NEUTRAL_COLOR = '#e8b85a';
 
 export const CLASSES = [
   { id: 'asesino', name: 'Asesino', color: '#b79cff',
-    icon: 'M4 20 L14 10 M14 10 L19 4 L13 9 M20 20 L10 10 M10 10 L5 4 L11 9 M6 16 L8 18 M18 16 L16 18' },
+    icon: 'M20 4 L17.6 8.8 L10.4 16 L8 13.6 L15.2 6.4 Z M6 12.5 L11.5 18 M9 15 L5 19 M3.8 18.2 L5.8 20.2 M4 4 L6.4 8.8 L13.6 16 L16 13.6 L8.8 6.4 Z M18 12.5 L12.5 18 M15 15 L19 19 M20.2 18.2 L18.2 20.2' },
   { id: 'gladiador', name: 'Gladiador', color: '#e0924a',
     icon: 'M12 2 L14.5 5 V15 H9.5 V5 Z M6.5 15 H17.5 M12 15 V20 M10 22 H14' },
   { id: 'templario', name: 'Templario', color: '#d9c27a',

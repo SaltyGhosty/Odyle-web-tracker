@@ -3,6 +3,7 @@
 // y las acciones según la relación (añadir, aceptar, cancelar, mensaje, eliminar, bloquear, denunciar).
 import { el, S, userText, personHead, miniOrb, note } from './social-dom.js';
 import { actionsFor, friendEnergy } from './social.js';
+import { iconSvg } from './icons.js';
 
 const REASONS = [['spam', S('Spam')], ['abuse', S('Insultos o acoso')], ['cheating', S('Trampas')], ['other', S('Otro motivo')]];
 
@@ -29,7 +30,7 @@ export function createProfileSheet(shared) {
     const box = el('div', { class: 'sheet-box' });
     box.append(el('div', { class: 'sheet-head' },
       el('h2', { id: 'sheet-title' }, personHead(p)),
-      el('button', { type: 'button', class: 'sheet-close', 'aria-label': S('Cerrar'), onclick: close }, '✕')));
+      el('button', { type: 'button', class: 'sheet-close', 'aria-label': S('Cerrar'), onclick: close }, iconSvg(document, 'cerrar'))));
     if (p.legion) box.append(el('p', { class: 'sheet-line' }, el('span', {}, S('Legión')), ': ', userText('span', p.legion)));
     if (p.bio) box.append(userText('p', p.bio, { class: 'sheet-bio' }));
 

@@ -10,6 +10,7 @@
 <link rel="stylesheet" href="auth.css">
 </head>
 <body>
+<canvas id="sky" aria-hidden="true"></canvas>
 <header class="auth-top"></header>
 <main class="auth">
   <svg class="emblem" viewBox="0 0 76 76" aria-hidden="true" focusable="false">
@@ -21,12 +22,13 @@
   </svg>
   <h1>Energía Odyle</h1>
   <p class="subtitle" id="subtitle"></p>
-  <div class="meridian-rule" aria-hidden="true"></div>
   <section class="panel" id="panel" aria-live="polite">
     <noscript><p class="error">Esta página necesita JavaScript.</p></noscript>
   </section>
 </main>
+<footer class="fan-foot"><p class="fan-note" id="fan-note">Sitio de fans no oficial · no afiliado a NCSOFT</p></footer>
 <script src="auth-i18n.js"></script>
 <script src="auth.js"></script>
+<script type="module" src="sky-boot.js"></script>
 </body>
 </html>

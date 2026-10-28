@@ -11,8 +11,8 @@ const ACCOUNT_PAGES = ['/login', '/registro', '/verificar', '/restablecer'];
 export function allowedStaticPath(pathName) {
   const segs = String(pathName).split('/');
   if (String(pathName).endsWith('/')) return false;
-  // Estas dos solo salen por sus rutas explícitas (con las cabeceras de cada una).
-  if (/^\/?(index|auth)\.html$/i.test(pathName)) return false;
+  // Estas solo salen por sus rutas explícitas (con las cabeceras de cada una).
+  if (/^\/?(index|auth|privacidad)\.html$/i.test(pathName)) return false;
   return !segs.some((s) => s.startsWith('.')) && !/\.map$/i.test(pathName);
 }
 
@@ -21,13 +21,15 @@ export default async function pagesRoutes(app, opts = {}) {
   // Cualquier fallo de lectura (carpeta ausente o a medio intercambiar) cuenta como "sin compilar", nunca como caída.
   let index = null;
   let auth = null;
+  let privacy = null;
   try {
     index = readFileSync(path.join(publicDir, 'index.html'), 'utf8');
     auth = readFileSync(path.join(publicDir, 'auth.html'), 'utf8');
+    privacy = readFileSync(path.join(publicDir, 'privacidad.html'), 'utf8');
   } catch { index = null; }
 
-  if (index === null || auth === null) {
-    for (const url of ['/', ...ACCOUNT_PAGES]) app.get(url, async (req, reply) => reply.code(503).header('cache-control', 'no-store').send(NOT_BUILT));
+  if (index === null || auth === null || privacy === null) {
+    for (const url of ['/', '/privacidad', ...ACCOUNT_PAGES]) app.get(url, async (req, reply) => reply.code(503).header('cache-control', 'no-store').send(NOT_BUILT));
     return;
   }
 
@@ -38,6 +40,9 @@ export default async function pagesRoutes(app, opts = {}) {
     app.get(url, async (req, reply) => html(reply)
       .header('referrer-policy', 'no-referrer').header('cache-control', 'no-store').send(auth));
   }
+  // Política de privacidad: pública y sin sesión, así que puede cachearse revalidando.
+  app.get('/privacidad', async (req, reply) => html(reply)
+    .header('referrer-policy', 'no-referrer').header('cache-control', 'no-cache').send(privacy));
 
   await app.register(fastifyStatic, {
     root: publicDir,

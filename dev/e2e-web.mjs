@@ -58,6 +58,13 @@ async function newUser(label) {
 }
 const collectCsp = async (page, label) => { for (const v of await page.evaluate(() => window.__csp).catch(() => [])) violations.push(`${label}: ${v}`); };
 const text = (page, sel) => page.evaluate((s) => document.querySelector(s)?.textContent ?? '', sel);
+// Sections behind «Más» (desktop «Más ▾» dropdown or phone sheet) are reached through it.
+async function tab(page, id) {
+  const b = page.locator('#topnav [data-tab="' + id + '"]');
+  if (await b.isVisible()) return b.click();
+  await page.click('#topnav [data-more]');
+  await page.locator('#more-menu [data-tab="' + id + '"], #more-sheet [data-tab="' + id + '"]').locator('visible=true').first().click();
+}
 const visible = (page, sel) => page.locator(sel).first().isVisible();
 const dbRows = async (prefix) => (await db.query('select path, data from docs where path like $1 order by path', [prefix + '%'])).rows;
 
@@ -116,7 +123,7 @@ check('personaje: aparece la tarjeta y se guarda', (await pa.locator('article.ca
 const charId = await pa.locator('article.card').first().getAttribute('data-id');
 
 // energía y gasto
-await pa.click(`article[data-id="${charId}"] button.primary`);
+await pa.click(`article[data-id="${charId}"] button.more-actions`); await pa.click(`article[data-id="${charId}"] .menu button.update`);
 await pa.fill(`#energy-${charId}`, '300');
 await pa.press(`#energy-${charId}`, 'Enter');
 await pa.waitForTimeout(600);
@@ -125,8 +132,10 @@ await pa.fill('#preset-name', 'Mazmorra'); await pa.fill('#preset-cost', '40');
 await pa.click('#preset-form button[type=submit]');
 await pa.waitForTimeout(600);
 await pa.keyboard.press('Escape');
-await pa.waitForSelector(`article[data-id="${charId}"] button.spend`);
-await pa.click(`article[data-id="${charId}"] button.spend`);
+// a single character is on the stage: its spends are the quick spends
+await pa.waitForSelector(`#stage article[data-id="${charId}"]`);
+await pa.waitForSelector('#quick-chips [data-quick]');
+await pa.click('#quick-chips [data-quick]');
 await pa.waitForTimeout(800);
 const energyOf = async () => (await dbRows('members/')).find((r) => r.path.endsWith('/characters/' + charId))?.data.energy;
 check('gasto: resta 40 de 300 en el servidor', (await energyOf()) === 260, String(await energyOf()));
@@ -135,10 +144,10 @@ check('gasto: resta 40 de 300 en el servidor', (await energyOf()) === 260, Strin
 const rowSel = `article[data-id="${charId}"]`;
 await pa.click(`${rowSel} button.more-actions`);
 await pa.waitForSelector(`${rowSel} .menu [role="menuitem"]`);
-check('⋯: se abre con sus opciones', (await pa.locator(`${rowSel} .menu [role="menuitem"]`).count()) === 4);
+check('⋯: se abre con sus opciones (Actualizar primero)', (await pa.locator(`${rowSel} .menu [role="menuitem"]`).count()) === 5 && await pa.locator(`${rowSel} .menu [role="menuitem"]`).first().evaluate((b) => b.classList.contains('update')));
 check('⋯: el foco pasa a la primera opción', await pa.evaluate(() => document.activeElement?.getAttribute('role') === 'menuitem'));
 await pa.keyboard.press('ArrowDown');
-check('⋯: la flecha abajo mueve el foco a la segunda opción', await pa.evaluate(() => document.activeElement?.classList.contains('tasks')));
+check('⋯: la flecha abajo mueve el foco a la segunda opción', await pa.evaluate(() => document.activeElement?.classList.contains('extra')));
 // Repintado seguro: el cambio del modo compacto llama a render() (un evento «focus» no repinta; un clic fuera cerraría el menú a propósito). La marca en el nodo
 // del botón demuestra que la fila se reconstruyó de verdad; el menú debe seguir abierto y con el foco dentro.
 await pa.evaluate((sel) => { document.querySelector(sel + ' button.more-actions').dataset.old = '1'; (() => { const c = document.getElementById('compact-toggle'); c.checked = !c.checked; c.dispatchEvent(new Event('change')); })(); }, rowSel);
@@ -167,8 +176,10 @@ check('⋯: Escape (tras flecha abajo) cierra y devuelve el foco', !(await pa.lo
 await pa.focus(`${rowSel} button.more-actions`);
 await pa.keyboard.press('ArrowDown');
 await pa.keyboard.press('ArrowDown');
+await pa.keyboard.press('ArrowDown');
 await pa.keyboard.press('Enter');
 check('⋯: tras elegir «Tareas» el foco vuelve al botón ⋯', await pa.evaluate(() => document.activeElement?.classList.contains('more-actions')));
+await pa.keyboard.press('ArrowDown');
 await pa.keyboard.press('ArrowDown');
 await pa.keyboard.press('ArrowDown');
 await pa.keyboard.press('Enter'); // vuelve a plegar las tareas
@@ -206,7 +217,7 @@ check('móvil 390: la cabecera ocupa una sola línea', geo.headerH < 70, JSON.st
 await pa.setViewportSize({ width: 1280, height: 900 });
 
 // Banda: con un solo personaje a medias no hay alarma
-check('banda: visible y sin tono de alarma con energía a medias', (await visible(pa, '#summary')) && !(await pa.locator('#summary.band-urgent').count()));
+check('escenario: visible y sin tono de alarma con energía a medias', (await visible(pa, '#stage article.card')) && !(await pa.locator('#stage.tone-urgent').count()) && !(await pa.locator('#stage button.stage-go.urgent').count()));
 
 // recargar y seguir ahí
 await pa.reload();
@@ -215,7 +226,7 @@ check('recarga: el personaje sigue ahí con su energía', (await pa.locator('art
 check('recarga: no vuelve a pedir el perfil', !(await visible(pa, '#profile-modal')));
 
 // exportar (descarga real) -> importar
-await pa.click('#topnav [data-tab=ajustes]');
+await tab(pa, 'ajustes');
 const [download] = await Promise.all([pa.waitForEvent('download'), pa.click('#export-btn')]);
 const exported = JSON.parse(readFileSync(await download.path(), 'utf8'));
 check('exportar: descarga un JSON del formato de la página', exported.app === 'energia-odyle' && exported.characters.length === 1, JSON.stringify(Object.keys(exported)));
@@ -255,20 +266,28 @@ check('legión: el código solo vive en el servidor (cifrado, sin código ni has
   await p.setViewportSize({ width: 1280, height: 900 });
   await p.click('#topnav [data-tab="personajes"]');
   // banda carmesí: un personaje al tope (840)
-  await p.click('article[data-id="imp1"] button.primary');
+  await p.click('article[data-id="imp1"] button.more-actions'); await p.click('article[data-id="imp1"] .menu button.update');
   await p.fill('#energy-imp1', '840');
   await p.press('#energy-imp1', 'Enter');
-  await p.waitForSelector('#summary.band-urgent', { timeout: 5000 }).catch(() => {});
-  check('banda: carmesí con un personaje al tope', await p.locator('#summary.band-urgent').isVisible() && /al tope · pierd/.test(await text(p, '#sum-tip')), await text(p, '#sum-tip'));
+  await p.waitForSelector('#stage.tone-urgent', { timeout: 5000 }).catch(() => {});
+  check('escenario: en rojo con un personaje al tope', await p.locator('#stage.tone-urgent article[data-id="imp1"]').isVisible() && /pierde \d+ OD cada 3 h/.test(await text(p, '#stage .stage-why')), await text(p, '#stage'));
 
-  check('banda: sin aria-live; solo anuncia el cambio por una región de estado aparte',
-    (await p.getAttribute('#summary', 'aria-live')) === null && (await p.getAttribute('#band-status', 'role')) === 'status' && /al tope/.test(await text(p, '#band-status')), await text(p, '#band-status'));
-  check('banda: «Gastar» mide 44 px', (await p.locator('#band-go').boundingBox())?.height >= 43.5);
-  check('rail: columna a 1280 px con Energía activa',
-    (await p.locator('#topnav').evaluate((n) => getComputedStyle(n).flexDirection === 'column'))
+  check('escenario: sin aria-live; solo anuncia el cambio por una región de estado aparte',
+    (await p.getAttribute('#stage', 'aria-live')) === null && (await p.getAttribute('#band-status', 'role')) === 'status' && /al tope/.test(await text(p, '#band-status')), await text(p, '#band-status'));
+  check('escenario: «Gastar ahora» mide 44 px', (await p.locator('#stage button.stage-go').boundingBox())?.height >= 43.5);
+  check('barra superior: menú en fila dentro de la cabecera a 1280 px con Energía activa',
+    (await p.locator('#topnav').evaluate((n) => !!n.closest('header.topbar') && getComputedStyle(n).flexDirection === 'row'))
     && (await p.getAttribute('#topnav [data-tab="personajes"]', 'aria-current')) === 'page');
   await p.click('#topnav [data-tab="legion"]');
-  check('rail: navega a Legión', !(await p.locator('#tab-legion').isHidden()));
+  check('barra superior: navega a Legión', !(await p.locator('#tab-legion').isHidden()));
+  await tab(p, 'acerca');
+  const donate = p.locator('#tab-acerca a.btn.primary');
+  check('acerca: donación a PayPal en pestaña nueva, sin opener, 44 px',
+    (await donate.getAttribute('href')) === 'https://www.paypal.com/donate/?hosted_button_id=TDCGD3C8KHRAS'
+    && (await donate.getAttribute('target')) === '_blank' && (await donate.getAttribute('rel')) === 'noopener noreferrer'
+    && (await donate.boundingBox()).height >= 43.5);
+  check('acerca: enlace a /privacidad y correo de contacto', (await p.locator('#tab-acerca a[href="/privacidad"]').count()) === 1
+    && (await p.locator('#tab-acerca a[href="mailto:odyletracker@gmail.com"]').count()) === 1);
 
   await p.setViewportSize({ width: 390, height: 844 });
   await p.waitForTimeout(300);
@@ -300,12 +319,12 @@ check('legión: el código solo vive en el servidor (cifrado, sin código ni has
   check('375 px: sin scroll horizontal en Energía con nombre largo y varios personajes',
     (await p.locator('article.card').count()) >= 3 && await p.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth));
   await p.waitForSelector('#toast', { state: 'hidden', timeout: 12000 }); // el aviso temporal de «añadido» (8 s) tapa a propósito la parte baja
-  const lastBtn = p.locator('article.card button.primary').last();
+  const lastBtn = p.locator('article.card button.more-actions').last();
   await lastBtn.scrollIntoViewIfNeeded();
   const box = await lastBtn.boundingBox();
   const barTop = await p.locator('#topnav').evaluate((n) => n.getBoundingClientRect().top);
   check('375 px: el último botón no queda tapado por la barra', !!box && box.y + box.height <= barTop, JSON.stringify({ box, barTop }));
-  const topEl = await p.evaluate(({ x, y }) => { const e = document.elementFromPoint(x, y); return { ok: !!e?.closest('article.card button.primary'), tag: e?.tagName + '.' + e?.className + '#' + e?.id }; }, { x: box.x + box.width / 2, y: box.y + box.height / 2 });
+  const topEl = await p.evaluate(({ x, y }) => { const e = document.elementFromPoint(x, y); return { ok: !!e?.closest('article.card button.more-actions'), tag: e?.tagName + '.' + e?.className + '#' + e?.id }; }, { x: box.x + box.width / 2, y: box.y + box.height / 2 });
   check('375 px: el último botón recibe el clic (no hay nada encima)', topEl.ok, JSON.stringify(topEl));
   // cabecera de 375 px con «en línea» forzado visible: una línea y la marca no pisa el reloj
   await p.evaluate(() => { document.getElementById('online-pill').hidden = false; });
@@ -364,8 +383,15 @@ check('legión: el código solo vive en el servidor (cifrado, sin código ni has
   check('Más: un toque en la cortina la cierra', (await p.locator('#more-sheet[open]').count()) === 0);
   await p.setViewportSize({ width: 1280, height: 900 });
   check('un único h1 visible en escritorio', (await p.locator('h1:visible').count()) === 1);
-  const railTh = await p.evaluate(() => Math.min(...[...document.querySelectorAll('.rail-foot .theme-switch button')].map((b) => b.getBoundingClientRect().height)));
-  check('rail: los botones de tema miden 44 px', railTh >= 43.5, String(railTh));
+  // Luz/Sombra: in the top bar from 1440 px; below that, inside «Más ▾».
+  await p.setViewportSize({ width: 1440, height: 900 });
+  const barTh = await p.evaluate(() => Math.min(...[...document.querySelectorAll('header.topbar .theme-switch button')].map((b) => b.getBoundingClientRect().height)));
+  check('barra superior: los botones de tema miden 44 px o más', barTh >= 43.5 && barTh !== Infinity, String(barTh));
+  await p.setViewportSize({ width: 1280, height: 900 });
+  await p.click('#topnav [data-more]');
+  const popTh = await p.evaluate(() => Math.min(...[...document.querySelectorAll('#more-menu .theme-switch button')].map((b) => b.getBoundingClientRect().height)));
+  check('Más ▾ (< 1440 px): el selector de tema está dentro y mide 44 px', popTh >= 43.5 && popTh !== Infinity, String(popTh));
+  await p.keyboard.press('Escape');
 
   // Carta celeste, Energía: todas las filas con el orbe y el nombre en la misma x (incluido un nombre de 24 caracteres
   // y un personaje sin clase), gasto rápido que resta energía y Plan de hoy con una fila por personaje.
@@ -375,22 +401,24 @@ check('legión: el código solo vive en el servidor (cifrado, sin código ni has
   await p.selectOption('#add-class', { index: 0 });
   await p.click('#add-form button[type=submit]');
   await p.waitForFunction(() => [...document.querySelectorAll('article.card')].some((c) => /Sin clase/.test(c.textContent)));
+  // Cards are vertical tiles: the orb and the name are centred in their tile (orb/name = offset of their centre from the tile's centre).
   const columns = () => p.evaluate(() => [...document.querySelectorAll('#cards article.card')].map((c) => ({
-    orb: c.querySelector('.orb-slot').getBoundingClientRect().left, name: c.querySelector('.name').getBoundingClientRect().left,
+    orb: (({ left, width }) => left + width / 2)(c.querySelector('.orb-slot').getBoundingClientRect()) - (({ left, width }) => left + width / 2)(c.getBoundingClientRect()),
+    name: (({ left, width }) => left + width / 2)(c.querySelector('.name').getBoundingClientRect()) - (({ left, width }) => left + width / 2)(c.getBoundingClientRect()),
     w: c.querySelector('.orb-slot').getBoundingClientRect().width, text: c.querySelector('.name').textContent, cls: !!c.querySelector('.cls-name') })));
   const spread = (xs) => Math.max(...xs) - Math.min(...xs);
   // Orbe 3D (orb3d.js): con WebGL cada hueco lleva un canvas.orb3d de su mismo tamaño y posición, dibujado (no en blanco)
-  // si está en pantalla, y ningún <canvas> es mayor que un hueco (nada de partículas ni 3D detrás de la página).
+  // si está en pantalla, y ningún <canvas> es mayor que un hueco salvo el cielo vivo (canvas#sky, 2D, detrás de la página).
   const orb3d = () => p.evaluate(() => {
     const drawn = (c) => { const d = c.getContext('2d').getImageData(0, 0, c.width, c.height).data; for (let i = 3; i < d.length; i += 4) if (d[i] > 0) return true; return false; };
-    const slots = [...document.querySelectorAll('#cards .orb-slot')].map((s) => {
+    const slots = [...document.querySelectorAll('#stage .orb-slot, #cards .orb-slot')].map((s) => {
       const r = s.getBoundingClientRect(), c = s.querySelector('canvas.orb3d'), b = c?.getBoundingClientRect();
       return { has: !!c, same: !!c && ['left', 'top', 'width', 'height'].every((k) => Math.abs(b[k] - r[k]) < 1),
         onScreen: r.bottom > 0 && r.top < innerHeight, drawn: !!c && c.width > 0 && drawn(c), w: r.width };
     });
     const maxSlot = Math.max(...slots.map((x) => x.w));
     return { gl: !!document.createElement('canvas').getContext('webgl'), slots,
-      big: [...document.querySelectorAll('canvas')].filter((c) => { const b = c.getBoundingClientRect(); return b.width > maxSlot + 1 || b.height > maxSlot + 1; }).length };
+      big: [...document.querySelectorAll('canvas:not(#sky)')].filter((c) => { const b = c.getBoundingClientRect(); return b.width > maxSlot + 1 || b.height > maxSlot + 1; }).length };
   });
   const checkOrb3d = async (tag) => {
     const o = await orb3d();
@@ -404,16 +432,17 @@ check('legión: el código solo vive en el servidor (cifrado, sin código ni has
     await p.waitForTimeout(300);
     const cols = await columns();
     const info = JSON.stringify(cols);
-    check(`${w} px: hay filas con nombre de 24 caracteres y sin clase`, cols.length >= 4 && cols.some((c) => /^W{24}$/.test(c.text)) && cols.some((c) => !c.cls), info);
-    check(`${w} px: el orbe de cada fila empieza en la misma x`, spread(cols.map((c) => c.orb)) <= 1, info);
-    check(`${w} px: el nombre de cada fila empieza en la misma x`, spread(cols.map((c) => c.name)) <= 1, info);
+    check(`${w} px: hay tarjetas con nombre de 24 caracteres y sin clase`, cols.length >= 3 && cols.some((c) => /^W{24}$/.test(c.text)) && cols.some((c) => !c.cls), info);
+    check(`${w} px: el orbe de cada tarjeta va centrado`, cols.every((c) => Math.abs(c.orb) <= 1), info);
+    check(`${w} px: el nombre de cada tarjeta va centrado`, cols.every((c) => Math.abs(c.name) <= 1), info);
     check(`${w} px: el orbe mide lo mismo en todas las filas`, spread(cols.map((c) => c.w)) <= 1 && cols[0].w >= 72, info);
     await checkOrb3d(`orbe 3D ${w} px`);
   }
   await p.setViewportSize({ width: 1280, height: 900 });
   await p.waitForTimeout(300);
-  await p.locator('#cards article.card .r-text').first().dispatchEvent('pointerdown'); // selecciona la primera fila
   const firstName = await p.locator('#cards article.card .name').first().textContent();
+  await p.locator('#cards article.card .name').first().click(); // la primera tarjeta pasa al escenario
+  await p.waitForTimeout(300);
   const energies = async () => Object.fromEntries((await dbRows('members/')).filter((r) => r.path.includes('/characters/')).map((r) => [r.path.split('/').pop(), r.data.energy]));
   const before = await energies();
   await p.waitForSelector('#quick-chips [data-quick]');
@@ -433,18 +462,18 @@ check('legión: el código solo vive en el servidor (cifrado, sin código ni has
     await p.waitForTimeout(300);
     const cols = await columns();
     const info = JSON.stringify(cols);
-    check(`compacto ${w} px: el orbe y el nombre de cada fila empiezan en la misma x`, cols.length >= 4 && spread(cols.map((c) => c.orb)) <= 1 && spread(cols.map((c) => c.name)) <= 1 && cols[0].w < 104, info);
+    check(`compacto ${w} px: el orbe y el nombre de cada tarjeta van centrados y el orbe es menor`, cols.length >= 3 && cols.every((c) => Math.abs(c.orb) <= 1 && Math.abs(c.name) <= 1) && spread(cols.map((c) => c.w)) <= 1 && cols[0].w < 104, info);
     await checkOrb3d(`orbe 3D compacto ${w} px`);
   }
   await p.evaluate(() => { const t = document.getElementById('compact-toggle'); t.checked = false; t.dispatchEvent(new Event('change', { bubbles: true })); });
   await p.setViewportSize({ width: 1280, height: 900 });
   await p.waitForTimeout(300);
   // editar a «Sin clase» y deshacer (el servidor rechaza classId null)
-  const wRow = p.locator('#cards article.card', { hasText: 'W'.repeat(24) });
+  const wRow = p.locator('#tab-personajes article.card', { hasText: 'W'.repeat(24) });
   const wId = await wRow.getAttribute('data-id');
   const classOf = async () => (await dbRows('members/')).find((r) => r.path.endsWith('/characters/' + wId))?.data.classId;
   const classBefore = await classOf();
-  await wRow.locator('button.primary').click();
+  await wRow.locator('button.more-actions').click(); await wRow.locator('.menu button.update').click();
   await p.selectOption(`#class-${wId}`, '');
   await wRow.locator('form button[type=submit]').click();
   await p.waitForTimeout(900);
@@ -452,7 +481,7 @@ check('legión: el código solo vive en el servidor (cifrado, sin código ni has
   await p.click('#undo');
   await p.waitForTimeout(900);
   check('deshacer la edición a «Sin clase»: vuelve la clase anterior', (await classOf()) === classBefore && !!classBefore, String(await classOf()));
-  check('Plan de hoy: una fila por personaje', (await p.locator('#plan tbody tr').count()) === (await p.locator('#cards article.card').count()) && (await p.locator('#plan tbody tr').count()) >= 4);
+  check('Plan de hoy: una fila por personaje', (await p.locator('#plan tbody tr').count()) === (await p.locator('#tab-personajes article.card').count()) && (await p.locator('#plan tbody tr').count()) >= 4);
   check('Plan de hoy: sin NaN ni undefined', !/NaN|undefined/.test(await p.locator('#plan').textContent()));
 }
 
@@ -600,6 +629,9 @@ check('legión: B ve a A entre los miembros', /AnaDaeva/.test(await text(pb, '#l
   await page.click('.lang-toggle');
   const opts = await page.locator('#lang-list [role=menuitemradio]').evaluateAll((bs) => bs.map((b) => b.dataset.lang + ':' + !!b.querySelector('svg.flag')));
   check('idioma: el menú muestra las 4 lenguas con su bandera', opts.join(',') === 'es:true,en:true,it:true,pt:true', opts.join(','));
+  const marks = await page.locator('#lang-list [role=menuitemradio]').evaluateAll((bs) => bs.map((b) => { const c = b.querySelector('svg.check'); return b.getAttribute('aria-checked') + ':' + (c ? getComputedStyle(c).visibility : 'none'); }));
+  check('idioma: la elegida lleva una marca SVG (no un glifo), solo ella', marks.filter((m) => m === 'true:visible').length === 1 && marks.every((m) => m === 'true:visible' || m === 'false:hidden')
+    && await page.evaluate(() => [...document.querySelectorAll('#lang-list button')].every((b) => getComputedStyle(b, '::after').content === 'none' || getComputedStyle(b, '::after').content === 'normal')), marks.join(','));
   await page.fill('#email', 'algo@example.com');
   await page.click('#lang-list [data-lang=en]');
   check('idioma: inglés traduce la vista, conserva lo escrito y cierra el menú',
@@ -614,6 +646,37 @@ check('legión: B ve a A entre los miembros', /AnaDaeva/.test(await text(pb, '#l
   await page.click('.lang-toggle');
   await page.keyboard.press('Escape');
   check('idioma: Escape cierra el menú', !(await visible(page, '#lang-list')));
+  check('privacidad: el registro enlaza a la política', (await page.locator('.panel a[href="/privacidad"]').count()) === 1);
+  await page.goto(`${ORIGIN}/privacidad`);
+  check('privacidad: se ve sin sesión, en el idioma elegido, con 11 secciones y el responsable',
+    (await page.locator('#policy h2').count()) === 11 && /Privacy policy/.test(await text(page, 'h1')) &&
+    (await text(page, '#policy')).includes('Luciano Labbozzetta'));
+  check('cuenta: el cielo vivo se dibuja (canvas#sky con tamaño)', await page.evaluate(() => { const c = document.getElementById('sky'); return !!c && c.width > 0 && c.height > 0; }));
+  await page.setViewportSize({ width: 1440, height: 900 });
+  // aviso de fans: la franja del pie, traducida, al final de la página (la política es larga: tras el texto)
+  const fanAt = () => page.evaluate(() => { const f = document.querySelector('footer.fan-foot'), r = f?.getBoundingClientRect();
+    return f ? { text: f.textContent.trim(), bottom: Math.round(r.bottom + scrollY), doc: document.documentElement.scrollHeight, inView: r.bottom <= innerHeight + 0.5, h: Math.round(r.height) } : null; });
+  const fp = await fanAt();
+  check('privacidad: aviso de fans al final, traducido', !!fp && fp.text === 'Unofficial fan site · not affiliated with NCSOFT' && fp.bottom === fp.doc && fp.h > 20, JSON.stringify(fp));
+  await page.screenshot({ path: 'dev/screens/privacidad-1440.png' });
+  // 390 px: the language button scrolls away with the page instead of covering the policy text
+  await page.setViewportSize({ width: 390, height: 844 }); await page.waitForTimeout(300);
+  await page.evaluate(() => scrollTo(0, 600)); await page.waitForTimeout(150);
+  const top390 = await page.evaluate(() => { const t = document.querySelector('.auth-top'); return { pos: getComputedStyle(t).position, y: Math.round(t.getBoundingClientRect().top), sy: scrollY }; });
+  check('privacidad 390: el selector de idioma no tapa el texto al desplazar', top390.pos === 'absolute' && top390.sy > 0 && top390.y < 0, JSON.stringify(top390));
+  await page.evaluate(() => scrollTo(0, 0));
+  await page.screenshot({ path: '.superpowers/sdd/2026-10-27-rediseno-engaste/privacidad-390-scrolled.png' });
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await page.goto(`${ORIGIN}/login`);
+  await page.waitForTimeout(300);
+  const fa = await fanAt();
+  check('cuenta 1440: aviso de fans visible abajo sin desplazar, traducido', !!fa && fa.inView && fa.bottom === fa.doc && /Unofficial fan site/.test(fa.text), JSON.stringify(fa));
+  await page.screenshot({ path: 'dev/screens/auth-1440.png' });
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.waitForTimeout(400);
+  const fm = await fanAt();
+  check('cuenta 390: aviso de fans visible abajo sin desplazar', !!fm && fm.inView && fm.bottom === fm.doc, JSON.stringify(fm));
+  await page.screenshot({ path: 'dev/screens/auth-390.png' });
   // El 401 del login fallido provocado arriba es esperado; cualquier otro error cuenta.
   const realErrs = errs.filter((e) => !/status of 401/.test(e));
   check('idioma: sin errores de consola ni violaciones de CSP', realErrs.length === 0, realErrs.join(' | '));
@@ -720,7 +783,7 @@ check('cerrar todas: la cookie de renovación vieja de B no renueva', (await rep
   await register(pd, 'dani@example.com', PW); await login(pd, 'dani@example.com', PW); await fillProfile(pd, 'DaniSombra');
 
   // buscar y pedir amistad
-  await pc.click('#topnav [data-tab="buscar"]');
+  await tab(pc, 'buscar');
   await pc.fill('#search-q', 'Dani');
   await pc.waitForSelector('#social-buscar .social-list li');
   check('buscar: encuentra a DaniSombra', /DaniSombra/.test(await text(pc, '#social-buscar')));
@@ -739,18 +802,21 @@ check('cerrar todas: la cookie de renovación vieja de B no renueva', (await rep
   await pd.waitForSelector('#social-amigos .social-list li');
   check('amigos: D acepta y C aparece como amigo', /CarlaLuz/.test(await text(pd, '#social-amigos')));
 
-  // columna lateral: visible y con el amigo en línea a >= 1200 px, oculta por debajo
+  // «Hoy» (en Energía; sustituye a la columna lateral): eventos, reinicio semanal y el amigo en línea
   await pc.setViewportSize({ width: 1440, height: 900 });
+  await pc.click('#topnav [data-tab="personajes"]');
   await pc.waitForFunction(() => /DaniSombra/.test(document.querySelector('#side-online')?.textContent || ''), null, { timeout: 10000 }).catch(() => {});
-  check('columna lateral: a 1440 px se ve y muestra al amigo en línea',
-    await pc.locator('#side').isVisible() && /DaniSombra/.test(await text(pc, '#side-online')) && !(await pc.locator('#side-online-box').isHidden()));
-  const sideRows = await pc.locator('#side-events li').count();
-  check('columna lateral: eventos con 1 a 3 filas', sideRows >= 1 && sideRows <= 3, String(sideRows));
-  await pc.click('#side [data-go="eventos"]');
-  check('columna lateral: Ver todos abre Eventos', (await pc.getAttribute('#topnav [data-tab="eventos"]', 'aria-current')) === 'page' && await pc.locator('#tab-eventos').isVisible());
-  check('columna lateral: sin scroll horizontal a 1440 px', await pc.evaluate(() => document.documentElement.scrollWidth <= innerWidth));
+  check('Hoy: a 1440 px se ve y muestra al amigo en línea',
+    await pc.locator('#today').isVisible() && /DaniSombra/.test(await text(pc, '#side-online')) && !(await pc.locator('#side-online-box').isHidden()));
+  const sideRows = await pc.locator('#side-events li:not(.week)').count();
+  check('Hoy: eventos con 1 a 3 filas y el reinicio semanal', sideRows >= 1 && sideRows <= 3 && (await pc.locator('#side-events li.week').count()) === 1, String(sideRows));
+  check('Hoy: sin columna lateral aparte', (await pc.locator('#side').count()) === 0);
+  check('Hoy: sin scroll horizontal a 1440 px', await pc.evaluate(() => document.documentElement.scrollWidth <= innerWidth));
+  await pc.click('#today [data-go="eventos"]');
+  check('Hoy: Ver todos abre Eventos', (await pc.getAttribute('#topnav [data-tab="eventos"]', 'aria-current')) === 'page' && await pc.locator('#tab-eventos').isVisible());
   await pc.setViewportSize({ width: 1000, height: 800 });
-  check('columna lateral: a 1000 px está oculta', await pc.locator('#side').isHidden());
+  await pc.click('#topnav [data-tab="personajes"]');
+  check('Hoy: a 1000 px sigue en la vitrina de Energía', await pc.locator('#case #today').isVisible() && await pc.evaluate(() => document.documentElement.scrollWidth <= innerWidth));
   await pc.setViewportSize({ width: 1280, height: 900 });
 
   // chat en vivo C → D, con texto que coincide con la interfaz y un mensaje largo
@@ -790,10 +856,36 @@ check('cerrar todas: la cookie de renovación vieja de B no renueva', (await rep
   await pd.click('[data-tab="chat"]'); await pd.click('#social-chat .conv'); await pd.waitForSelector('#social-chat .msg-text');
   check('móvil: sin scroll horizontal con un mensaje de 600 caracteres', await pd.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth));
   await pd.screenshot({ path: 'dev/screens/e2e-chat-mobile.png' });
+
+  // piel de tarjetas: Amigos, Chat (conversación abierta) y Buscar a 1440 y 390, Luz y Sombra.
+  // El tema se pone solo en el atributo (no se guarda), así las pruebas de tema de abajo no cambian.
+  const faction0 = await pd.evaluate(() => document.documentElement.dataset.faction);
+  for (const theme of ['luz', 'sombra']) for (const w of [1440, 390]) {
+    await pd.setViewportSize({ width: w, height: 900 });
+    await pd.evaluate((f) => { document.documentElement.dataset.faction = f; }, theme === 'sombra' ? 'asmodian' : 'elyos');
+    for (const t of ['amigos', 'chat', 'buscar']) {
+      await pd.evaluate((id) => document.querySelector(`#topnav [data-tab="${id}"]`).click(), t);
+      if (t === 'amigos') await pd.waitForSelector('#social-amigos .social-list li');
+      if (t === 'chat') { await pd.evaluate(() => { const c = document.querySelector('#social-chat .conv'); if (c && c.offsetParent) c.click(); }); await pd.waitForSelector('#social-chat .msg-text'); }
+      if (t === 'buscar') { await pd.fill('#search-q', 'Carla'); await pd.waitForSelector('#social-buscar .social-list li'); }
+      await pd.waitForTimeout(500);
+      const s = await pd.evaluate((id) => {
+        const p = document.querySelector(`#social-${id} > .panel`), c = getComputedStyle(p);
+        const tiles = [...document.querySelectorAll(`#social-${id} .social-list > li`)].map((li) => getComputedStyle(li));
+        return { radius: c.borderTopLeftRadius, border: c.borderTopWidth, pad: c.paddingTop, solid: c.backgroundColor !== 'rgba(0, 0, 0, 0)',
+          tiles: tiles.every((x) => x.borderTopLeftRadius === '14px' && x.borderTopWidth === '0px'), wide: document.documentElement.scrollWidth > innerWidth };
+      }, t);
+      check(`tarjetas ${theme} ${w}: ${t} en una tarjeta de 18 px, sin regla de 1 px y sin ensanchar`,
+        s.radius === '18px' && s.border === '0px' && s.pad === '22px' && s.solid && s.tiles && !s.wide, JSON.stringify(s));
+      await pd.screenshot({ path: `dev/screens/tarjetas-${t}-${theme}-${w}.png`, fullPage: true });
+    }
+  }
+  await pd.evaluate((f) => { document.documentElement.dataset.faction = f; }, faction0);
   await pd.setViewportSize({ width: 1280, height: 900 });
 
   // tema: Sombra se guarda en prefs.theme, sobrevive a recargar y guardar el perfil no lo cambia
-  await pc.click('#topnav [data-theme-choice="asmodian"]');
+  // below 1440 px the Luz/Sombra switch lives in «Más ▾»
+  await pc.click('#topnav [data-more]'); await pc.click('#more-menu [data-theme-choice="asmodian"]'); await pc.keyboard.press('Escape');
   const cUid = (await dbRows('members/')).find((r) => r.data.profile?.nick === 'CarlaLuz')?.path.split('/')[1];
   let themeSaved = false;
   for (let i = 0; i < 50 && !themeSaved; i++) {
@@ -815,7 +907,7 @@ check('cerrar todas: la cookie de renovación vieja de B no renueva', (await rep
   await pd.uncheck('#profile-searchable');
   await pd.click('#profile-form button[type=submit]');
   await pd.waitForSelector('#profile-modal', { state: 'hidden' });
-  await pc.click('#topnav [data-tab="buscar"]');
+  await tab(pc, 'buscar');
   await pc.fill('#search-q', '');
   await pc.fill('#search-q', 'Dani');
   await pc.waitForSelector('#social-buscar >> text=Nadie se llama así');
@@ -861,7 +953,7 @@ check('cerrar todas: la cookie de renovación vieja de B no renueva', (await rep
     if (!fSaved) await new Promise((r) => setTimeout(r, 100));
   }
   check('tema primera vez: prefs.theme se guarda con la facción del perfil', fSaved);
-  await pf.click('#topnav [data-tab="ajustes"]').catch(() => {});
+  await tab(pf, 'ajustes').catch(() => {});
   await pf.fill('#quiet-start', '01:00');
   await pf.click('#prefs-form button[type=submit]');
   await new Promise((r) => setTimeout(r, 600));
@@ -869,7 +961,7 @@ check('cerrar todas: la cookie de renovación vieja de B no renueva', (await rep
 
   // cuentas Normal y Premium (usuario sin personajes: la cabecera se comprueba contra la mezcla real)
   const pg = pf; // misma sesión de F: sin personajes, el inicio de sesión también tiene tope
-  await pg.click('#topnav [data-tab="ajustes"]').catch(() => {});
+  await tab(pg, 'ajustes').catch(() => {});
   await pg.fill('#adjust-minutes', '90'); // sin hora de recarga la cabecera no muestra el contador
   await pg.click('#adjust-form button[type=submit]');
   await pg.waitForTimeout(600);
@@ -883,21 +975,22 @@ check('cerrar todas: la cookie de renovación vieja de B no renueva', (await rep
     await pg.waitForSelector(`article.card:has-text("${name}")`);
   };
   const rowG = (name) => pg.locator('article.card', { hasText: name });
-  const subG = () => pg.evaluate(() => document.getElementById('page-sub').innerText);
+  // the account rule now shows in the refill clock's label (textContent: the label is uppercased by CSS)
+  const subG = () => pg.evaluate(() => document.querySelector('#clocks [data-clock="refill"] .k').textContent);
   check('cuenta: el formulario de alta empieza en Normal', await pg.evaluate(() => { const r = document.querySelector('input[name=add-account]:checked'); return r?.value === 'normal'; }));
   await addChar('CuentaNormal');
   check('cuenta normal (por defecto): la fila muestra «/ 560» y no tiene marca Premium', /\/ 560/.test(await rowG('CuentaNormal').textContent()) && (await rowG('CuentaNormal').locator('.acct-mark').count()) === 0);
-  check('cuenta normal: la cabecera muestra «+15 OD» y «tope 560»', /\+15 OD/.test(await subG()) && /tope 560/.test(await subG()), await subG());
+  check('cuenta normal: el reloj de recarga dice «+15 OD en»', (await subG()) === '+15 OD en', await subG());
   await addChar('CuentaPremium', 'premium');
   check('cuenta premium: la fila muestra «/ 840» y la marca Premium', /\/ 840/.test(await rowG('CuentaPremium').textContent()) && (await rowG('CuentaPremium').locator('.acct-mark').textContent()) === 'Premium');
-  check('cabecera con cuentas mezcladas: «Recarga en» y sin «tope»', /Recarga en/.test(await subG()) && !/tope/.test(await subG()) && await pg.locator('#sub-cap').isHidden(), await subG());
+  check('cuentas mezcladas: el reloj de recarga dice «Recarga en»', (await subG()) === 'Recarga en', await subG());
   const gId = await rowG('CuentaPremium').getAttribute('data-id');
   const gEnergy = async () => (await dbRows('members/')).find((r) => r.path.endsWith('/characters/' + gId))?.data;
-  await rowG('CuentaPremium').locator('button.primary').click();
+  await rowG('CuentaPremium').locator('button.more-actions').click(); await rowG('CuentaPremium').locator('.menu button.update').click();
   await pg.fill(`#energy-${gId}`, '700');
   await rowG('CuentaPremium').locator('form button[type=submit]').click();
   await pg.waitForTimeout(900);
-  await rowG('CuentaPremium').locator('button.primary').click();
+  await rowG('CuentaPremium').locator('button.more-actions').click(); await rowG('CuentaPremium').locator('.menu button.update').click();
   const shown = await pg.inputValue(`#energy-${gId}`);
   await pg.check(`input[name="account-${gId}"][value=normal]`);
   await rowG('CuentaPremium').locator('form button[type=submit]').click();
@@ -905,7 +998,7 @@ check('cerrar todas: la cookie de renovación vieja de B no renueva', (await rep
   const gd = await gEnergy();
   check('editar Premium a Normal sin tocar la energía: se guarda «normal» y la energía no cambia', gd?.account === 'normal' && gd.energy === 700 && shown === '700', JSON.stringify({ gd, shown }));
   check('editar a Normal: la fila muestra «/ 560» y pierde la marca', /\/ 560/.test(await rowG('CuentaPremium').textContent()) && (await rowG('CuentaPremium').locator('.acct-mark').count()) === 0);
-  check('ambas Normal: la cabecera vuelve a «tope 560»', /tope 560/.test(await subG()), await subG());
+  check('ambas Normal: el reloj de recarga vuelve a «+15 OD en»', (await subG()) === '+15 OD en', await subG());
   // PATCH con la misma forma que usa la página (un parche de campos válidos); solo cambia el valor de account
   const gPath = (await dbRows('members/')).find((r) => r.path.endsWith('/characters/' + gId)).path;
   const patchAccount = (account) => pg.evaluate(async ([p, a]) => { const r = await fetch('/api/docs/' + p, { method: 'PATCH', credentials: 'same-origin', headers: { 'content-type': 'application/json', 'x-odyle-csrf': '1' }, body: JSON.stringify({ name: 'CuentaPremium', energy: 700, account: a }) }); return { status: r.status, body: await r.text() }; }, [gPath, account]);

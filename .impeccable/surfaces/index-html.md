@@ -2,26 +2,25 @@
 version: 1
 slug: "index-html"
 primary_target: "index.html"
-related_targets: ["web/auth.html","web/social.css"]
+related_targets: ["web/auth.html","web/privacidad.html"]
 ---
 
-# Surface brief: Odyle Tracker (web), Carta celeste de Atreia
+# Surface brief: Odyle Tracker (web), Engaste de orbes
 
 Scope: tracker de energía y pantallas sociales (Amigos, Chat, Buscar, Perfil de jugador) de la web y del artifact. Escritorio y móvil por igual.
-Mode: Operate. Build path: code-led. Sustituye la dirección v2 (tema claro Elyos y orbe 3D con fondo de partículas). Elegida por el usuario el 2026-10-14 en una ronda de dirección (tarjeta IMPECCABLE’S PICK) frente a Celadón incrustado y al estándar de la categoría.
-User-pinned: inspirado en Aion; orbes dibujados que se recargan, sin 3D ni partículas detrás de la página; Elyos en tono intermedio de crepúsculo dorado (nada de blanco); Asmodian oscuro; recuperar del primer prototipo los gastos rápidos y el Plan de hoy.
+Mode: Operate. Build path: code-led. Sustituye la dirección «Carta celeste de Atreia» (rediseño «Engaste de orbes», 2026-10-27).
+User-pinned: inspirado en Aion; orbes dibujados que se recargan; Elyos en tono intermedio de crepúsculo dorado (nada de blanco); Asmodian oscuro; gastos rápidos y Plan de hoy presentes.
 
 ## Direction contract
 
-THESIS: Tus personajes son astros en una carta celeste de Atreia: cada orbe es un astro de luz líquida rodeado por 56 estrellas (1 = 15 OD) y un meridiano dorado mide el tiempo hasta la próxima recarga. Rechaza el panel oscuro de tarjetas con anillos de progreso y el tema claro de papel blanco.
+THESIS: El orbe del personaje urgente, engastado en su anillo de runas que gira, es el escenario. Rechaza las filas de hoja de cálculo y la tienda genérica de tarjetas.
 
-OWN-WORLD: Elyos (Luz) crepúsculo: suelo pizarra #2F3B55, rail y paneles #1F2840, texto #F4E7C8 / #B9C2D6, tinta de oro #E3A853, cielo #9CC3E6, carmesí #D2453A (texto #FF9A8E, botón #B9372D). Asmodian (Sombra) Abismo: suelo violeta noche, paneles más hondos, tinta de plata, acento violeta, el mismo carmesí. Filetes de oro (o plata) de 1px, regla de ticks en la cabecera, sin cristal ni sombras de tarjeta, esquinas rectas. Marcellus para marca y nombres; Gothic A1 para la interfaz y números tabulares grandes.
+OWN-WORLD: Luz pizarra/oro, Sombra violeta; orbes de luz líquida en anillos de 56 runas; nombres en Marcellus; números tabulares en Gothic A1; tarjetas de 18 px de radio sobre un cielo de éter vivo.
 
-STORY: El jugador ve qué astro está al tope (carmesí), pulsa Gastar o un gasto rápido, mira el Plan de hoy y los eventos, y cambia de pantalla por el rail.
+STORY: De un vistazo: quién está lleno y los temporizadores de recarga, reinicio diario y evento. Actuar: Gastar ahora.
 
-FIRST VIEWPORT: Rail de 232px lleno de pizarra profunda (marca Odyle, secciones con iconos de trazo, insignias de oro, Luz/Sombra, ficha de perfil, aviso de fans). Columna principal: cabecera con «Energía», subtítulo «+15 OD en 02:59:52 · 4 personajes · tope 840», Ajustar recarga y + Añadir personaje, sobre una regla de ticks con el meridiano dorado. Filas de 108px: orbe de 104px con anillo de 56 estrellas, todos en la misma columna y el nombre siempre a la misma distancia del orbe (pedido del usuario: nada de zigzag), unidos por una constelación punteada recta; nombre en Marcellus, clase, estado; número de 48px; Gastar o Actualizar + ⋯. Debajo, gastos rápidos del personaje urgente y Plan de hoy; desde 1200px, columna de próximos eventos.
-Signature move: el meridiano y la constelación: al subir +15 la siguiente estrella del anillo se enciende y el líquido ondula; al tope el anillo late en carmesí; el meridiano avanza con la cuenta atrás.
+FIRST VIEWPORT: Barra de una línea de 72 px: marca · menú + Más · tres relojes de 48 px, el diario en oro. Izquierda, escenario de 560 px: orbe de 250 px, nombre de 58 px en Marcellus, número + línea de pérdida, botón primario rojo. Derecha: tarjetas, gastos rápidos, Hoy.
 
-FORM: Carta celeste de Atreia, candidata 1 de mi lista ordenada (la tirada asignó la 4, Celadón incrustado; el usuario eligió la pick). seed: none (unavailable)
+FORM: Piedras de Estigma → Engaste de orbes, posición 4 de la lista fundamentada. seed: none (unavailable)
 
 FINISH: unreviewed and undocumented is unfinished; this build ends with the finish review, the verdict, DESIGN.md, and every shipping raster carrying its provenance
