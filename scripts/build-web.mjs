@@ -19,7 +19,7 @@ mkdirSync(path.join(OUT, 'vendor'), { recursive: true });
 // ---- módulos del repositorio (sin pruebas) ----
 const modules = readdirSync(ROOT).filter((f) => f.endsWith('.js') && !f.endsWith('.test.js'));
 const EXPECTED = ['i18n.js', 'i18n-strings.js', 'view.js', 'energy.js', 'classes.js', 'store.js', 'spend.js', 'events.js', 'planner.js',
-  'charts.js', 'sound.js', 'tasks.js', 'achievements.js', 'motion.js', 'starorb.js', 'orb3d.js', 'legion.js', 'theme.js', 'social.js', 'runes.js', 'layout.js', 'clocks.js', 'stage.js', 'icons.js', 'about.js', 'sky.js'];
+  'charts.js', 'sound.js', 'tasks.js', 'achievements.js', 'motion.js', 'starorb.js', 'orb3d.js', 'legion.js', 'theme.js', 'social.js', 'runes.js', 'layout.js', 'clocks.js', 'stage.js', 'icons.js', 'about.js', 'sky.js', 'flags.js'];
 for (const m of EXPECTED) if (!modules.includes(m)) fail(`falta el módulo ${m}`);
 for (const m of modules) {
   let src = read(path.join(ROOT, m));
@@ -81,7 +81,17 @@ for (const [pkg, family, weights] of FONTS) {
 }
 writeFileSync(path.join(OUT, 'fonts.css'), fontsCss);
 const OLD = path.join(ROOT, `server/.public-old-${process.pid}`);
-if (existsSync(FINAL)) renameSync(FINAL, OLD);
-renameSync(OUT, FINAL);
+// Windows refuses a rename while another process (a parallel test copying server/public) holds a file open: retry briefly.
+function renameRetry(from, to) {
+  for (let i = 0; ; i++) {
+    try { return renameSync(from, to); }
+    catch (e) {
+      if (i >= 50 || !['EPERM', 'EBUSY', 'EACCES'].includes(e.code)) throw e;
+      Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, 100);
+    }
+  }
+}
+if (existsSync(FINAL)) renameRetry(FINAL, OLD);
+renameRetry(OUT, FINAL);
 rmSync(OLD, { recursive: true, force: true });
 console.log(`build-web: ${path.relative(ROOT, FINAL)} listo (${modules.length} módulos)`);

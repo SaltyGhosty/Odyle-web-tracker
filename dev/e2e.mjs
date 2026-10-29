@@ -265,6 +265,79 @@ const barFits = page => page.evaluate(() => {
   await page.close();
 }
 
+// ================= Language: flag button after «Más ▾» (desktop), in the header (phone) =================
+const langInfo = page => page.evaluate(() => {
+  const b = document.getElementById('lang-btn'), more = document.querySelector('#topnav [data-more]');
+  const r = b.getBoundingClientRect(), m = more.getBoundingClientRect();
+  const flagOf = c => document.querySelector(`#lang-menu [data-lang="${c}"] svg.flag`)?.outerHTML;
+  return { afterMore: more.nextElementSibling === b && b.parentElement.id === 'topnav', sameRow: Math.abs(r.top - m.top) < 1 && r.height === 40 && m.height === 40,
+    gap: Math.round(r.left - m.right), flagIs: b.querySelector('.lang-flag svg.flag')?.outerHTML === flagOf(document.documentElement.lang),
+    label: b.getAttribute('aria-label'), visible: b.offsetParent !== null && r.width > 0 };
+});
+{
+  const page = await open(1440);
+  const li = await langInfo(page);
+  check('idioma: botón con la bandera justo después de «Más ▾», en la misma línea y a 40 px', li.afterMore && li.sameRow && li.gap >= 0 && li.gap <= 8 && li.visible, JSON.stringify(li));
+  check('idioma: muestra la bandera del idioma activo y se nombra «Idioma: Español»', li.flagIs && li.label === 'Idioma: Español', JSON.stringify(li));
+  check('Ajustes: ya no tiene el campo de idioma', await page.locator('#lang-select').count() === 0);
+  await page.click('#lang-btn'); await page.waitForTimeout(150);
+  const menu = await page.evaluate(() => {
+    const m = document.getElementById('lang-menu'), b = document.getElementById('lang-btn').getBoundingClientRect(), r = m.getBoundingClientRect();
+    const items = [...m.querySelectorAll('[role=menuitemradio]')];
+    return { open: m.matches(':popover-open'), under: r.top >= b.bottom && Math.abs(r.left - b.left) < 2,
+      items: items.map(x => x.dataset.lang + ':' + !!x.querySelector('svg.flag') + ':' + x.textContent.trim()).join(),
+      checked: items.filter(x => x.getAttribute('aria-checked') === 'true').map(x => x.dataset.lang).join(),
+      checkMark: items.map(x => getComputedStyle(x.querySelector('.check')).visibility).join(), focus: document.activeElement?.dataset?.lang };
+  });
+  check('idioma: el menú se abre bajo el botón con las 4 banderas y su nombre', menu.open && menu.under
+    && menu.items === 'es:true:Español,en:true:English,it:true:Italiano,pt:true:Português', JSON.stringify(menu));
+  check('idioma: el actual va marcado (✓) y recibe el foco', menu.checked === 'es' && menu.checkMark === 'visible,hidden,hidden,hidden' && menu.focus === 'es', JSON.stringify(menu));
+  await page.screenshot({ path: 'dev/screens/idioma-1440.png' });
+  await page.click('#lang-menu [data-lang=it]'); await page.waitForTimeout(300);
+  const after = await langInfo(page);
+  check('idioma: elegir «Italiano» traduce al momento, cierra el menú y devuelve el foco', (await text(page, '#topnav [data-tab=personajes]')) === 'Energia'
+    && await page.evaluate(() => document.documentElement.lang === 'it' && !document.getElementById('lang-menu').matches(':popover-open') && document.activeElement?.id === 'lang-btn')
+    && after.flagIs && after.label === 'Lingua: Italiano', JSON.stringify(after));
+  check('idioma: se guarda en los ajustes y en el navegador', (await db(page, 'members/u_me/settings/prefs'))?.lang === 'it'
+    && await page.evaluate(() => localStorage.getItem('odyle-lang')) === 'it');
+  const fit = await barFits(page);
+  check('barra it 1440: sigue en una línea con el botón de idioma', fit.scrollHeight <= 72 && !fit.out.length && !fit.navOverflow && !fit.pageWide, JSON.stringify(fit));
+  await page.close();
+}
+const barMiss = [];
+for (const lang of ['es', 'en', 'it', 'pt']) for (const w of [900, 1000, 1199, 1200, 1439, 1440, 1679, 1680]) {
+  const page = await open(w, 800, { lang });
+  const fit = await barFits(page);
+  const li = await langInfo(page);
+  // the bar itself: one line, nothing outside it, the menu not clipped (pt 900 has a wider Energía table, not the bar's doing)
+  const ok = fit.scrollHeight <= 72 && !fit.out.length && !fit.navOverflow && li.afterMore && li.visible && li.flagIs;
+  if (!ok) barMiss.push(`${lang} ${w}: ${JSON.stringify({ fit, li })}`);
+  await page.close();
+}
+check('barra 900–1680 en es/en/it/pt: una línea con el botón de idioma', !barMiss.length, barMiss.join(' | '));
+{
+  const page = await open(390, 844);
+  const m = await page.evaluate(() => {
+    const b = document.getElementById('lang-btn'), h = document.querySelector('header.topbar'), r = b.getBoundingClientRect(), hr = h.getBoundingClientRect();
+    const sw = h.querySelector('.theme-switch');
+    const inHead = [...h.querySelectorAll('.bar-right > *')].filter(n => n.offsetParent !== null).every(n => { const q = n.getBoundingClientRect(); return q.right <= hr.right + 0.5 && q.left >= hr.left - 0.5; });
+    return { inHeader: h.contains(b) && b.nextElementSibling === sw, visible: b.offsetParent !== null && r.width >= 40 && r.height >= 44, inside: inHead,
+      flag: !!b.querySelector('.lang-flag svg.flag'), one: document.querySelectorAll('#lang-btn, .lang-btn').length === 1,
+      cut: [...h.querySelectorAll('.brand-name, .theme-switch button')].filter(n => n.scrollWidth > n.clientWidth + 0.5).map(n => n.textContent),
+      wide: document.documentElement.scrollWidth > innerWidth };
+  });
+  check('móvil 390: el botón de idioma está en la cabecera junto a Luz/Sombra, sin desbordar ni recortar', m.inHeader && m.visible && m.inside && m.flag && m.one && !m.cut.length && !m.wide, JSON.stringify(m));
+  await page.click('#lang-btn'); await page.waitForTimeout(150);
+  const pop = await page.evaluate(() => { const r = document.getElementById('lang-menu').getBoundingClientRect();
+    return { open: document.getElementById('lang-menu').matches(':popover-open'), inView: r.left >= 0 && r.right <= innerWidth, wide: document.documentElement.scrollWidth > innerWidth }; });
+  check('móvil 390: el menú de idiomas cabe en la pantalla', pop.open && pop.inView && !pop.wide, JSON.stringify(pop));
+  await page.keyboard.press('Escape'); await page.waitForTimeout(100);
+  check('móvil 390: Escape cierra el menú y el foco vuelve al botón', await page.evaluate(() => !document.getElementById('lang-menu').matches(':popover-open') && document.activeElement?.id === 'lang-btn'));
+  await page.evaluate(() => document.activeElement.blur());
+  await page.screenshot({ path: 'dev/screens/idioma-390.png' });
+  await page.close();
+}
+
 // ================= Energía «Engaste»: stage + cards =================
 // Demo data: Shutaruku at the cap, three others not. The stage holds the most urgent; the cards hold everyone else.
 const stageInfo = page => page.evaluate(() => {
@@ -371,7 +444,7 @@ for (const theme of ['luz', 'sombra']) {
 {
   const page = await open(1280);
   // nav bar
-  check('escritorio: barra superior con 4 secciones + Más', await visible(page, '#topnav') && await page.locator('#topnav button:visible').count() === 5);
+  check('escritorio: barra superior con 4 secciones + Más + Idioma', await visible(page, '#topnav') && await page.locator('#topnav button:visible').count() === 6);
   check('escritorio: sin menú ☰', !(await visible(page, '#menu-btn')));
   check('perfil: tarjeta en la cabecera con tu nombre', await visible(page, '#profile-chip') && /SaltyMain/.test(await text(page, '#profile-chip')));
   check('perfil: no se abre solo si ya existe', !(await visible(page, '#profile-modal')));
@@ -562,13 +635,12 @@ for (const theme of ['luz', 'sombra']) {
   check('modo compacto: sin gráficos', await page.evaluate(() => document.body.classList.contains('compact')) && !(await visible(page, '#forecast-panel')));
   await openAjustes(page);
   await page.uncheck('#compact-toggle');
-  await page.selectOption('#lang-select', 'en');
+  await page.click('#lang-btn'); await page.click('#lang-menu [data-lang=en]');
   await page.waitForTimeout(300);
   check('idioma: cambia a inglés al momento', (await text(page, '#topnav [data-tab=personajes]')) === 'Energy' && (await text(page, '#ai-fab')).trim() === 'Assistant');
   await page.click('#topnav [data-tab=personajes]');
   check('idioma: los datos siguen ahí', await page.locator('#tab-personajes article.card').count() === 2);
-  await openAjustes(page);
-  await page.selectOption('#lang-select', 'es');
+  await page.click('#lang-btn'); await page.click('#lang-menu [data-lang=es]');
   await page.close();
 }
 
