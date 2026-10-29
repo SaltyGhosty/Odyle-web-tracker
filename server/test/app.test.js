@@ -169,10 +169,16 @@ test('db.js no importa pg-mem de forma estática (producción arranca sin devDep
   assert.ok(!/^\s*import[^\n]*['"]pg-mem['"]/m.test(src), 'import estático de pg-mem');
   assert.match(src, /await import\(['"]pg-mem['"]\)/);
   // ni ningún otro módulo del arranque
-  const { execFileSync } = await import('node:child_process');
-  const out = execFileSync('grep', ['-rl', 'pg-mem', new URL('../src', import.meta.url).pathname]).toString().trim().split('\n');
-  assert.equal(out.length, 1);
-  assert.ok(out[0].endsWith('db.js'));
+  // (an import or require of 'pg-mem'; comments that merely name it don't count)
+  const { readdir } = await import('node:fs/promises');
+  const dir = new URL('../src/', import.meta.url);
+  const files = (await readdir(dir, { recursive: true })).filter((f) => f.endsWith('.js'));
+  const uses = [];
+  for (const f of files) {
+    const code = await readFile(new URL(f.replaceAll('\\', '/'), dir), 'utf8');
+    if (/(?:import\s*\(?|from|require\s*\()\s*['"]pg-mem['"]/.test(code)) uses.push(f);
+  }
+  assert.deepEqual(uses, ['db.js']);
 });
 
 test('DATABASE_URL: DATABASE_SSL manda; cualquier sslmode/ssl de la URL se ignora', async () => {

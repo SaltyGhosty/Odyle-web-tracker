@@ -219,6 +219,40 @@ await pa.setViewportSize({ width: 1280, height: 900 });
 // Banda: con un solo personaje a medias no hay alarma
 check('escenario: visible y sin tono de alarma con energía a medias', (await visible(pa, '#stage article.card')) && !(await pa.locator('#stage.tone-urgent').count()) && !(await pa.locator('#stage button.stage-go.urgent').count()));
 
+// Idioma: botón con bandera justo después de «Más ▾»; el menú lista 4 banderas; «Italiano» cambia al momento y
+// se guarda en el servidor (al recargar, el script de arranque fuerza 'es' en el navegador y los ajustes lo devuelven a 'it').
+{
+  const li = await pa.evaluate(() => {
+    const b = document.getElementById('lang-btn'), more = document.querySelector('#topnav [data-more]');
+    const r = b.getBoundingClientRect(), m = more.getBoundingClientRect();
+    return { after: more.nextElementSibling === b, row: Math.abs(r.top - m.top) < 1 && r.height === 40,
+      flag: b.querySelector('.lang-flag svg.flag')?.outerHTML === document.querySelector('#lang-menu [data-lang="es"] svg.flag')?.outerHTML };
+  });
+  check('idioma: botón con la bandera de español justo después de «Más ▾»', li.after && li.row && li.flag, JSON.stringify(li));
+  await pa.click('#lang-btn');
+  const flags = await pa.locator('#lang-menu [role=menuitemradio]').evaluateAll((bs) => bs.map((b) => b.dataset.lang + ':' + !!b.querySelector('svg.flag')));
+  check('idioma: el menú lista 4 banderas', (await visible(pa, '#lang-menu')) && flags.join() === 'es:true,en:true,it:true,pt:true', flags.join());
+  await pa.click('#lang-menu [data-lang=it]');
+  await pa.waitForFunction(() => document.documentElement.lang === 'it');
+  check('idioma: «Italiano» traduce la página al momento', /Energia/.test(await text(pa, '#topnav [data-tab=personajes]')) && !(await visible(pa, '#lang-menu')));
+  await pa.waitForTimeout(600);
+  await pa.reload(); await pa.waitForSelector('#profile-chip:not([hidden])');
+  await pa.waitForFunction(() => document.documentElement.lang === 'it', null, { timeout: 5000 }).catch(() => {});
+  check('idioma: tras recargar sigue en italiano (guardado en el servidor)', (await pa.evaluate(() => document.documentElement.lang)) === 'it'
+    && /Energia/.test(await text(pa, '#topnav [data-tab=personajes]'))
+    && await pa.evaluate(() => document.querySelector('#lang-btn .lang-flag svg')?.outerHTML === document.querySelector('#lang-menu [data-lang="it"] svg')?.outerHTML));
+  await pa.setViewportSize({ width: 390, height: 844 }); await pa.waitForTimeout(200);
+  const m = await pa.evaluate(() => {
+    const b = document.getElementById('lang-btn'), h = document.querySelector('header.topbar'), r = b.getBoundingClientRect();
+    return { inHeader: h.contains(b), visible: b.offsetParent !== null && r.right <= innerWidth && r.left >= 0, wide: document.documentElement.scrollWidth > innerWidth };
+  });
+  check('idioma móvil 390: el botón está en la cabecera y la página no se ensancha', m.inHeader && m.visible && !m.wide, JSON.stringify(m));
+  await pa.click('#lang-btn'); await pa.click('#lang-menu [data-lang=es]');
+  await pa.waitForFunction(() => document.documentElement.lang === 'es');
+  await pa.setViewportSize({ width: 1280, height: 900 });
+  await pa.waitForTimeout(600);
+}
+
 // recargar y seguir ahí
 await pa.reload();
 await pa.waitForSelector('article.card');

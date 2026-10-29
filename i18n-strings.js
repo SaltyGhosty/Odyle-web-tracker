@@ -1007,3 +1007,11 @@ const STRIP = {
   pt: { Diario: 'Diário' },
 };
 for (const l of Object.keys(STRIP)) for (const [k, v] of Object.entries(STRIP[l])) if (!(k in STRINGS[l])) STRINGS[l][k] = v;
+
+// Language menu of the top bar, with the flags (2026-10-29). The language names stay in their own language.
+const IDIOMA = {
+  en: { 'Idioma: {0}': 'Language: {0}' },
+  it: { 'Idioma: {0}': 'Lingua: {0}' },
+  pt: { 'Idioma: {0}': 'Idioma: {0}' },
+};
+for (const l of Object.keys(IDIOMA)) for (const [k, v] of Object.entries(IDIOMA[l])) if (!(k in STRINGS[l])) STRINGS[l][k] = v;

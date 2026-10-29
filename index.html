@@ -100,6 +100,15 @@
   .bar-pop .pop-list .i { width: 18px; height: 18px; }
   .bar-pop .pop-list .badge { margin-left: auto; }
   #clocks-menu .clocks { flex-direction: column; align-items: stretch; }
+  /* Language: a flag button right after «Más ▾» (desktop) or by the Luz/Sombra switch (phone); #lang-menu lists the four flags.
+     Flags keep their national colours in both themes; a hairline keeps the white stripes visible on the light ground. */
+  .flag { display: block; flex: none; width: 24px; height: 16px; border-radius: 2px; box-shadow: 0 0 0 1px var(--line-strong); }
+  .lang-btn { display: inline-flex; align-items: center; gap: 8px; border: none; background: none; color: var(--muted); font-weight: 700; white-space: nowrap; }
+  .lang-btn .lang-code { font-size: 12px; letter-spacing: .1em; text-transform: uppercase; }
+  #lang-menu .pop-list button { color: var(--fg); font-weight: 500; }
+  #lang-menu .pop-list button[aria-checked="true"] { color: var(--gold-bright); font-weight: 700; background: color-mix(in srgb, var(--gold) 14%, transparent); }
+  #lang-menu .check { margin-left: auto; display: inline-flex; visibility: hidden; color: var(--gold-bright); }
+  #lang-menu [aria-checked="true"] .check { visibility: visible; }
   /* Phone: the clocks ride in a sticky strip under the bar, daily reset first, sliding sideways. */
   .clock-strip { position: sticky; top: 0; z-index: 14; display: flex; overflow-x: auto; overscroll-behavior-x: contain; scrollbar-width: none;
     padding: 8px 16px; background: var(--bg-2); border-bottom: 1px solid color-mix(in srgb, var(--gold) 18%, transparent); }
@@ -755,6 +764,14 @@
     .profile-chip .pc-text { display: none; }
     .profile-chip .pc-icon { width: 36px; height: 36px; }
     .online-pill { display: none; }
+    /* phone: the language is an icon-only flag button of the header, beside the Luz/Sombra switch */
+    .bar-right .lang-btn { width: 40px; height: 44px; min-height: 44px; padding: 0; justify-content: center; flex: none; border: 1px solid var(--gold); }
+    .bar-right .lang-btn .lang-code, .bar-right .lang-btn .caret { display: none; }
+    /* room for the flag at 390 px: tighter gaps and a Luz/Sombra switch sized to its words, so no label is cut */
+    header.topbar { gap: 8px; }
+    header.topbar .bar-right { gap: 6px; }
+    header.topbar .theme-switch { grid-auto-columns: auto; min-width: 0; }
+    header.topbar .theme-switch button { padding: 4px 10px; }
   }
   /* Narrower desktops keep the bar on one line, in steps: below 1680 px tighter spacing, the chip shows only its class icon
      and the online pill waits for room; below 1440 px the Luz/Sombra switch moves into «Más ▾»; below 1200 px (clocks folded) tighter still. */
@@ -770,6 +787,8 @@
     .topbar .theme-switch { display: none; }
     .topbar .topnav button { padding: 0 10px; }
     .topbar [data-clock="event"] .k { max-width: 120px; }
+    /* the flag alone names the language: no code, no caret */
+    .topbar .topnav .lang-btn .lang-code, .topbar .topnav .lang-btn .caret { display: none; }
   }
   @media (min-width: 900px) and (max-width: 1199.98px) {
     header.topbar { gap: 16px; padding: 0 16px; }
@@ -1099,7 +1118,6 @@
     <label class="switch"><input type="checkbox" id="lite-toggle"> Reducir animaciones (sin ondulación ni latido en los orbes)</label>
     <label class="switch"><input type="checkbox" id="compact-toggle"> Modo compacto (tarjetas pequeñas, sin gráficos)</label>
     <p class="hint keys-hint">Atajos de teclado: pulsa <kbd>?</kbd> para verlos.</p>
-    <div class="field"><label for="lang-select">Idioma</label><select id="lang-select"></select></div>
   </section>
 
   <section class="panel" aria-labelledby="sound-title">
@@ -1232,6 +1250,7 @@
   import { iconSvg } from './icons.js';
   import { ABOUT, aboutModel } from './about.js';
   import { startI18n, tr, LOCALE, LANG, LANGS, setLang, onLangChange } from './i18n.js';
+  import { FLAG_CODES, flagSvg } from './flags.js';
   startI18n();
   import { buildView, parseEnergyInput, parseMinutesInput, parseNameInput, parseClassInput } from './view.js';
   import { anchorFromCountdown, formatDuration, nextTickAt, MAX, rulesOf } from './energy.js';
@@ -2082,6 +2101,38 @@
   const moreBtn = el('button', { type: 'button', class: 'more-btn', 'data-more': '', onclick: () => { if (!WIDE.matches) openMore(); } },
     iconSvg(document, 'mas'), el('span', { class: 'lbl' }, 'Más'), el('span', { class: 'caret', 'aria-hidden': 'true' }, iconSvg(document, 'desplegar')));
   nav.append(moreBtn);
+  // Language: a flag button right after «Más ▾» on desktop, beside the Luz/Sombra switch on the phone (placeChrome moves
+  // this one node). It opens #lang-menu: the four languages, each with its flag and native name, the current one checked.
+  const langBtn = el('button', { type: 'button', class: 'lang-btn', id: 'lang-btn', popovertarget: 'lang-menu', 'aria-haspopup': 'menu' },
+    el('span', { class: 'lang-flag' }), el('span', { class: 'lang-code', translate: 'no' }),
+    el('span', { class: 'caret', 'aria-hidden': 'true' }, iconSvg(document, 'desplegar')));
+  nav.append(langBtn);
+  const langItems = FLAG_CODES.map(code => el('button', { type: 'button', role: 'menuitemradio', 'data-lang': code, lang: code, translate: 'no',
+    'aria-checked': 'false', tabindex: '-1', onclick: () => chooseLang(code) },
+    flagSvg(document, code), el('span', { class: 'lbl' }, LANGS[code]), el('span', { class: 'check', 'aria-hidden': 'true' }, iconSvg(document, 'hecho'))));
+  const langMenu = el('div', { class: 'bar-pop', id: 'lang-menu', popover: 'auto', 'aria-label': 'Idioma' },
+    el('div', { class: 'pop-list', role: 'menu', 'aria-label': 'Idioma' }, ...langItems));
+  function paintLang() {
+    langBtn.querySelector('.lang-flag').replaceChildren(flagSvg(document, LANG));
+    langBtn.querySelector('.lang-code').textContent = LANG;
+    langBtn.setAttribute('aria-label', `Idioma: ${LANGS[LANG]}`);
+    langBtn.title = `Idioma: ${LANGS[LANG]}`;
+    for (const b of langItems) b.setAttribute('aria-checked', String(b.dataset.lang === LANG));
+  }
+  paintLang();
+  // Opening puts focus on the current language; arrows move, Escape closes (the popover) and focus returns to the button.
+  langMenu.addEventListener('toggle', e => {
+    if (e.newState === 'open') (langItems.find(b => b.dataset.lang === LANG) || langItems[0]).focus();
+    else if (langMenu.contains(document.activeElement) || document.activeElement === document.body) langBtn.focus({ preventScroll: true });
+  });
+  langMenu.addEventListener('keydown', e => {
+    const i = langItems.indexOf(document.activeElement);
+    const n = langItems.length;
+    const to = { ArrowDown: i + 1, ArrowUp: i - 1 + n, Home: n, End: n - 1 }[e.key];
+    if (to === undefined) return;
+    e.preventDefault(); e.stopPropagation();
+    langItems[to % n].focus();
+  });
   const FAN = 'Sitio de fans no oficial · no afiliado a NCSOFT';
   const fanFoot = el('footer', { class: 'fan-foot' }, el('p', { class: 'fan-note' }, FAN));
   const moreSheet = el('dialog', { class: 'more-sheet', id: 'more-sheet', 'aria-label': 'Más secciones' });
@@ -2106,22 +2157,24 @@
       for (const n of [c, ...c.querySelectorAll('[id]')]) n.removeAttribute('id');
       return c;
     })));
-  document.body.append(moreMenu, clocksMenu);
+  document.body.append(moreMenu, clocksMenu, langMenu);
   // Anchored under the button that opened it: «Más» by its left edge, «Relojes» by its right edge (it sits at the right).
   function anchorPop(pop, btn, side) {
     pop.addEventListener('beforetoggle', e => {
       if (e.newState !== 'open') return;
       const r = btn.getBoundingClientRect();
       pop.style.top = `${Math.round(r.bottom + 6)}px`;
+      if (typeof side === 'function') side = side();
       if (side === 'left') { pop.style.left = `${Math.round(r.left)}px`; pop.style.right = 'auto'; }
       else { pop.style.right = `${Math.round(document.documentElement.clientWidth - r.right)}px`; pop.style.left = 'auto'; }
     });
   }
   anchorPop(moreMenu, moreBtn, 'left');
+  anchorPop(langMenu, langBtn, () => WIDE.matches ? 'left' : 'right');
   anchorPop(clocksMenu, $('clocks-btn'), 'right');
   $('clocks-btn').setAttribute('popovertarget', 'clocks-menu');
   const hidePop = p => { if (p.matches(':popover-open')) p.hidePopover(); };
-  addEventListener('resize', () => { hidePop(moreMenu); hidePop(clocksMenu); });
+  addEventListener('resize', () => { hidePop(moreMenu); hidePop(clocksMenu); hidePop(langMenu); });
   // The clocks: refill → Ajustes (recharge time), daily reset and next event → Eventos.
   function onClock(e) {
     const c = e.target.closest('[data-clock]');
@@ -2133,7 +2186,7 @@
   const barTheme = themeSwitch();
   $('bar-right').append(barTheme);
   function openMore() { if (!moreSheet.open) moreSheet.showModal(); }
-  function closeMore() { if (moreSheet.open) moreSheet.close(); hidePop(moreMenu); hidePop(clocksMenu); }
+  function closeMore() { if (moreSheet.open) moreSheet.close(); hidePop(moreMenu); hidePop(clocksMenu); hidePop(langMenu); }
   applyTheme(theme); // marks the switches just created
   function setBadge(id, n) {
     for (const b of document.querySelectorAll(`#topnav [data-tab="${id}"], #more-sheet [data-tab="${id}"], #more-menu [data-tab="${id}"]`)) {
@@ -2199,6 +2252,7 @@
       $('clock-strip').hidden = true;
       moreBtn.setAttribute('popovertarget', 'more-menu');
       moreBtn.removeAttribute('aria-haspopup');
+      moreBtn.after(langBtn);
       document.body.append($('ai-fab'));
     } else {
       pageEl.before(nav);
@@ -2206,7 +2260,7 @@
       $('clock-strip').hidden = false;
       moreBtn.removeAttribute('popovertarget');
       moreBtn.setAttribute('aria-haspopup', 'dialog');
-      barTheme.before($('ai-fab'));
+      barTheme.before($('ai-fab'), langBtn);
     }
     markMore();
   }
@@ -2730,19 +2784,21 @@
       const nb = nav.querySelector(`[data-tab="${next}"]`); if (nb && nb.offsetParent) nb.focus({ preventScroll: true });
     }
   });
-  for (const [code, label] of Object.entries(LANGS)) $('lang-select').append(el('option', { value: code, selected: code === LANG }, label));
-  // Language switches live (no reload); it is saved with the viewer's settings so it survives reloads.
-  $('lang-select').addEventListener('change', async e => {
-    setLang(e.target.value);
-    state.prefs = { ...state.prefs, lang: e.target.value };
+  // Language (the flag menu of the bar) switches live (no reload); it is saved with the viewer's settings so it survives reloads.
+  async function chooseLang(code) {
+    hidePop(langMenu);
+    langBtn.focus({ preventScroll: true });
+    if (!LANGS[code]) return;
+    setLang(code);
+    state.prefs = { ...state.prefs, lang: code };
     if (my && !ui.readOnly) await save(() => db.doc(my.prefs).set({ ...state.prefs }));
-  });
+  }
   onLangChange(code => {
     cpFmt = new Intl.NumberFormat(LOCALE);
     dateFmt = new Intl.DateTimeFormat(LOCALE, { weekday: 'short', day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
     timeFmt = new Intl.DateTimeFormat(LOCALE, { hour: '2-digit', minute: '2-digit' });
     dayFmt = new Intl.DateTimeFormat(LOCALE, { weekday: 'short', hour: '2-digit', minute: '2-digit' });
-    $('lang-select').value = code;
+    paintLang();
     render();
   });
   $('lite-toggle').checked = lite;
