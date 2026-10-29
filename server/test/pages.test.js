@@ -120,7 +120,9 @@ test('estáticos: sin dotfiles, sin listado, sin *.map, nada fuera de public (SR
     for (const url of ['/.env', '/app.js.map', '/vendor/', '/vendor', '/fonts/', '/package.json', '/server/src/app.js',
       '/../package.json', '/%2e%2e/package.json', '/index.html/', '/.%65nv', '/auth.html', '/index.html', '/AUTH.HTML', '/privacidad.html']) {
       const r = await app.inject({ method: 'GET', url });
-      assert.equal(r.statusCode, 404, `${url} -> ${r.statusCode}`);
+      // 404 everywhere; on a case-insensitive disk (Windows) /AUTH.HTML matches the file and is refused with 403 — still not served
+      const ok = r.statusCode === 404 || (url === '/AUTH.HTML' && process.platform === 'win32' && r.statusCode === 403);
+      assert.ok(ok, `${url} -> ${r.statusCode}`);
       assert.ok(!r.body.includes('SECRET'));
     }
     await app.close();

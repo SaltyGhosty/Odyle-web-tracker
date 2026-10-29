@@ -95,6 +95,7 @@ for (const [label, width, height] of [['mobile', 390, 844], ['desktop', 1280, 80
     const addChar = async (n) => { await openAdd(); await page.fill('#add-name', n); await page.click('#add-form button[type=submit]'); await page.waitForTimeout(300); await closeModal(); };
     const goTab = (t) => page.evaluate((x) => document.querySelector(`[data-tab="${x}"]`)?.click(), t);
     const rowMenu = async (id, cls) => { await page.click(`article[data-id=${id}] button.more-actions`); await page.click(`article[data-id=${id}] .menu button.${cls}`); await page.waitForTimeout(150); };
+    const edit = async (id) => { await page.click(`[data-id=${id}] button.more-actions`); await page.click(`[data-id=${id}] .menu button.update`); };
     const shot = n => page.screenshot({ path: `dev/screens/${label}-${scheme}-${n}.png`, fullPage: true });
     await shot('1-empty');
     if (label === 'desktop' && scheme === 'dark') {
@@ -106,7 +107,7 @@ for (const [label, width, height] of [['mobile', 390, 844], ['desktop', 1280, 80
       await page.waitForTimeout(500);
       check('Esc closes the add form and focus returns to + Añadir', !(await page.locator('#add-name').isVisible()) && await page.evaluate(() => document.activeElement?.id === 'add-btn'));
       await addChar('Sin horario');
-      check('no schedule: rune timer says so', (await page.evaluate(() => document.querySelector('article.card .tick-left')?.textContent ?? '')) === 'Falta la hora de recarga');
+      check('no schedule: refill clock shows a dash', (await page.evaluate(() => document.querySelector('#clocks [data-clock="refill"] .v')?.textContent ?? '')) === '—');
       await page.click('article.card button.more-actions'); await page.click('article.card .menu button.remove'); await page.click('article.card button.danger');
       await page.goto(BASE); await page.waitForTimeout(600);
     }
@@ -123,20 +124,23 @@ for (const [label, width, height] of [['mobile', 390, 844], ['desktop', 1280, 80
     await goTab('personajes');
     const vals = { c1: '612', c2: '345', c3: '840' };
     for (const id of ['c1', 'c2', 'c3']) {
-      await page.click(`article[data-id=${id}] button.primary`);
+      // «Actualizar» lives in the ⋯ menu (cards and stage alike)
+      await page.click(`[data-id=${id}] button.more-actions`);
+      await page.click(`[data-id=${id}] .menu button.update`);
       await page.fill(`#energy-${id}`, vals[id]);
       await page.press(`#energy-${id}`, 'Enter');
     }
     await page.waitForTimeout(900);
     await shot('3-cards');
-    const tl = id => page.evaluate(i => document.querySelector(`article[data-id=${i}] .tick-left`)?.textContent ?? '', id);
-    check(`${label}/${scheme} rune timer text`, /^\+15 en \d\d:\d\d:\d\d$/.test(await tl('c1')) && (await tl('c3')) === 'Lleno');
+    // The per-card rune timer became the top-bar refill clock; the full character leads the stage.
+    const refill = await page.evaluate(() => document.querySelector('#clocks [data-clock="refill"] .v')?.textContent ?? '');
+    check(`${label}/${scheme} refill clock text`, /^\d\d:\d\d:\d\d$/.test(refill) && /pierde \d+ OD cada 3 h/.test(await page.locator('#stage').innerText()));
     // Was "orbs are drawn SVG (no 3D canvas)". Now: still no full-page canvas (no particles behind the page), and every slot
     // has its orb: the 3D canvas over the (hidden) SVG when WebGL works, the SVG alone otherwise.
     const orbs = await page.evaluate(() => ({
       gl: !!document.createElement('canvas').getContext('webgl'),
       // no canvas bigger than its own orb slot (the stage slot is 250 px, a card's 108 px)
-      big: [...document.querySelectorAll('canvas')].filter((c) => { const r = c.getBoundingClientRect(), s = c.closest('.orb-slot')?.getBoundingClientRect(); return !s || r.width > s.width + 1 || r.height > s.height + 1; }).length,
+      big: [...document.querySelectorAll('canvas:not(#sky)')].filter((c) => { const r = c.getBoundingClientRect(), s = c.closest('.orb-slot')?.getBoundingClientRect(); return !s || r.width > s.width + 1 || r.height > s.height + 1; }).length,
       slots: [...document.querySelectorAll('.orb-slot')].map((s) => ({ svg: !!s.querySelector('.star-orb'), c3d: !!s.querySelector('canvas.orb3d'), has3d: s.classList.contains('has-3d') })),
     }));
     check(`${label}/${scheme} no full-page canvas; each slot has its orb (${orbs.gl ? '3D' : 'SVG'})`, orbs.big === 0 && await page.locator('#scene').count() === 0 &&
@@ -185,7 +189,7 @@ for (const [label, width, height] of [['mobile', 390, 844], ['desktop', 1280, 80
       await page.fill('#extra-c2', '100'); await page.press('#extra-c2', 'Enter');
       await page.waitForTimeout(1000);
       check('extra: +100 → 445', (await num('c2')) === '445');
-      await page.click('article[data-id=c1] button.primary');
+      await edit('c1');
       await page.fill('#energy-c1', '30'); await page.press('#energy-c1', 'Enter');
       await page.waitForTimeout(800);
       await page.click('article[data-id=c1] button.spend'); // c1 (30) is back among the cards
@@ -194,7 +198,7 @@ for (const [label, width, height] of [['mobile', 390, 844], ['desktop', 1280, 80
       await page.waitForTimeout(8500);
       check('undo toast disappears after 8 s', !(await page.locator('#toast').isVisible()));
     }
-    await page.click('article[data-id=c2] button.primary');
+    await edit('c2');
     await page.fill('#energy-c2', '12x'); await page.press('#energy-c2', 'Enter');
     await shot('4-edit-error');
     await rowMenu('c1', 'remove');
